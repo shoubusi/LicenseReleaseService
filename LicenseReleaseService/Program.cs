@@ -56,13 +56,13 @@ namespace LicenseReleaseService
 			var service = new LicenseReleaseService();
 
 			// Start the service
-			service.OnStart(new string[0]);
+			service.StartConsoleMode(new string[0]);
 
 			// Wait for Ctrl+C
 			Console.CancelKeyPress += (sender, e) =>
 			{
 				Console.WriteLine("Shutting down service...");
-				service.OnStop();
+				service.StopConsoleMode();
 				e.Cancel = true;
 			};
 

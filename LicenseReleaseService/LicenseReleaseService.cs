@@ -42,8 +42,6 @@ namespace LicenseReleaseService
         private void InitializeService()
         {
             ServiceName = "LicenseReleaseService";
-            DisplayName = "License Release Service";
-            Description = "Manages software license releases and monitoring";
             CanStop = true;
             CanPauseAndContinue = true;
             CanShutdown = true;
@@ -316,6 +314,17 @@ namespace LicenseReleaseService
                            DateTime.UtcNow - _lastHealthCheck < TimeSpan.FromMinutes(10);
                 }
             }
+        }
+
+        // Public methods for console mode
+        public void StartConsoleMode(string[] args)
+        {
+            OnStart(args);
+        }
+
+        public void StopConsoleMode()
+        {
+            OnStop();
         }
     }
 

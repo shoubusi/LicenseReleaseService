@@ -57,6 +57,16 @@ namespace LicenseReleaseService.Configuration
         }
 
         /// <summary>
+        /// Gets or sets the process execution configuration
+        /// </summary>
+        [ConfigurationProperty("processExecution")]
+        public ProcessExecutionElement ProcessExecution
+        {
+            get { return (ProcessExecutionElement)this["processExecution"] ?? new ProcessExecutionElement(); }
+            set { this["processExecution"] = value; }
+        }
+
+        /// <summary>
         /// Validates the configuration section
         /// </summary>
         /// <returns>List of validation errors</returns>
@@ -79,6 +89,9 @@ namespace LicenseReleaseService.Configuration
 
                     // Validate security section
                     errors.AddRange(Security.Validate());
+
+                    // Validate process execution section
+                    errors.AddRange(ProcessExecution.Validate());
                 }
                 catch (Exception ex)
                 {
@@ -101,6 +114,7 @@ namespace LicenseReleaseService.Configuration
             sb.AppendLine($"  Logging: {Logging}");
             sb.AppendLine($"  Monitoring: {Monitoring}");
             sb.AppendLine($"  Security: {Security}");
+            sb.AppendLine($"  ProcessExecution: {ProcessExecution}");
             return sb.ToString();
         }
     }
@@ -818,6 +832,339 @@ namespace LicenseReleaseService.Configuration
         public override string ToString()
         {
             return $"Security[Auth={EnableAuthentication}, Secure={EnableSecureCommunication}, Audit={EnableAuditLogging}]";
+        }
+    }
+
+    /// <summary>
+    /// Configuration element for process execution settings
+    /// </summary>
+    public class ProcessExecutionElement : ConfigurationElement
+    {
+        [ConfigurationProperty("timeout", DefaultValue = 30)]
+        [IntegerValidator(MinValue = 1, MaxValue = 300)]
+        public int Timeout
+        {
+            get { return (int)this["timeout"]; }
+            set { this["timeout"] = value; }
+        }
+
+        [ConfigurationProperty("maxRetries", DefaultValue = 3)]
+        [IntegerValidator(MinValue = 0, MaxValue = 10)]
+        public int MaxRetries
+        {
+            get { return (int)this["maxRetries"]; }
+            set { this["maxRetries"] = value; }
+        }
+
+        [ConfigurationProperty("retryDelay", DefaultValue = 5)]
+        [IntegerValidator(MinValue = 1, MaxValue = 60)]
+        public int RetryDelay
+        {
+            get { return (int)this["retryDelay"]; }
+            set { this["retryDelay"] = value; }
+        }
+
+        [ConfigurationProperty("commandTimeout", DefaultValue = 60)]
+        [IntegerValidator(MinValue = 1, MaxValue = 600)]
+        public int CommandTimeout
+        {
+            get { return (int)this["commandTimeout"]; }
+            set { this["commandTimeout"] = value; }
+        }
+
+        [ConfigurationProperty("createNoWindow", DefaultValue = true)]
+        public bool CreateNoWindow
+        {
+            get { return (bool)this["createNoWindow"]; }
+            set { this["createNoWindow"] = value; }
+        }
+
+        [ConfigurationProperty("useShellExecute", DefaultValue = false)]
+        public bool UseShellExecute
+        {
+            get { return (bool)this["useShellExecute"]; }
+            set { this["useShellExecute"] = value; }
+        }
+
+        [ConfigurationProperty("redirectStandardInput", DefaultValue = false)]
+        public bool RedirectStandardInput
+        {
+            get { return (bool)this["redirectStandardInput"]; }
+            set { this["redirectStandardInput"] = value; }
+        }
+
+        [ConfigurationProperty("enableDetailedLogging", DefaultValue = true)]
+        public bool EnableDetailedLogging
+        {
+            get { return (bool)this["enableDetailedLogging"]; }
+            set { this["enableDetailedLogging"] = value; }
+        }
+
+        [ConfigurationProperty("killProcessTreeOnTimeout", DefaultValue = true)]
+        public bool KillProcessTreeOnTimeout
+        {
+            get { return (bool)this["killProcessTreeOnTimeout"]; }
+            set { this["killProcessTreeOnTimeout"] = value; }
+        }
+
+        [ConfigurationProperty("bufferSize", DefaultValue = 4096)]
+        [IntegerValidator(MinValue = 1024, MaxValue = 65536)]
+        public int BufferSize
+        {
+            get { return (int)this["bufferSize"]; }
+            set { this["bufferSize"] = value; }
+        }
+
+        [ConfigurationProperty("maxOutputSize", DefaultValue = 0)]
+        [LongValidator(MinValue = 0, MaxValue = 1073741824)]
+        public long MaxOutputSize
+        {
+            get { return (long)this["maxOutputSize"]; }
+            set { this["maxOutputSize"] = value; }
+        }
+
+        [ConfigurationProperty("throwOnNonZeroExitCode", DefaultValue = false)]
+        public bool ThrowOnNonZeroExitCode
+        {
+            get { return (bool)this["throwOnNonZeroExitCode"]; }
+            set { this["throwOnNonZeroExitCode"] = value; }
+        }
+
+        [ConfigurationProperty("workingDirectory", DefaultValue = "")]
+        public string WorkingDirectory
+        {
+            get { return (string)this["workingDirectory"]; }
+            set { this["workingDirectory"] = value; }
+        }
+
+        [ConfigurationProperty("enablePerformanceMonitoring", DefaultValue = true)]
+        public bool EnablePerformanceMonitoring
+        {
+            get { return (bool)this["enablePerformanceMonitoring"]; }
+            set { this["enablePerformanceMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("performanceMetricsInterval", DefaultValue = 30)]
+        [IntegerValidator(MinValue = 5, MaxValue = 300)]
+        public int PerformanceMetricsInterval
+        {
+            get { return (int)this["performanceMetricsInterval"]; }
+            set { this["performanceMetricsInterval"] = value; }
+        }
+
+        [ConfigurationProperty("enableHealthMonitoring", DefaultValue = true)]
+        public bool EnableHealthMonitoring
+        {
+            get { return (bool)this["enableHealthMonitoring"]; }
+            set { this["enableHealthMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("healthCheckInterval", DefaultValue = 60)]
+        [IntegerValidator(MinValue = 10, MaxValue = 600)]
+        public int HealthCheckInterval
+        {
+            get { return (int)this["healthCheckInterval"]; }
+            set { this["healthCheckInterval"] = value; }
+        }
+
+        [ConfigurationProperty("enableErrorRecovery", DefaultValue = true)]
+        public bool EnableErrorRecovery
+        {
+            get { return (bool)this["enableErrorRecovery"]; }
+            set { this["enableErrorRecovery"] = value; }
+        }
+
+        [ConfigurationProperty("errorRecoveryTimeout", DefaultValue = 120)]
+        [IntegerValidator(MinValue = 10, MaxValue = 600)]
+        public int ErrorRecoveryTimeout
+        {
+            get { return (int)this["errorRecoveryTimeout"]; }
+            set { this["errorRecoveryTimeout"] = value; }
+        }
+
+        [ConfigurationProperty("enableAlerting", DefaultValue = true)]
+        public bool EnableAlerting
+        {
+            get { return (bool)this["enableAlerting"]; }
+            set { this["enableAlerting"] = value; }
+        }
+
+        [ConfigurationProperty("alertThreshold", DefaultValue = 90)]
+        [IntegerValidator(MinValue = 50, MaxValue = 100)]
+        public int AlertThreshold
+        {
+            get { return (int)this["alertThreshold"]; }
+            set { this["alertThreshold"] = value; }
+        }
+
+        [ConfigurationProperty("encoding", DefaultValue = "UTF8")]
+        [StringValidator(MinLength = 1)]
+        public string Encoding
+        {
+            get { return (string)this["encoding"]; }
+            set { this["encoding"] = value; }
+        }
+
+        /// <summary>
+        /// Validates the process execution configuration
+        /// </summary>
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
+        {
+            var errors = new List<string>();
+
+            try
+            {
+                // Validate timeout settings
+                if (Timeout <= 0)
+                {
+                    errors.Add("Timeout must be greater than zero");
+                }
+
+                if (CommandTimeout <= 0)
+                {
+                    errors.Add("Command timeout must be greater than zero");
+                }
+
+                if (CommandTimeout < Timeout)
+                {
+                    errors.Add("Command timeout should be greater than or equal to timeout");
+                }
+
+                // Validate retry settings
+                if (MaxRetries < 0)
+                {
+                    errors.Add("Max retries cannot be negative");
+                }
+
+                if (RetryDelay <= 0)
+                {
+                    errors.Add("Retry delay must be greater than zero");
+                }
+
+                // Validate buffer settings
+                if (BufferSize <= 0)
+                {
+                    errors.Add("Buffer size must be greater than zero");
+                }
+
+                if (MaxOutputSize < 0)
+                {
+                    errors.Add("Max output size cannot be negative");
+                }
+
+                // Validate working directory if specified
+                if (!string.IsNullOrWhiteSpace(WorkingDirectory) && !Directory.Exists(WorkingDirectory))
+                {
+                    errors.Add($"Working directory does not exist: {WorkingDirectory}");
+                }
+
+                // Validate monitoring intervals
+                if (PerformanceMetricsInterval <= 0)
+                {
+                    errors.Add("Performance metrics interval must be greater than zero");
+                }
+
+                if (HealthCheckInterval <= 0)
+                {
+                    errors.Add("Health check interval must be greater than zero");
+                }
+
+                if (ErrorRecoveryTimeout <= 0)
+                {
+                    errors.Add("Error recovery timeout must be greater than zero");
+                }
+
+                // Validate alerting threshold
+                if (AlertThreshold < 50 || AlertThreshold > 100)
+                {
+                    errors.Add("Alert threshold must be between 50 and 100");
+                }
+
+                // Validate encoding
+                if (!IsValidEncoding(Encoding))
+                {
+                    errors.Add($"Invalid encoding: {Encoding}. Valid values are: UTF8, ASCII, Unicode, UTF32, UTF7");
+                }
+
+                // Validate logical consistency
+                if (EnablePerformanceMonitoring && PerformanceMetricsInterval > HealthCheckInterval)
+                {
+                    errors.Add("Performance metrics interval should be less than or equal to health check interval");
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Process execution validation error: {ex.Message}");
+            }
+
+            return errors;
+        }
+
+        /// <summary>
+        /// Validates if the encoding name is valid
+        /// </summary>
+        private bool IsValidEncoding(string encodingName)
+        {
+            if (string.IsNullOrWhiteSpace(encodingName))
+                return false;
+
+            var validEncodings = new[] { "UTF8", "ASCII", "Unicode", "UTF32", "UTF7" };
+            return Array.Exists(validEncodings, enc => enc.Equals(encodingName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Returns a string representation of the configuration
+        /// </summary>
+        public override string ToString()
+        {
+            return $"ProcessExecution[Timeout={Timeout}s, MaxRetries={MaxRetries}, RetryDelay={RetryDelay}s, CommandTimeout={CommandTimeout}s, CreateNoWindow={CreateNoWindow}, EnableDetailedLogging={EnableDetailedLogging}]";
+        }
+
+        /// <summary>
+        /// Converts the configuration to a ProcessExecutionOptions object
+        /// </summary>
+        /// <returns>ProcessExecutionOptions object</returns>
+        public ProcessExecutionOptions ToProcessExecutionOptions()
+        {
+            var options = new ProcessExecutionOptions
+            {
+                Timeout = TimeSpan.FromSeconds(Timeout),
+                MaxRetries = MaxRetries,
+                RetryDelay = TimeSpan.FromSeconds(RetryDelay),
+                CreateNoWindow = CreateNoWindow,
+                UseShellExecute = UseShellExecute,
+                RedirectStandardInput = RedirectStandardInput,
+                EnableDetailedLogging = EnableDetailedLogging,
+                KillProcessTreeOnTimeout = KillProcessTreeOnTimeout,
+                BufferSize = BufferSize,
+                MaxOutputSize = MaxOutputSize,
+                ThrowOnNonZeroExitCode = ThrowOnNonZeroExitCode,
+                WorkingDirectory = WorkingDirectory ?? string.Empty
+            };
+
+            // Set encoding
+            switch (Encoding?.ToUpperInvariant())
+            {
+                case "ASCII":
+                    options.Encoding = System.Text.Encoding.ASCII;
+                    break;
+                case "UNICODE":
+                    options.Encoding = System.Text.Encoding.Unicode;
+                    break;
+                case "UTF32":
+                    options.Encoding = System.Text.Encoding.UTF32;
+                    break;
+                case "UTF7":
+                    options.Encoding = System.Text.Encoding.UTF7;
+                    break;
+                case "UTF8":
+                default:
+                    options.Encoding = System.Text.Encoding.UTF8;
+                    break;
+            }
+
+            return options;
         }
     }
 }

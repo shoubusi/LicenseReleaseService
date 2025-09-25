@@ -48,7 +48,6 @@ namespace LicenseReleaseService
             _configurationManager = ConfigurationManager.Instance;
             _recoveryManager = new RecoveryManager(_serviceState, _logger);
             _performanceCounters = new PerformanceCounters();
-            InitializeLicenseManagement();
             InitializeService();
         }
 
@@ -104,64 +103,6 @@ namespace LicenseReleaseService
             {
                 _logger.LogError($"Failed to initialize configuration management: {ex.Message}", ex);
                 _configurationInitialized = false;
-                throw;
-            }
-        }
-
-        private void InitializeLicenseManagement()
-        {
-            try
-            {
-                _logger.LogInformation("Initializing license management components");
-
-                // Initialize service settings
-                _serviceSettings = new ServiceSettings();
-
-                // Initialize process execution options
-                _processOptions = new ProcessExecutionOptions();
-
-                // Initialize loggers for license management components
-                _licenseManagerLogger = new Microsoft.Extensions.Logging.LoggerFactory()
-                    .AddConsole()
-                    .AddDebug()
-                    .CreateLogger<LmutilLicenseManager>();
-
-                _processExecutorLogger = new Microsoft.Extensions.Logging.LoggerFactory()
-                    .AddConsole()
-                    .AddDebug()
-                    .CreateLogger<ProcessExecutor>();
-
-                // Initialize process executor
-                _processExecutor = new ProcessExecutor(_processExecutorLogger, _processOptions);
-
-                // Initialize process metrics
-                _processMetrics = new ProcessMetrics(_licenseManagerLogger, 1000);
-
-                // Initialize performance monitor
-                _performanceMonitor = new PerformanceMonitor(_processMetrics, _licenseManagerLogger);
-
-                // Initialize license manager
-                _licenseManager = new LmutilLicenseManager(
-                    _serviceSettings,
-                    _processExecutor,
-                    _licenseManagerLogger);
-
-                // Initialize monitored license manager
-                _monitoredLicenseManager = new MonitoredLicenseManager(
-                    _licenseManager,
-                    _licenseManagerLogger,
-                    _processMetrics,
-                    _performanceMonitor,
-                    _healthChecker,
-                    _serviceSettings);
-
-                _licenseManagementInitialized = true;
-                _logger.LogInformation("License management components initialized successfully");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Failed to initialize license management components: {ex.Message}", ex);
-                _licenseManagementInitialized = false;
                 throw;
             }
         }

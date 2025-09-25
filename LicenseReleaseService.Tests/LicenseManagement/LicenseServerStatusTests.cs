@@ -19,6 +19,11 @@ namespace LicenseReleaseService.Tests.LicenseManagement
             // Assert
             Assert.NotNull(status.Features);
             Assert.Empty(status.Features);
+            Assert.NotNull(status.FeatureDetails);
+            Assert.Empty(status.FeatureDetails);
+            Assert.NotNull(status.ServerMessages);
+            Assert.Empty(status.ServerMessages);
+            Assert.Empty(status.ServerName);
             Assert.Equal(0, status.TotalLicenses);
             Assert.Equal(0, status.LicensesInUse);
             Assert.Equal(0, status.AvailableLicenses);
@@ -29,6 +34,10 @@ namespace LicenseReleaseService.Tests.LicenseManagement
             Assert.Equal(0, status.UtilizationPercentage);
             Assert.Equal(0, status.AvailabilityPercentage);
             Assert.False(status.IsAvailable);
+            Assert.Equal(0, status.TotalUsers);
+            Assert.Equal(0, status.TotalActiveUsers);
+            Assert.Equal(0, status.TotalIdleUsers);
+            Assert.Equal(0, status.TotalBorrowedUsers);
         }
 
         [Fact]
@@ -281,6 +290,227 @@ namespace LicenseReleaseService.Tests.LicenseManagement
 
             // Act & Assert
             Assert.False(status.IsAvailable);
+        }
+
+        [Fact]
+        public void AddOrUpdateFeatureDetail_WithNewFeature_ShouldAddFeature()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var featureName = "test-feature";
+            var featureDetail = new LicenseFeature(featureName, 10, 3, 7);
+
+            // Act
+            status.AddOrUpdateFeatureDetail(featureName, featureDetail);
+
+            // Assert
+            Assert.Contains(featureName, status.FeatureDetails.Keys);
+            Assert.Equal(10, status.TotalLicenses);
+            Assert.Equal(3, status.LicensesInUse);
+            Assert.Equal(7, status.AvailableLicenses);
+        }
+
+        [Fact]
+        public void AddOrUpdateFeatureDetail_WithExistingFeature_ShouldUpdateFeature()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var featureName = "test-feature";
+            var initialFeature = new LicenseFeature(featureName, 10, 3, 7);
+            var updatedFeature = new LicenseFeature(featureName, 15, 5, 10);
+
+            status.AddOrUpdateFeatureDetail(featureName, initialFeature);
+
+            // Act
+            status.AddOrUpdateFeatureDetail(featureName, updatedFeature);
+
+            // Assert
+            Assert.Contains(featureName, status.FeatureDetails.Keys);
+            Assert.Equal(15, status.TotalLicenses);
+            Assert.Equal(5, status.LicensesInUse);
+            Assert.Equal(10, status.AvailableLicenses);
+        }
+
+        [Fact]
+        public void RemoveFeatureDetail_WithExistingFeature_ShouldRemoveFeature()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var featureName = "test-feature";
+            var featureDetail = new LicenseFeature(featureName, 10, 3, 7);
+
+            status.AddOrUpdateFeatureDetail(featureName, featureDetail);
+
+            // Act
+            var result = status.RemoveFeatureDetail(featureName);
+
+            // Assert
+            Assert.True(result);
+            Assert.DoesNotContain(featureName, status.FeatureDetails.Keys);
+            Assert.Equal(0, status.TotalLicenses);
+            Assert.Equal(0, status.LicensesInUse);
+            Assert.Equal(0, status.AvailableLicenses);
+        }
+
+        [Fact]
+        public void RemoveFeatureDetail_WithNonExistingFeature_ShouldReturnFalse()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+
+            // Act
+            var result = status.RemoveFeatureDetail("non-existing-feature");
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void AddServerMessage_WithValidMessage_ShouldAddMessage()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var message = "Server started successfully";
+
+            // Act
+            status.AddServerMessage(message);
+
+            // Assert
+            Assert.Single(status.ServerMessages);
+            Assert.Contains(message, status.ServerMessages);
+        }
+
+        [Fact]
+        public void AddServerMessage_WithEmptyMessage_ShouldNotAddMessage()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var message = "";
+
+            // Act
+            status.AddServerMessage(message);
+
+            // Assert
+            Assert.Empty(status.ServerMessages);
+        }
+
+        [Fact]
+        public void AddServerMessage_WithWhiteSpaceMessage_ShouldNotAddMessage()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var message = "   ";
+
+            // Act
+            status.AddServerMessage(message);
+
+            // Assert
+            Assert.Empty(status.ServerMessages);
+        }
+
+        [Fact]
+        public void ClearServerMessages_ShouldRemoveAllMessages()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            status.AddServerMessage("Message 1");
+            status.AddServerMessage("Message 2");
+            status.AddServerMessage("Message 3");
+
+            // Act
+            status.ClearServerMessages();
+
+            // Assert
+            Assert.Empty(status.ServerMessages);
+        }
+
+        [Fact]
+        public void TotalUsers_ShouldCalculateCorrectly()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var feature1 = new LicenseFeature("feature1", 10, 2, 8);
+            var feature2 = new LicenseFeature("feature2", 5, 1, 4);
+
+            feature1.AddActiveUser(LicenseInfo.CreateActive("user1", "feature1"));
+            feature1.AddActiveUser(LicenseInfo.CreateActive("user2", "feature1"));
+            feature2.AddActiveUser(LicenseInfo.CreateActive("user3", "feature2"));
+
+            status.AddOrUpdateFeatureDetail("feature1", feature1);
+            status.AddOrUpdateFeatureDetail("feature2", feature2);
+
+            // Act & Assert
+            Assert.Equal(3, status.TotalUsers);
+        }
+
+        [Fact]
+        public void TotalActiveUsers_ShouldCalculateCorrectly()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var feature1 = new LicenseFeature("feature1", 10, 2, 8);
+            var feature2 = new LicenseFeature("feature2", 5, 1, 4);
+
+            feature1.AddActiveUser(LicenseInfo.CreateActive("user1", "feature1"));
+            feature1.AddIdleUser(LicenseInfo.CreateIdle("user2", "feature1", "Idle"));
+            feature2.AddActiveUser(LicenseInfo.CreateActive("user3", "feature2"));
+
+            status.AddOrUpdateFeatureDetail("feature1", feature1);
+            status.AddOrUpdateFeatureDetail("feature2", feature2);
+
+            // Act & Assert
+            Assert.Equal(2, status.TotalActiveUsers);
+        }
+
+        [Fact]
+        public void TotalIdleUsers_ShouldCalculateCorrectly()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var feature1 = new LicenseFeature("feature1", 10, 2, 8);
+            var feature2 = new LicenseFeature("feature2", 5, 1, 4);
+
+            feature1.AddIdleUser(LicenseInfo.CreateIdle("user1", "feature1", "Idle"));
+            feature1.AddIdleUser(LicenseInfo.CreateIdle("user2", "feature1", "Idle"));
+            feature2.AddActiveUser(LicenseInfo.CreateActive("user3", "feature2"));
+
+            status.AddOrUpdateFeatureDetail("feature1", feature1);
+            status.AddOrUpdateFeatureDetail("feature2", feature2);
+
+            // Act & Assert
+            Assert.Equal(2, status.TotalIdleUsers);
+        }
+
+        [Fact]
+        public void TotalBorrowedUsers_ShouldCalculateCorrectly()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+            var feature1 = new LicenseFeature("feature1", 10, 2, 8);
+            var feature2 = new LicenseFeature("feature2", 5, 1, 4);
+
+            feature1.AddBorrowedUser(LicenseInfo.CreateBorrowed("user1", "feature1", DateTime.Now.AddHours(-1)));
+            feature1.AddBorrowedUser(LicenseInfo.CreateBorrowed("user2", "feature1", DateTime.Now.AddHours(-2)));
+            feature2.AddActiveUser(LicenseInfo.CreateActive("user3", "feature2"));
+
+            status.AddOrUpdateFeatureDetail("feature1", feature1);
+            status.AddOrUpdateFeatureDetail("feature2", feature2);
+
+            // Act & Assert
+            Assert.Equal(2, status.TotalBorrowedUsers);
+        }
+
+        [Fact]
+        public void TotalUsers_WithNoFeatures_ShouldReturnZero()
+        {
+            // Arrange
+            var status = new LicenseServerStatus();
+
+            // Act & Assert
+            Assert.Equal(0, status.TotalUsers);
+            Assert.Equal(0, status.TotalActiveUsers);
+            Assert.Equal(0, status.TotalIdleUsers);
+            Assert.Equal(0, status.TotalBorrowedUsers);
         }
     }
 

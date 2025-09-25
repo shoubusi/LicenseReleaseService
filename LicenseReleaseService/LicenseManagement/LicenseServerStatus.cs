@@ -14,6 +14,11 @@ namespace LicenseReleaseService.LicenseManagement
         public string Server { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the license server name
+        /// </summary>
+        public string ServerName { get; set; } = string.Empty;
+
+        /// <summary>
         /// Gets or sets the license server port
         /// </summary>
         public int Port { get; set; }
@@ -47,6 +52,16 @@ namespace LicenseReleaseService.LicenseManagement
         /// Gets or sets the dictionary of license features and their status
         /// </summary>
         public Dictionary<string, LicenseFeatureStatus> Features { get; set; } = new Dictionary<string, LicenseFeatureStatus>();
+
+        /// <summary>
+        /// Gets or sets the dictionary of license features using the new model
+        /// </summary>
+        public Dictionary<string, LicenseFeature> FeatureDetails { get; set; } = new Dictionary<string, LicenseFeature>();
+
+        /// <summary>
+        /// Gets or sets the list of server messages
+        /// </summary>
+        public List<string> ServerMessages { get; set; } = new List<string>();
 
         /// <summary>
         /// Gets or sets the total number of available licenses
@@ -218,6 +233,89 @@ namespace LicenseReleaseService.LicenseManagement
                 AvailableLicenses += feature.AvailableLicenses;
             }
         }
+
+        /// <summary>
+        /// Adds or updates a feature detail using the new model
+        /// </summary>
+        /// <param name="featureName">Feature name</param>
+        /// <param name="featureDetail">Feature detail</param>
+        public void AddOrUpdateFeatureDetail(string featureName, LicenseFeature featureDetail)
+        {
+            FeatureDetails[featureName] = featureDetail;
+            UpdateAggregateCountsFromDetails();
+        }
+
+        /// <summary>
+        /// Removes a feature detail
+        /// </summary>
+        /// <param name="featureName">Feature name</param>
+        /// <returns>True if the feature was removed</returns>
+        public bool RemoveFeatureDetail(string featureName)
+        {
+            var removed = FeatureDetails.Remove(featureName);
+            if (removed)
+            {
+                UpdateAggregateCountsFromDetails();
+            }
+            return removed;
+        }
+
+        /// <summary>
+        /// Updates aggregate counts from feature details
+        /// </summary>
+        private void UpdateAggregateCountsFromDetails()
+        {
+            TotalLicenses = 0;
+            LicensesInUse = 0;
+            AvailableLicenses = 0;
+
+            foreach (var feature in FeatureDetails.Values)
+            {
+                TotalLicenses += feature.TotalLicenses;
+                LicensesInUse += feature.UsedLicenses;
+                AvailableLicenses += feature.AvailableLicenses;
+            }
+        }
+
+        /// <summary>
+        /// Adds a server message
+        /// </summary>
+        /// <param name="message">Message to add</param>
+        public void AddServerMessage(string message)
+        {
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                ServerMessages.Add(message);
+            }
+        }
+
+        /// <summary>
+        /// Clears all server messages
+        /// </summary>
+        public void ClearServerMessages()
+        {
+            ServerMessages.Clear();
+        }
+
+        /// <summary>
+        /// Gets the total number of users across all features
+        /// </summary>
+        public int TotalUsers => FeatureDetails.Values.Sum(f => f.TotalUsers);
+
+        /// <summary>
+        /// Gets the total number of active users across all features
+        /// </summary>
+        public int TotalActiveUsers => FeatureDetails.Values.Sum(f => f.ActiveUsers);
+
+        /// <summary>
+        /// Gets the total number of idle users across all features
+        /// </summary>
+        public int TotalIdleUsers => FeatureDetails.Values.Sum(f => f.IdleUsers);
+
+        /// <summary>
+        /// Gets the total number of borrowed users across all features
+        /// </summary>
+        public int TotalBorrowedUsers => FeatureDetails.Values.Sum(f => f.BorrowedUsers);
     }
 
     /// <summary>

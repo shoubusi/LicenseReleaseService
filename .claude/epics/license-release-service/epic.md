@@ -1,8 +1,9 @@
 ---
 name: license-release-service
-status: backlog
+status: in-progress
 created: 2025-09-25T04:56:46Z
-progress: 0%
+progress: 18%
+updated: 2025-09-25T07:39:38Z
 prd: .claude/prds/license-release-service.md
 github: https://github.com/shoubusi/LicenseReleaseService/issues/1
 ---

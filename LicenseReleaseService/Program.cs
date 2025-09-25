@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Configuration.Install;
 using System.IO;
+using LicenseReleaseService.Configuration;
 
 namespace LicenseReleaseService
 {
@@ -25,6 +26,9 @@ namespace LicenseReleaseService
 			{
 				// Log application startup
 				_logger.LogInformation($"{ServiceDisplayName} starting with arguments: {string.Join(", ", args)}");
+
+				// Initialize configuration management early
+				InitializeConfigurationManagement();
 
 				// Parse command line arguments
 				var parsedArgs = ParseCommandLineArguments(args);
@@ -53,6 +57,14 @@ namespace LicenseReleaseService
 						_logger.LogInformation("Displaying help information");
 						ShowHelp();
 						break;
+					case ServiceCommand.Config:
+						_logger.LogInformation("Displaying configuration information");
+						ShowConfiguration();
+						break;
+					case ServiceCommand.Validate:
+						_logger.LogInformation("Validating configuration");
+						ValidateConfiguration();
+						break;
 					case ServiceCommand.Service:
 					default:
 						_logger.LogInformation("Starting as Windows Service");
@@ -68,6 +80,47 @@ namespace LicenseReleaseService
 				Console.WriteLine($"Fatal error: {ex.Message}");
 				Console.WriteLine(ex.StackTrace);
 				Environment.Exit(1);
+			}
+		}
+
+		/// <summary>
+		/// Initialize configuration management for the application
+		/// </summary>
+		private static void InitializeConfigurationManagement()
+		{
+			try
+			{
+				_logger.LogInformation("Initializing configuration management");
+
+				// Get the ConfigurationManager instance to initialize it
+				var configManager = ConfigurationManager.Instance;
+
+				// Validate configuration
+				var validationErrors = configManager.ValidateConfiguration();
+				if (validationErrors.Count > 0)
+				{
+					var errorString = string.Join("; ", validationErrors);
+					_logger.LogWarning($"Configuration validation warnings: {errorString}");
+				}
+				else
+				{
+					_logger.LogInformation("Configuration validation passed");
+				}
+
+				// Enable advanced features if configured
+				var enableAdvancedFeatures = configManager.Settings.EnableAdvancedFeatures;
+				if (enableAdvancedFeatures)
+				{
+					configManager.EnableAdvancedFeatures();
+					_logger.LogInformation("Advanced configuration features enabled");
+				}
+
+				_logger.LogInformation("Configuration management initialized successfully");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError($"Failed to initialize configuration management: {ex.Message}", ex);
+				throw new ConfigurationInitializationException($"Configuration initialization failed: {ex.Message}", ex);
 			}
 		}
 
@@ -120,6 +173,18 @@ namespace LicenseReleaseService
 				case "-?":
 					_logger.LogInformation("Help command detected");
 					return new ParsedArguments { Command = ServiceCommand.Help, Arguments = remainingArgs };
+
+				case "/config":
+				case "-config":
+				case "--config":
+					_logger.LogInformation("Config command detected");
+					return new ParsedArguments { Command = ServiceCommand.Config, Arguments = remainingArgs };
+
+				case "/validate":
+				case "-validate":
+				case "--validate":
+					_logger.LogInformation("Validate command detected");
+					return new ParsedArguments { Command = ServiceCommand.Validate, Arguments = remainingArgs };
 
 				default:
 					_logger.LogWarning($"Unknown command detected: {command}");
@@ -429,11 +494,74 @@ namespace LicenseReleaseService
 			Console.WriteLine("  LicenseReleaseService.exe /install  Install the Windows Service (requires admin)");
 			Console.WriteLine("  LicenseReleaseService.exe /uninstall Uninstall the Windows Service (requires admin)");
 			Console.WriteLine("  LicenseReleaseService.exe /help     Show this help information");
+			Console.WriteLine("  LicenseReleaseService.exe /config   Show configuration information");
+			Console.WriteLine("  LicenseReleaseService.exe /validate  Validate configuration and exit");
 			Console.WriteLine();
 			Console.WriteLine("Examples:");
 			Console.WriteLine("  LicenseReleaseService.exe /console");
 			Console.WriteLine("  LicenseReleaseService.exe /install");
 			Console.WriteLine("  LicenseReleaseService.exe /interactive");
+			Console.WriteLine("  LicenseReleaseService.exe /config");
+			Console.WriteLine("  LicenseReleaseService.exe /validate");
+		}
+
+		/// <summary>
+		/// Show configuration information
+		/// </summary>
+		private static void ShowConfiguration()
+		{
+			try
+			{
+				var configManager = ConfigurationManager.Instance;
+				Console.WriteLine("Configuration Information:");
+				Console.WriteLine(configManager.GetConfigurationSummary());
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError($"Error showing configuration: {ex.Message}", ex);
+				Console.WriteLine($"Error showing configuration: {ex.Message}");
+				Environment.Exit(1);
+			}
+		}
+
+		/// <summary>
+		/// Validate configuration and exit
+		/// </summary>
+		private static void ValidateConfiguration()
+		{
+			try
+			{
+				var configManager = ConfigurationManager.Instance;
+				var validationErrors = configManager.ValidateConfiguration();
+
+				Console.WriteLine("Configuration Validation:");
+				Console.WriteLine($"Configuration file: {configManager.ConfigFilePath}");
+				Console.WriteLine($"Last change: {configManager.LastConfigChange:yyyy-MM-dd HH:mm:ss}");
+				Console.WriteLine($"Last reload: {configManager.LastSuccessfulReload:yyyy-MM-dd HH:mm:ss}");
+				Console.WriteLine($"Advanced features enabled: {configManager.AdvancedFeaturesEnabled}");
+				Console.WriteLine($"Configuration health: {configManager.HealthStatus}");
+
+				if (validationErrors.Count == 0)
+				{
+					Console.WriteLine("✓ Configuration is valid");
+					Environment.Exit(0);
+				}
+				else
+				{
+					Console.WriteLine("✗ Configuration validation failed:");
+					foreach (var error in validationErrors)
+					{
+						Console.WriteLine($"  - {error}");
+					}
+					Environment.Exit(1);
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError($"Error validating configuration: {ex.Message}", ex);
+				Console.WriteLine($"Error validating configuration: {ex.Message}");
+				Environment.Exit(1);
+			}
 		}
 	}
 
@@ -447,7 +575,9 @@ namespace LicenseReleaseService
 		Install,
 		Uninstall,
 		Interactive,
-		Help
+		Help,
+		Config,
+		Validate
 	}
 
 	/// <summary>

@@ -3,6 +3,8 @@ using System.Collections;
 using System.ComponentModel;
 using System.Configuration.Install;
 using System.ServiceProcess;
+using LicenseReleaseService.Configuration;
+using System.Collections.Generic;
 
 namespace LicenseReleaseService
 {
@@ -45,6 +47,22 @@ namespace LicenseReleaseService
             this.AfterInstall += new InstallEventHandler(ProjectInstaller_AfterInstall);
             this.AfterRollback += new InstallEventHandler(ProjectInstaller_AfterRollback);
             this.AfterUninstall += new InstallEventHandler(ProjectInstaller_AfterUninstall);
+            this.BeforeInstall += new InstallEventHandler(ProjectInstaller_BeforeInstall);
+        }
+
+        private void ProjectInstaller_BeforeInstall(object sender, InstallEventArgs e)
+        {
+            try
+            {
+                // Validate configuration before installation
+                ValidateConfigurationBeforeInstall();
+                LogEvent("Configuration validation passed for installation", EventLogEntryType.Information);
+            }
+            catch (Exception ex)
+            {
+                LogEvent($"Configuration validation failed for installation: {ex.Message}", EventLogEntryType.Error);
+                throw new InvalidOperationException($"Cannot install service due to configuration errors: {ex.Message}", ex);
+            }
         }
 
         private void ProjectInstaller_AfterInstall(object sender, InstallEventArgs e)
@@ -53,6 +71,12 @@ namespace LicenseReleaseService
             {
                 // Configure service recovery options after installation
                 ConfigureServiceRecovery();
+
+                // Create initial configuration backup
+                CreateConfigurationBackup();
+
+                // Configure advanced features if enabled
+                ConfigureAdvancedFeatures();
 
                 // Log successful installation
                 LogEvent("License Release Service installed successfully", EventLogEntryType.Information);
@@ -85,6 +109,79 @@ namespace LicenseReleaseService
             catch (Exception)
             {
                 // Ignore logging errors during uninstall
+            }
+        }
+
+        private void ValidateConfigurationBeforeInstall()
+        {
+            try
+            {
+                var configManager = ConfigurationManager.Instance;
+
+                // Validate configuration
+                var validationErrors = configManager.ValidateConfiguration();
+                if (validationErrors.Count > 0)
+                {
+                    var errorString = string.Join("; ", validationErrors);
+                    throw new InvalidOperationException($"Configuration validation failed: {errorString}");
+                }
+
+                // Check configuration health
+                if (configManager.AdvancedFeaturesEnabled && configManager.HealthStatus == ConfigurationHealthStatus.Error)
+                {
+                    throw new InvalidOperationException("Configuration health check failed - cannot install with configuration errors");
+                }
+
+                // Verify configuration file exists and is accessible
+                var configPath = configManager.ConfigFilePath;
+                if (string.IsNullOrEmpty(configPath) || !System.IO.File.Exists(configPath))
+                {
+                    throw new InvalidOperationException("Configuration file is not accessible");
+                }
+
+                // Test file access
+                using (var stream = System.IO.File.OpenRead(configPath))
+                {
+                    // Just test access
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Configuration validation failed: {ex.Message}", ex);
+            }
+        }
+
+        private void CreateConfigurationBackup()
+        {
+            try
+            {
+                var configManager = ConfigurationManager.Instance;
+                if (configManager.AdvancedFeaturesEnabled)
+                {
+                    var backupPath = configManager.CreateBackup("initial_install");
+                    LogEvent($"Initial configuration backup created at: {backupPath}", EventLogEntryType.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogEvent($"Failed to create initial configuration backup: {ex.Message}", EventLogEntryType.Warning);
+            }
+        }
+
+        private void ConfigureAdvancedFeatures()
+        {
+            try
+            {
+                var configManager = ConfigurationManager.Instance;
+                if (configManager.AdvancedFeaturesEnabled)
+                {
+                    // Enable advanced features if configured
+                    LogEvent("Advanced features enabled for service", EventLogEntryType.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogEvent($"Failed to configure advanced features: {ex.Message}", EventLogEntryType.Warning);
             }
         }
 

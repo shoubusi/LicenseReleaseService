@@ -4,7 +4,7 @@ status: backlog
 created: 2025-09-25T04:56:46Z
 progress: 0%
 prd: .claude/prds/license-release-service.md
-github: [Will be updated when synced to GitHub]
+github: https://github.com/shoubusi/LicenseReleaseService/issues/1
 ---
 
 # Epic: license-release-service

@@ -4,6 +4,7 @@ using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace LicenseReleaseService.Configuration
 {
@@ -19,11 +20,25 @@ namespace LicenseReleaseService.Configuration
         private TimeSpan _cacheDuration = TimeSpan.FromMinutes(5);
         private FileSystemWatcher _configWatcher;
         private bool _disposed;
+        private Dictionary<string, TimerConfigurationElement> _versionSpecificCache;
+        private DateTime _lastVersionDetectionTime;
+        private readonly List<string> _detectedVersions = new List<string>();
+        private Timer _versionDetectionTimer;
 
         /// <summary>
         /// Event raised when configuration is reloaded
         /// </summary>
         public event EventHandler<TimerConfigurationChangedEventArgs> ConfigurationReloaded;
+
+        /// <summary>
+        /// Event raised when versions are detected or changed
+        /// </summary>
+        public event EventHandler<TimerVersionDetectionEventArgs> VersionsDetected;
+
+        /// <summary>
+        /// Event raised when version-specific configuration is loaded
+        /// </summary>
+        public event EventHandler<TimerVersionConfigurationEventArgs> VersionConfigurationLoaded;
 
         /// <summary>
         /// Initializes a new instance of the TimerConfigurationProvider class
@@ -33,7 +48,9 @@ namespace LicenseReleaseService.Configuration
         {
             _configurationManager = configurationManager ?? throw new ArgumentNullException(nameof(configurationManager));
             _lastCacheTime = DateTime.MinValue;
+            _versionSpecificCache = new Dictionary<string, TimerConfigurationElement>();
             InitializeConfigWatcher();
+            InitializeVersionDetection();
         }
 
         /// <summary>
@@ -74,6 +91,137 @@ namespace LicenseReleaseService.Configuration
         /// Gets the timer execution options from configuration
         /// </summary>
         public TimerExecution.TimerExecutionOptions TimerExecutionOptions => CurrentConfiguration.ToTimerExecutionOptions();
+
+        /// <summary>
+        /// Gets the currently detected versions
+        /// </summary>
+        public List<string> DetectedVersions
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return new List<string>(_detectedVersions);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets whether version-specific configuration is enabled
+        /// </summary>
+        public bool IsVersionSpecificConfigEnabled => CurrentConfiguration.EnableVersionSpecificConfig;
+
+        /// <summary>
+        /// Gets the target version for configuration
+        /// </summary>
+        public string TargetVersion => CurrentConfiguration.TargetVersion;
+
+        /// <summary>
+        /// Gets the default version for fallback
+        /// </summary>
+        public string DefaultVersion => CurrentConfiguration.DefaultVersion;
+
+        /// <summary>
+        /// Gets the supported versions from configuration
+        /// </summary>
+        public List<string> SupportedVersions
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return CurrentConfiguration.ToTimerExecutionOptions().SupportedVersions;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets configuration for a specific version
+        /// </summary>
+        /// <param name="version">Version to get configuration for</param>
+        /// <returns>Configuration for the specified version</returns>
+        public TimerConfigurationElement GetVersionConfiguration(string version)
+        {
+            lock (_lock)
+            {
+                if (string.IsNullOrEmpty(version))
+                    throw new ArgumentException("Version cannot be null or empty", nameof(version));
+
+                // Return cached version if available
+                if (_versionSpecificCache.TryGetValue(version, out var cachedConfig))
+                {
+                    return cachedConfig;
+                }
+
+                // Load version-specific configuration
+                var versionConfig = LoadVersionSpecificConfiguration(version);
+                if (versionConfig != null)
+                {
+                    _versionSpecificCache[version] = versionConfig;
+                    OnVersionConfigurationLoaded(new TimerVersionConfigurationEventArgs
+                    {
+                        Version = version,
+                        Configuration = versionConfig,
+                        LoadTime = DateTime.Now
+                    });
+                }
+
+                return versionConfig ?? GetFallbackConfiguration(version);
+            }
+        }
+
+        /// <summary>
+        /// Gets the active configuration based on version detection
+        /// </summary>
+        /// <returns>Active configuration for current environment</returns>
+        public TimerConfigurationElement GetActiveConfiguration()
+        {
+            lock (_lock)
+            {
+                if (!IsVersionSpecificConfigEnabled)
+                {
+                    return CurrentConfiguration;
+                }
+
+                var activeVersion = GetActiveVersion();
+                if (!string.IsNullOrEmpty(activeVersion))
+                {
+                    return GetVersionConfiguration(activeVersion);
+                }
+
+                // Fallback to default version or base configuration
+                return GetFallbackConfiguration(activeVersion);
+            }
+        }
+
+        /// <summary>
+        /// Gets the active version based on detection logic
+        /// </summary>
+        /// <returns>Active version or empty string</returns>
+        private string GetActiveVersion()
+        {
+            var config = CurrentConfiguration;
+
+            // Use target version if specified and detected
+            if (!string.IsNullOrEmpty(config.TargetVersion) && _detectedVersions.Contains(config.TargetVersion))
+            {
+                return config.TargetVersion;
+            }
+
+            // Use the latest detected version if no specific target
+            if (_detectedVersions.Count > 0)
+            {
+                return _detectedVersions.OrderByDescending(v => v).First();
+            }
+
+            // Fallback to default version if enabled
+            if (config.EnableVersionFallback && !string.IsNullOrEmpty(config.DefaultVersion))
+            {
+                return config.DefaultVersion;
+            }
+
+            return string.Empty;
+        }
 
         /// <summary>
         /// Gets the default timer configuration
@@ -373,6 +521,308 @@ namespace LicenseReleaseService.Configuration
         }
 
         /// <summary>
+        /// Initializes version detection
+        /// </summary>
+        private void InitializeVersionDetection()
+        {
+            var config = CurrentConfiguration;
+            if (config.EnableVersionSpecificConfig)
+            {
+                _versionDetectionTimer = new Timer(DetectVersionsCallback, null,
+                    TimeSpan.FromSeconds(10), // Initial delay
+                    config.VersionDetectionInterval);
+            }
+        }
+
+        /// <summary>
+        /// Callback for version detection timer
+        /// </summary>
+        /// <param name="state">Timer state</param>
+        private void DetectVersionsCallback(object state)
+        {
+            try
+            {
+                DetectVersions();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in version detection: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Detects available SolidWorks versions
+        /// </summary>
+        public void DetectVersions()
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    var newVersions = DetectAvailableVersions();
+                    var versionsChanged = !_detectedVersions.SequenceEqual(newVersions);
+
+                    if (versionsChanged)
+                    {
+                        var oldVersions = new List<string>(_detectedVersions);
+                        _detectedVersions.Clear();
+                        _detectedVersions.AddRange(newVersions);
+
+                        // Clear version cache when versions change
+                        _versionSpecificCache.Clear();
+
+                        OnVersionsDetected(new TimerVersionDetectionEventArgs
+                        {
+                            OldVersions = oldVersions,
+                            NewVersions = new List<string>(_detectedVersions),
+                            DetectionTime = DateTime.Now
+                        });
+                    }
+
+                    _lastVersionDetectionTime = DateTime.Now;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error detecting versions: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Detects available SolidWorks versions from the system
+        /// </summary>
+        /// <returns>List of detected versions</returns>
+        private List<string> DetectAvailableVersions()
+        {
+            var detectedVersions = new List<string>();
+            var config = CurrentConfiguration;
+
+            // Check registry for SolidWorks installations
+            detectedVersions.AddRange(DetectVersionsFromRegistry());
+
+            // Check common installation paths
+            detectedVersions.AddRange(DetectVersionsFromInstallationPaths());
+
+            // Filter by supported versions if specified
+            if (config.SupportedVersions.Count > 0)
+            {
+                detectedVersions = detectedVersions
+                    .Where(v => config.SupportedVersions.Contains(v))
+                    .ToList();
+            }
+
+            // Remove duplicates and return sorted
+            return detectedVersions.Distinct().OrderBy(v => v).ToList();
+        }
+
+        /// <summary>
+        /// Detects versions from Windows registry
+        /// </summary>
+        /// <returns>List of versions from registry</returns>
+        private List<string> DetectVersionsFromRegistry()
+        {
+            var versions = new List<string>();
+
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\SolidWorks"))
+                {
+                    if (key != null)
+                    {
+                        foreach (var subKeyName in key.GetSubKeyNames())
+                        {
+                            if (System.Text.RegularExpressions.Regex.IsMatch(subKeyName, @"^20[0-9]{2}$"))
+                            {
+                                versions.Add(subKeyName);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error detecting versions from registry: {ex.Message}");
+            }
+
+            return versions;
+        }
+
+        /// <summary>
+        /// Detects versions from common installation paths
+        /// </summary>
+        /// <returns>List of versions from installation paths</returns>
+        private List<string> DetectVersionsFromInstallationPaths()
+        {
+            var versions = new List<string>();
+            var commonPaths = new[]
+            {
+                @"C:\Program Files\SOLIDWORKS Corp",
+                @"C:\Program Files (x86)\SOLIDWORKS Corp",
+                @"D:\SOLIDWORKS",
+                @"E:\SOLIDWORKS"
+            };
+
+            foreach (var basePath in commonPaths)
+            {
+                try
+                {
+                    if (Directory.Exists(basePath))
+                    {
+                        foreach (var dir in Directory.GetDirectories(basePath))
+                        {
+                            var dirName = Path.GetFileName(dir);
+                            if (System.Text.RegularExpressions.Regex.IsMatch(dirName, @"^SOLIDWORKS (20[0-9]{2})$"))
+                            {
+                                var match = System.Text.RegularExpressions.Regex.Match(dirName, @"^SOLIDWORKS (20[0-9]{2})$");
+                                if (match.Success)
+                                {
+                                    versions.Add(match.Groups[1].Value);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error detecting versions from path {basePath}: {ex.Message}");
+                }
+            }
+
+            return versions;
+        }
+
+        /// <summary>
+        /// Loads version-specific configuration
+        /// </summary>
+        /// <param name="version">Version to load configuration for</param>
+        /// <returns>Version-specific configuration or null</returns>
+        private TimerConfigurationElement LoadVersionSpecificConfiguration(string version)
+        {
+            try
+            {
+                // For now, create version-specific config by modifying base config
+                // In a real implementation, this could load from separate config files
+                var baseConfig = CurrentConfiguration;
+                var versionConfig = (TimerConfigurationElement)baseConfig.Clone();
+
+                // Apply version-specific overrides
+                ApplyVersionSpecificOverrides(versionConfig, version);
+
+                return versionConfig;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading version-specific configuration for {version}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Applies version-specific configuration overrides
+        /// </summary>
+        /// <param name="config">Configuration to modify</param>
+        /// <param name="version">Version to apply overrides for</param>
+        private void ApplyVersionSpecificOverrides(TimerConfigurationElement config, string version)
+        {
+            // Apply version-specific timing adjustments
+            switch (version)
+            {
+                case "2025":
+                    config.DefaultInterval = TimeSpan.FromMinutes(3);
+                    config.ExecutionTimeout = TimeSpan.FromMinutes(4);
+                    config.CircuitBreakerCooldown = TimeSpan.FromMinutes(8);
+                    config.MaxExecutionHistory = 75;
+                    break;
+                case "2024":
+                    config.DefaultInterval = TimeSpan.FromMinutes(4);
+                    config.ExecutionTimeout = TimeSpan.FromMinutes(5);
+                    config.CircuitBreakerCooldown = TimeSpan.FromMinutes(10);
+                    config.MaxExecutionHistory = 60;
+                    break;
+                case "2023":
+                    config.DefaultInterval = TimeSpan.FromMinutes(5);
+                    config.ExecutionTimeout = TimeSpan.FromMinutes(6);
+                    config.CircuitBreakerCooldown = TimeSpan.FromMinutes(12);
+                    config.MaxExecutionHistory = 50;
+                    break;
+                default:
+                    config.DefaultInterval = TimeSpan.FromMinutes(5);
+                    config.ExecutionTimeout = TimeSpan.FromMinutes(5);
+                    config.CircuitBreakerCooldown = TimeSpan.FromMinutes(10);
+                    config.MaxExecutionHistory = 100;
+                    break;
+            }
+
+            // Set target version
+            config.TargetVersion = version;
+        }
+
+        /// <summary>
+        /// Gets fallback configuration
+        /// </summary>
+        /// <param name="requestedVersion">Requested version</param>
+        /// <returns>Fallback configuration</returns>
+        private TimerConfigurationElement GetFallbackConfiguration(string requestedVersion)
+        {
+            var config = CurrentConfiguration;
+
+            if (config.EnableVersionFallback && !string.IsNullOrEmpty(config.DefaultVersion))
+            {
+                return GetVersionConfiguration(config.DefaultVersion);
+            }
+
+            // Return base configuration as fallback
+            return config;
+        }
+
+        /// <summary>
+        /// Raises the VersionsDetected event
+        /// </summary>
+        protected virtual void OnVersionsDetected(TimerVersionDetectionEventArgs e)
+        {
+            VersionsDetected?.Invoke(this, e);
+        }
+
+        /// <summary>
+        /// Raises the VersionConfigurationLoaded event
+        /// </summary>
+        protected virtual void OnVersionConfigurationLoaded(TimerVersionConfigurationEventArgs e)
+        {
+            VersionConfigurationLoaded?.Invoke(this, e);
+        }
+
+        /// <summary>
+        /// Forces version detection
+        /// </summary>
+        public void ForceVersionDetection()
+        {
+            DetectVersions();
+        }
+
+        /// <summary>
+        /// Gets version-specific statistics
+        /// </summary>
+        /// <returns>Version-specific statistics</returns>
+        public TimerVersionStatistics GetVersionStatistics()
+        {
+            var baseStats = GetStatistics();
+
+            return new TimerVersionStatistics
+            {
+                BaseStatistics = baseStats,
+                IsVersionSpecificConfigEnabled = IsVersionSpecificConfigEnabled,
+                TargetVersion = TargetVersion,
+                DefaultVersion = DefaultVersion,
+                DetectedVersions = new List<string>(DetectedVersions),
+                SupportedVersions = new List<string>(SupportedVersions),
+                VersionCacheCount = _versionSpecificCache.Count,
+                LastVersionDetectionTime = _lastVersionDetectionTime,
+                ActiveVersion = GetActiveVersion(),
+                VersionDetectionInterval = CurrentConfiguration.VersionDetectionInterval
+            };
+        }
+
+        /// <summary>
         /// Disposes the configuration provider
         /// </summary>
         public void Dispose()
@@ -389,6 +839,8 @@ namespace LicenseReleaseService.Configuration
                 {
                     _configWatcher?.Dispose();
                     _configWatcher = null;
+                    _versionDetectionTimer?.Dispose();
+                    _versionDetectionTimer = null;
                 }
                 _disposed = true;
             }
@@ -520,5 +972,138 @@ namespace LicenseReleaseService.Configuration
         /// Gets whether the configuration watcher is enabled
         /// </summary>
         public bool ConfigWatcherEnabled { get; set; }
+    }
+
+    /// <summary>
+    /// Event arguments for version detection events
+    /// </summary>
+    public class TimerVersionDetectionEventArgs : EventArgs
+    {
+        /// <summary>
+        /// Gets the old versions list
+        /// </summary>
+        public List<string> OldVersions { get; set; }
+
+        /// <summary>
+        /// Gets the new versions list
+        /// </summary>
+        public List<string> NewVersions { get; set; }
+
+        /// <summary>
+        /// Gets the detection time
+        /// </summary>
+        public DateTime DetectionTime { get; set; }
+
+        /// <summary>
+        /// Gets whether versions were added
+        /// </summary>
+        public bool VersionsAdded => NewVersions.Except(OldVersions).Any();
+
+        /// <summary>
+        /// Gets whether versions were removed
+        /// </summary>
+        public bool VersionsRemoved => OldVersions.Except(NewVersions).Any();
+
+        /// <summary>
+        /// Gets the list of added versions
+        /// </summary>
+        public List<string> AddedVersions => NewVersions.Except(OldVersions).ToList();
+
+        /// <summary>
+        /// Gets the list of removed versions
+        /// </summary>
+        public List<string> RemovedVersions => OldVersions.Except(NewVersions).ToList();
+    }
+
+    /// <summary>
+    /// Event arguments for version configuration loading events
+    /// </summary>
+    public class TimerVersionConfigurationEventArgs : EventArgs
+    {
+        /// <summary>
+        /// Gets the version
+        /// </summary>
+        public string Version { get; set; }
+
+        /// <summary>
+        /// Gets the loaded configuration
+        /// </summary>
+        public TimerConfigurationElement Configuration { get; set; }
+
+        /// <summary>
+        /// Gets the load time
+        /// </summary>
+        public DateTime LoadTime { get; set; }
+
+        /// <summary>
+        /// Gets whether this was loaded from cache
+        /// </summary>
+        public bool FromCache { get; set; }
+    }
+
+    /// <summary>
+    /// Version-specific statistics for timer configuration
+    /// </summary>
+    public class TimerVersionStatistics
+    {
+        /// <summary>
+        /// Gets the base configuration statistics
+        /// </summary>
+        public TimerConfigurationStatistics BaseStatistics { get; set; }
+
+        /// <summary>
+        /// Gets whether version-specific configuration is enabled
+        /// </summary>
+        public bool IsVersionSpecificConfigEnabled { get; set; }
+
+        /// <summary>
+        /// Gets the target version
+        /// </summary>
+        public string TargetVersion { get; set; }
+
+        /// <summary>
+        /// Gets the default version for fallback
+        /// </summary>
+        public string DefaultVersion { get; set; }
+
+        /// <summary>
+        /// Gets the detected versions
+        /// </summary>
+        public List<string> DetectedVersions { get; set; }
+
+        /// <summary>
+        /// Gets the supported versions
+        /// </summary>
+        public List<string> SupportedVersions { get; set; }
+
+        /// <summary>
+        /// Gets the number of cached version configurations
+        /// </summary>
+        public int VersionCacheCount { get; set; }
+
+        /// <summary>
+        /// Gets the last version detection time
+        /// </summary>
+        public DateTime LastVersionDetectionTime { get; set; }
+
+        /// <summary>
+        /// Gets the currently active version
+        /// </summary>
+        public string ActiveVersion { get; set; }
+
+        /// <summary>
+        /// Gets the version detection interval
+        /// </summary>
+        public TimeSpan VersionDetectionInterval { get; set; }
+
+        /// <summary>
+        /// Gets whether version detection is running
+        /// </summary>
+        public bool VersionDetectionRunning { get; set; }
+
+        /// <summary>
+        /// Gets the time until next version detection
+        /// </summary>
+        public TimeSpan TimeUntilNextDetection { get; set; }
     }
 }

@@ -147,7 +147,7 @@ namespace LicenseReleaseService.TimerExecution
         public string ToDetailedString()
         {
             var resultText = Result != null ?
-                $"\n  Result: {Result.IsSuccess ? "Success" : "Failed"}" :
+                $"\n  Result: {(Result.IsSuccess ? "Success" : "Failed")}" :
                 "";
             var durationText = Duration.HasValue ?
                 $"\n  Duration: {Duration.Value.TotalMilliseconds:F0}ms" :

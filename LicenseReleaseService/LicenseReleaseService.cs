@@ -1239,6 +1239,15 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         void LogInformation(string message);
         void LogWarning(string message);
         void LogError(string message, Exception exception = null);
+        void LogDebug(string message);
+    }
+
+    /// <summary>
+    /// Generic logger interface for compatibility with Microsoft.Extensions.Logging pattern
+    /// </summary>
+    /// <typeparam name="T">The type the logger is for</typeparam>
+    public interface ILogger<T> : ILogger
+    {
     }
 
     public class EventLogLogger : ILogger
@@ -1368,6 +1377,40 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         public void LogDebug(string message)
         {
             EventLog.WriteEntry("LicenseReleaseService", message, EventLogEntryType.Information);
+        }
+    }
+
+    /// <summary>
+    /// Generic logger implementation for compatibility with Microsoft.Extensions.Logging pattern
+    /// </summary>
+    /// <typeparam name="T">The type the logger is for</typeparam>
+    public class Logger<T> : ILogger<T>
+    {
+        private readonly ILogger _logger;
+
+        public Logger(ILogger logger)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        public void LogInformation(string message)
+        {
+            _logger.LogInformation(message);
+        }
+
+        public void LogWarning(string message)
+        {
+            _logger.LogWarning(message);
+        }
+
+        public void LogError(string message, Exception exception = null)
+        {
+            _logger.LogError(message, exception);
+        }
+
+        public void LogDebug(string message)
+        {
+            _logger.LogDebug(message);
         }
     }
 

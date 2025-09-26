@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace LicenseReleaseService.TimerExecution
 {
@@ -13,7 +12,7 @@ namespace LicenseReleaseService.TimerExecution
     /// </summary>
     public class TimerMetricsCollector : IDisposable
     {
-        private readonly ILogger<TimerMetricsCollector> _logger;
+        private readonly ILogger _logger;
         private readonly TimerMetricsOptions _options;
         private readonly Timer _collectionTimer;
         private readonly Dictionary<string, TimerPerformanceSnapshot> _recentSnapshots;
@@ -49,10 +48,10 @@ namespace LicenseReleaseService.TimerExecution
         /// </summary>
         /// <param name="logger">The logger</param>
         /// <param name="options">The metrics collection options</param>
-        public TimerMetricsCollector(ILogger<TimerMetricsCollector> logger, TimerMetricsOptions options)
+        public TimerMetricsCollector(ILogger logger, TimerMetricsOptions options)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _options = options ?? throw new ArgumentNullException(nameof(options);
+            _options = options ?? throw new ArgumentNullException(nameof(options));
 
             _startTime = DateTime.UtcNow;
             _recentSnapshots = new Dictionary<string, TimerPerformanceSnapshot>();

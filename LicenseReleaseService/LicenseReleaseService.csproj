@@ -47,6 +47,28 @@
     <Reference Include="System.Xml" />
     <Reference Include="System.Runtime.Caching" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
+
+    <!-- Microsoft.Extensions Packages -->
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60">
+      <HintPath>..\packages\Microsoft.Extensions.Logging.Abstractions.8.0.0\lib\net462\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60">
+      <HintPath>..\packages\Microsoft.Extensions.Logging.8.0.0\lib\net462\Microsoft.Extensions.Logging.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60">
+      <HintPath>..\packages\Microsoft.Extensions.DependencyInjection.Abstractions.8.0.0\lib\net462\Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Configuration.Abstractions, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60">
+      <HintPath>..\packages\Microsoft.Extensions.Configuration.Abstractions.8.0.0\lib\net462\Microsoft.Extensions.Configuration.Abstractions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Primitives, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60">
+      <HintPath>..\packages\Microsoft.Extensions.Primitives.8.0.0\lib\net462\Microsoft.Extensions.Primitives.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration\ConfigurationManager.cs" />
@@ -119,6 +141,56 @@
     <Compile Include="Configuration\ConfigurationWatcher.cs" />
     <Compile Include="Configuration\ConfigurationReloadManager.cs" />
     <Compile Include="Configuration\ConfigurationHealthMonitor.cs" />
+
+    <!-- Timer Execution Configuration -->
+    <Compile Include="Configuration\TimerConfigurationElement.cs" />
+    <Compile Include="Configuration\TimerConfigurationProvider.cs" />
+    <Compile Include="Configuration\TimerVersionConfigurationValidator.cs" />
+    <Compile Include="Configuration\TimerVersionValidationResult.cs" />
+
+    <!-- Timer Execution Core -->
+    <Compile Include="TimerExecution\ITimerExecutionService.cs" />
+    <Compile Include="TimerExecution\ITimerExecutor.cs" />
+    <Compile Include="TimerExecution\ILicenseCheckScheduler.cs" />
+    <Compile Include="TimerExecution\LicenseCheckEventArgs.cs" />
+    <Compile Include="TimerExecution\LicenseCheckOperation.cs" />
+    <Compile Include="TimerExecution\LicenseCheckQueue.cs" />
+    <Compile Include="TimerExecution\LicenseCheckResult.cs" />
+    <Compile Include="TimerExecution\LicenseCheckScheduler.cs" />
+    <Compile Include="TimerExecution\LicenseCheckSchedulerConfiguration.cs" />
+    <Compile Include="TimerExecution\LicenseCheckSchedulerStatistics.cs" />
+    <Compile Include="TimerExecution\LicenseFeatureResult.cs" />
+    <Compile Include="TimerExecution\TimerExecutionService.cs" />
+    <Compile Include="TimerExecution\TimerExecutor.cs" />
+    <Compile Include="TimerExecution\TimerCircuitBreaker.cs" />
+
+    <!-- Timer Execution Performance Optimization -->
+    <Compile Include="TimerExecution\TimerExecutionOptions.cs" />
+    <Compile Include="TimerExecution\TimerExecutionException.cs" />
+    <Compile Include="TimerExecution\TimerPerformanceOptimizer.cs" />
+    <Compile Include="TimerExecution\TimerPerformanceTuner.cs" />
+    <Compile Include="TimerExecution\TimerPerformanceTunerOptions.cs" />
+    <Compile Include="TimerExecution\TimerPerformanceTunerEventArgs.cs" />
+    <Compile Include="TimerExecution\TimerPerformanceOptimizationStatus.cs" />
+    <Compile Include="TimerExecution\TimerMemoryManager.cs" />
+    <Compile Include="TimerExecution\TimerMemoryOptions.cs" />
+    <Compile Include="TimerExecution\TimerMemoryEventArgs.cs" />
+    <Compile Include="TimerExecution\TimerThreadPoolManager.cs" />
+    <Compile Include="TimerExecution\TimerThreadPoolOptions.cs" />
+    <Compile Include="TimerExecution\TimerThreadPoolEventArgs.cs" />
+    <Compile Include="TimerExecution\TimerCacheManager.cs" />
+    <Compile Include="TimerExecution\TimerCacheOptions.cs" />
+    <Compile Include="TimerExecution\TimerCacheEventArgs.cs" />
+    <Compile Include="TimerExecution\TimerCache.cs" />
+    <Compile Include="TimerExecution\TimerMetricsCollector.cs" />
+    <Compile Include="TimerExecution\TimerMetricsOptions.cs" />
+    <Compile Include="TimerExecution\TimerMetricsEventArgs.cs" />
+    <Compile Include="TimerExecution\TimerErrorHandler.cs" />
+    <Compile Include="TimerExecution\TimerErrorEvents.cs" />
+    <Compile Include="TimerExecution\TimerErrorEventArgs.cs" />
+    <Compile Include="TimerExecution\TimerErrorClassifier.cs" />
+    <Compile Include="TimerExecution\TimerHealthMonitor.cs" />
+    <Compile Include="TimerExecution\TimerComprehensivePerformanceMetrics.cs" />
 
     <!-- Service Components -->
     <Compile Include="PerformanceCounters.cs" />

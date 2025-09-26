@@ -6,163 +6,10 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using LicenseReleaseService.TimerExecution;
 
 namespace LicenseReleaseService.LicenseManagement
 {
-    /// <summary>
-    /// Represents parsed license feature information
-    /// </summary>
-    public class LicenseFeatureInfo
-    {
-        /// <summary>
-        /// Gets the feature name
-        /// </summary>
-        public string FeatureName { get; set; }
-
-        /// <summary>
-        /// Gets the total number of licenses available
-        /// </summary>
-        public int TotalLicenses { get; set; }
-
-        /// <summary>
-        /// Gets the number of licenses currently in use
-        /// </summary>
-        public int LicensesInUse { get; set; }
-
-        /// <summary>
-        /// Gets the number of reserved licenses
-        /// </summary>
-        public int ReservedLicenses { get; set; }
-
-        /// <summary>
-        /// Gets the list of users currently using the feature
-        /// </summary>
-        public List<LicenseUserInfo> Users { get; set; }
-
-        /// <summary>
-        /// Gets the feature status
-        /// </summary>
-        public string Status { get; set; }
-
-        /// <summary>
-        /// Gets the last updated timestamp
-        /// </summary>
-        public DateTime LastUpdated { get; set; }
-    }
-
-    /// <summary>
-    /// Represents user information for a license
-    /// </summary>
-    public class LicenseUserInfo
-    {
-        /// <summary>
-        /// Gets the username
-        /// </summary>
-        public string Username { get; set; }
-
-        /// <summary>
-        /// Gets the hostname
-        /// </summary>
-        public string Hostname { get; set; }
-
-        /// <summary>
-        /// Gets the display name
-        /// </summary>
-        public string DisplayName { get; set; }
-
-        /// <summary>
-        /// Gets the license version
-        /// </summary>
-        public string Version { get; set; }
-
-        /// <summary>
-        /// Gets the checkout time
-        /// </summary>
-        public DateTime? CheckoutTime { get; set; }
-
-        /// <summary>
-        /// Gets the process ID
-        /// </summary>
-        public int? ProcessId { get; set; }
-    }
-
-    /// <summary>
-    /// Represents license server status
-    /// </summary>
-    public class LicenseServerStatus
-    {
-        /// <summary>
-        /// Gets whether the server is up
-        /// </summary>
-        public bool IsServerUp { get; set; }
-
-        /// <summary>
-        /// Gets the server address
-        /// </summary>
-        public string ServerAddress { get; set; }
-
-        /// <summary>
-        /// Gets the server status message
-        /// </summary>
-        public string StatusMessage { get; set; }
-
-        /// <summary>
-        /// Gets the list of features available on the server
-        /// </summary>
-        public Dictionary<string, LicenseFeatureInfo> Features { get; set; }
-
-        /// <summary>
-        /// Gets the last checked timestamp
-        /// </summary>
-        public DateTime LastChecked { get; set; }
-
-        /// <summary>
-        /// Gets the raw output
-        /// </summary>
-        public string RawOutput { get; set; }
-
-        public LicenseServerStatus()
-        {
-            Features = new Dictionary<string, LicenseFeatureInfo>();
-            LastChecked = DateTime.UtcNow;
-        }
-    }
-
-    /// <summary>
-    /// Represents the result of a license release operation
-    /// </summary>
-    public class LicenseReleaseResult
-    {
-        /// <summary>
-        /// Gets whether the operation was successful
-        /// </summary>
-        public bool Success { get; set; }
-
-        /// <summary>
-        /// Gets the error message if the operation failed
-        /// </summary>
-        public string ErrorMessage { get; set; }
-
-        /// <summary>
-        /// Gets the released user information
-        /// </summary>
-        public string ReleasedUser { get; set; }
-
-        /// <summary>
-        /// Gets the released feature name
-        /// </summary>
-        public string ReleasedFeature { get; set; }
-
-        /// <summary>
-        /// Gets the operation timestamp
-        /// </summary>
-        public DateTime OperationTimestamp { get; set; }
-
-        public LicenseReleaseResult()
-        {
-            OperationTimestamp = DateTime.UtcNow;
-        }
-    }
 
     /// <summary>
     /// Parses lmutil.exe output with comprehensive error handling and validation
@@ -534,37 +381,40 @@ namespace LicenseReleaseService.LicenseManagement
 
         private LicenseUserInfo ParseUserInfo(Match userMatch)
         {
-            var userInfo = new LicenseUserInfo();
-
-            // Username and hostname
-            userInfo.Username = userMatch.Groups[1].Value.Trim();
-            userInfo.Hostname = userMatch.Groups[2].Value.Trim();
+            var username = userMatch.Groups[1].Value.Trim();
+            var hostname = userMatch.Groups[2].Value.Trim();
+            var displayName = username;
+            var checkoutTime = (DateTime?)null;
+            var processId = (int?)null;
 
             // Extract display name if available
             var displayNameMatch = Regex.Match(userMatch.Value, @"\(([^)]+)\)");
             if (displayNameMatch.Success)
             {
-                userInfo.DisplayName = displayNameMatch.Groups[1].Value;
-            }
-
-            // Extract version if available
-            var versionMatch = ParsingPatterns.VersionPattern.Match(userMatch.Value);
-            if (versionMatch.Success)
-            {
-                userInfo.Version = versionMatch.Value;
+                displayName = displayNameMatch.Groups[1].Value;
             }
 
             // Extract checkout time if available
             var timeMatch = Regex.Match(userMatch.Value, @"start\s+([^)]+)", RegexOptions.IgnoreCase);
             if (timeMatch.Success)
             {
-                if (DateTime.TryParse(timeMatch.Groups[1].Value, out var checkoutTime))
+                if (DateTime.TryParse(timeMatch.Groups[1].Value, out var parsedCheckoutTime))
                 {
-                    userInfo.CheckoutTime = checkoutTime;
+                    checkoutTime = parsedCheckoutTime;
                 }
             }
 
-            return userInfo;
+            // Try to extract process ID if available
+            var processMatch = Regex.Match(userMatch.Value, @"pid\s*(\d+)", RegexOptions.IgnoreCase);
+            if (processMatch.Success)
+            {
+                if (int.TryParse(processMatch.Groups[1].Value, out var parsedProcessId))
+                {
+                    processId = parsedProcessId;
+                }
+            }
+
+            return new LicenseUserInfo(username, hostname, displayName, checkoutTime: checkoutTime, processId: processId);
         }
     }
 }

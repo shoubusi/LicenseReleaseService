@@ -369,7 +369,7 @@ namespace LicenseReleaseService.TimerExecution
                         return;
 
                     var expiredKeys = _items
-                        .Where kvp => forceCleanup || kvp.Value.IsExpired)
+                        .Where(kvp => forceCleanup || kvp.Value.IsExpired)
                         .Select(kvp => kvp.Key)
                         .ToArray();
 

@@ -254,6 +254,80 @@ namespace LicenseReleaseService.Configuration
 
         #endregion
 
+        #region License Query Engine Settings
+
+        /// <summary>
+        /// Gets whether the license query engine is enabled
+        /// </summary>
+        public bool EnableLicenseQueryEngine => GetAppSetting("EnableLicenseQueryEngine", true);
+
+        /// <summary>
+        /// Gets the cache expiration time in seconds for license queries
+        /// </summary>
+        public int LicenseQueryCacheExpiration => GetAppSetting("LicenseQueryCacheExpiration", 300);
+
+        /// <summary>
+        /// Gets the query timeout in seconds for license queries
+        /// </summary>
+        public int LicenseQueryTimeout => GetAppSetting("LicenseQueryTimeout", 30);
+
+        /// <summary>
+        /// Gets the maximum cache size for license queries
+        /// </summary>
+        public int LicenseQueryMaxCacheSize => GetAppSetting("LicenseQueryMaxCacheSize", 1000);
+
+        /// <summary>
+        /// Gets the maximum concurrent queries for license queries
+        /// </summary>
+        public int LicenseQueryMaxConcurrentQueries => GetAppSetting("LicenseQueryMaxConcurrentQueries", 10);
+
+        /// <summary>
+        /// Gets whether caching is enabled for license queries
+        /// </summary>
+        public bool EnableLicenseQueryCaching => GetAppSetting("EnableLicenseQueryCaching", true);
+
+        /// <summary>
+        /// Gets whether statistics collection is enabled for license queries
+        /// </summary>
+        public bool EnableLicenseQueryStatistics => GetAppSetting("EnableLicenseQueryStatistics", true);
+
+        /// <summary>
+        /// Gets whether verbose output is enabled for license queries
+        /// </summary>
+        public bool EnableLicenseQueryVerboseOutput => GetAppSetting("EnableLicenseQueryVerboseOutput", false);
+
+        /// <summary>
+        /// Gets whether health monitoring is enabled for license queries
+        /// </summary>
+        public bool EnableLicenseQueryHealthMonitoring => GetAppSetting("EnableLicenseQueryHealthMonitoring", true);
+
+        /// <summary>
+        /// Gets whether performance metrics are enabled for license queries
+        /// </summary>
+        public bool EnableLicenseQueryPerformanceMetrics => GetAppSetting("EnableLicenseQueryPerformanceMetrics", true);
+
+        /// <summary>
+        /// Gets the alert threshold percentage for license queries
+        /// </summary>
+        public int LicenseQueryAlertThreshold => GetAppSetting("LicenseQueryAlertThreshold", 90);
+
+        /// <summary>
+        /// Gets the health check interval in seconds for license queries
+        /// </summary>
+        public int LicenseQueryHealthCheckInterval => GetAppSetting("LicenseQueryHealthCheckInterval", 60);
+
+        /// <summary>
+        /// Gets the performance metrics interval in seconds for license queries
+        /// </summary>
+        public int LicenseQueryPerformanceMetricsInterval => GetAppSetting("LicenseQueryPerformanceMetricsInterval", 30);
+
+        /// <summary>
+        /// Gets the cleanup interval in seconds for license queries
+        /// </summary>
+        public int LicenseQueryCleanupInterval => GetAppSetting("LicenseQueryCleanupInterval", 3600);
+
+        #endregion
+
         #region Helper Methods
 
         /// <summary>

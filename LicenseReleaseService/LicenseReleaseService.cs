@@ -39,6 +39,15 @@ namespace LicenseReleaseService
         private MonitoredLicenseManager _monitoredLicenseManager;
         private bool _licenseManagementInitialized;
 
+        // License query engine components
+        private readonly LicenseQueryOptions _licenseQueryOptions;
+        private readonly ILogger<LicenseQueryEngine> _queryEngineLogger;
+        private readonly CacheOptions _cacheOptions;
+        private ICacheManager _cacheManager;
+        private readonly LmstatOutputParser _outputParser;
+        private ILicenseQueryEngine _licenseQueryEngine;
+        private bool _queryEngineInitialized;
+
         public LicenseReleaseService()
         {
             InitializeComponent();
@@ -48,8 +57,60 @@ namespace LicenseReleaseService
             _configurationManager = ConfigurationManager.Instance;
             _recoveryManager = new RecoveryManager(_serviceState, _logger);
             _performanceCounters = new PerformanceCounters();
+
+            // Initialize license query engine components
+            _licenseQueryOptions = CreateLicenseQueryOptionsFromSettings();
+            _cacheOptions = CreateCacheOptionsFromSettings();
+            _outputParser = new LmstatOutputParser();
+            _queryEngineLogger = new Microsoft.Extensions.Logging.LoggerFactory()
+                .AddConsole()
+                .AddDebug()
+                .CreateLogger<LicenseQueryEngine>();
+
             InitializeLicenseManagement();
+            InitializeLicenseQueryEngine();
             InitializeService();
+        }
+
+        private LicenseQueryOptions CreateLicenseQueryOptionsFromSettings()
+        {
+            var options = LicenseQueryOptions.DefaultSolidWorksOptions();
+
+            // Override with service settings
+            if (_serviceSettings != null)
+            {
+                options.CacheExpiration = TimeSpan.FromSeconds(_serviceSettings.LicenseQueryCacheExpiration);
+                options.QueryTimeout = TimeSpan.FromSeconds(_serviceSettings.LicenseQueryTimeout);
+                options.MaxCacheSize = _serviceSettings.LicenseQueryMaxCacheSize;
+                options.MaxConcurrentQueries = _serviceSettings.LicenseQueryMaxConcurrentQueries;
+                options.EnableCaching = _serviceSettings.EnableLicenseQueryCaching;
+                options.EnableStatistics = _serviceSettings.EnableLicenseQueryStatistics;
+                options.EnableVerboseOutput = _serviceSettings.EnableLicenseQueryVerboseOutput;
+                options.EnableHealthMonitoring = _serviceSettings.EnableLicenseQueryHealthMonitoring;
+                options.EnablePerformanceMetrics = _serviceSettings.EnableLicenseQueryPerformanceMetrics;
+                options.AlertThreshold = _serviceSettings.LicenseQueryAlertThreshold;
+                options.HealthCheckInterval = _serviceSettings.LicenseQueryHealthCheckInterval;
+                options.PerformanceMetricsInterval = _serviceSettings.LicenseQueryPerformanceMetricsInterval;
+                options.CleanupInterval = _serviceSettings.LicenseQueryCleanupInterval;
+            }
+
+            return options;
+        }
+
+        private CacheOptions CreateCacheOptionsFromSettings()
+        {
+            var options = new CacheOptions();
+
+            if (_serviceSettings != null)
+            {
+                options.DefaultExpiration = TimeSpan.FromSeconds(_serviceSettings.LicenseQueryCacheExpiration);
+                options.EnableBackgroundCleanup = _serviceSettings.EnableLicenseQueryHealthMonitoring;
+                options.EnableStatistics = _serviceSettings.EnableLicenseQueryStatistics;
+                options.EnableDetailedLogging = _serviceSettings.EnableLicenseQueryVerboseOutput;
+                options.BackgroundCleanupInterval = TimeSpan.FromSeconds(_serviceSettings.LicenseQueryCleanupInterval);
+            }
+
+            return options;
         }
 
         private void InitializeService()
@@ -162,6 +223,43 @@ namespace LicenseReleaseService
             {
                 _logger.LogError($"Failed to initialize license management components: {ex.Message}", ex);
                 _licenseManagementInitialized = false;
+                throw;
+            }
+        }
+
+        private void InitializeLicenseQueryEngine()
+        {
+            try
+            {
+                _logger.LogInformation("Initializing license query engine components");
+
+                // Initialize cache manager
+                _cacheManager = new MemoryCacheManager(_cacheOptions);
+
+                // Initialize license query engine
+                _licenseQueryEngine = new LicenseQueryEngine(
+                    _cacheManager,
+                    _processExecutor,
+                    _outputParser);
+
+                // Configure query engine options
+                _licenseQueryEngine.Options = _licenseQueryOptions;
+
+                // Validate query engine configuration
+                var validationErrors = _licenseQueryEngine.ValidateConfiguration();
+                if (validationErrors.Count > 0)
+                {
+                    var errorString = string.Join("; ", validationErrors);
+                    _logger.LogWarning($"License query engine validation warnings: {errorString}");
+                }
+
+                _queryEngineInitialized = true;
+                _logger.LogInformation("License query engine components initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Failed to initialize license query engine components: {ex.Message}", ex);
+                _queryEngineInitialized = false;
                 throw;
             }
         }
@@ -361,6 +459,9 @@ namespace LicenseReleaseService
                         // Process license releases (placeholder for actual implementation)
                         ProcessLicenseReleases(cancellationToken);
 
+                        // Perform license query engine maintenance
+                        await PerformLicenseQueryEngineMaintenanceAsync(cancellationToken);
+
                         // Log performance metrics periodically
                         var metrics = _performanceCounters.GetCurrentMetrics();
                         _logger.LogDebug($"Performance metrics - CPU: {metrics.Current.CpuUsage:F1}%, Memory: {metrics.Current.MemoryUsageMB:F1}MB");
@@ -410,12 +511,33 @@ namespace LicenseReleaseService
                     throw new ConfigurationInitializationException("Configuration management is not initialized");
                 }
 
+                if (!_licenseManagementInitialized)
+                {
+                    _logger.LogError("License management is not initialized");
+                    throw new InvalidOperationException("License management is not initialized");
+                }
+
+                if (!_queryEngineInitialized)
+                {
+                    _logger.LogError("License query engine is not initialized");
+                    throw new InvalidOperationException("License query engine is not initialized");
+                }
+
                 var validationErrors = _configurationManager.ValidateConfiguration();
                 if (validationErrors.Count > 0)
                 {
                     var errorString = string.Join("; ", validationErrors);
                     _logger.LogError($"Configuration validation failed: {errorString}");
                     throw new ConfigurationValidationException($"Configuration validation failed: {errorString}");
+                }
+
+                // Validate query engine configuration
+                var queryEngineErrors = _licenseQueryEngine.ValidateConfiguration();
+                if (queryEngineErrors.Count > 0)
+                {
+                    var errorString = string.Join("; ", queryEngineErrors);
+                    _logger.LogError($"Query engine configuration validation failed: {errorString}");
+                    throw new InvalidOperationException($"Query engine configuration validation failed: {errorString}");
                 }
 
                 // Check if advanced features are enabled and healthy
@@ -457,13 +579,95 @@ namespace LicenseReleaseService
         private void InitializeServiceComponents()
         {
             _logger.LogInformation("Initializing service components");
-            // Placeholder for initializing service components
+
+            try
+            {
+                // Initialize license query engine components
+                if (_queryEngineInitialized && _licenseQueryEngine != null)
+                {
+                    _logger.LogInformation("License query engine is already initialized");
+                }
+                else
+                {
+                    _logger.LogWarning("License query engine is not initialized, attempting re-initialization");
+                    InitializeLicenseQueryEngine();
+                }
+
+                // Validate query engine is operational
+                if (_licenseQueryEngine != null)
+                {
+                    var validationErrors = _licenseQueryEngine.ValidateConfiguration();
+                    if (validationErrors.Count > 0)
+                    {
+                        var errorString = string.Join("; ", validationErrors);
+                        _logger.LogWarning($"Query engine has validation warnings: {errorString}");
+                    }
+                }
+
+                _logger.LogInformation("Service components initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Failed to initialize service components: {ex.Message}", ex);
+                throw;
+            }
         }
 
         private void CleanupServiceComponents()
         {
             _logger.LogInformation("Cleaning up service components");
-            // Placeholder for cleaning up service components
+
+            try
+            {
+                // Cleanup license query engine components
+                if (_licenseQueryEngine != null)
+                {
+                    _logger.LogInformation("Cleaning up license query engine");
+
+                    // Clear cache before shutdown
+                    try
+                    {
+                        _licenseQueryEngine.ClearAllCacheAsync().Wait(TimeSpan.FromSeconds(5));
+                        _logger.LogInformation("License query engine cache cleared");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning($"Failed to clear query engine cache: {ex.Message}");
+                    }
+
+                    // Reset performance metrics
+                    try
+                    {
+                        _licenseQueryEngine.ResetPerformanceMetrics();
+                        _logger.LogInformation("License query engine performance metrics reset");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning($"Failed to reset query engine metrics: {ex.Message}");
+                    }
+                }
+
+                // Cleanup cache manager
+                if (_cacheManager is IDisposable disposableCache)
+                {
+                    try
+                    {
+                        disposableCache.Dispose();
+                        _logger.LogInformation("Cache manager disposed");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning($"Failed to dispose cache manager: {ex.Message}");
+                    }
+                }
+
+                _queryEngineInitialized = false;
+                _logger.LogInformation("Service components cleanup completed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error cleaning up service components: {ex.Message}", ex);
+            }
         }
 
         private void CleanupConfiguration()
@@ -516,6 +720,9 @@ namespace LicenseReleaseService
                 {
                     _logger.LogWarning("Service health check indicates unhealthy state");
                 }
+
+                // Perform license query engine health check
+                await PerformLicenseQueryEngineHealthCheckAsync();
             }
             catch (Exception ex)
             {
@@ -527,6 +734,302 @@ namespace LicenseReleaseService
         {
             // Placeholder for license release processing
             // This will be implemented in future tasks
+        }
+
+        private async Task PerformLicenseQueryEngineMaintenanceAsync(CancellationToken cancellationToken)
+        {
+            if (!_queryEngineInitialized || _licenseQueryEngine == null)
+            {
+                return;
+            }
+
+            try
+            {
+                // Perform cache cleanup if needed
+                if (_licenseQueryOptions.EnableAutoCleanup)
+                {
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken); // Small delay to avoid contention
+                        _logger.LogDebug("License query engine maintenance completed");
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Expected during shutdown
+                    }
+                }
+
+                // Log query engine metrics periodically
+                if (_licenseQueryOptions.EnablePerformanceMetrics)
+                {
+                    try
+                    {
+                        var metrics = _licenseQueryEngine.GetPerformanceMetrics();
+                        if (metrics.TotalQueries > 0)
+                        {
+                            _logger.LogDebug($"Query engine metrics - Total: {metrics.TotalQueries}, " +
+                                $"Success: {metrics.SuccessfulQueries}, Cached: {metrics.CachedQueries}, " +
+                                $"AvgTime: {metrics.AverageQueryTimeMs:F2}ms, HitRatio: {metrics.CacheHitRatio:P2}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning($"Failed to get query engine metrics: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Error during license query engine maintenance: {ex.Message}");
+            }
+        }
+
+        private async Task PerformLicenseQueryEngineHealthCheckAsync()
+        {
+            if (!_queryEngineInitialized || _licenseQueryEngine == null)
+            {
+                _logger.LogWarning("License query engine health check skipped - not initialized");
+                return;
+            }
+
+            try
+            {
+                // Validate query engine configuration
+                var validationErrors = _licenseQueryEngine.ValidateConfiguration();
+                if (validationErrors.Count > 0)
+                {
+                    _logger.LogWarning($"License query engine has configuration issues: {string.Join("; ", validationErrors)}");
+                }
+
+                // Check cache manager health
+                if (_cacheManager != null)
+                {
+                    try
+                    {
+                        // Test cache operations
+                        var testKey = "health_check_test";
+                        var testValue = DateTime.Now.ToString();
+
+                        _cacheManager.Set(testKey, testValue, TimeSpan.FromSeconds(30));
+                        var retrievedValue = _cacheManager.Get<string>(testKey);
+
+                        if (retrievedValue != testValue)
+                        {
+                            _logger.LogWarning("Cache manager health check failed - value mismatch");
+                        }
+                        else
+                        {
+                            _cacheManager.Remove(testKey);
+                            _logger.LogDebug("Cache manager health check passed");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning($"Cache manager health check failed: {ex.Message}");
+                    }
+                }
+
+                // Check output parser health
+                if (_outputParser != null)
+                {
+                    try
+                    {
+                        // Test parser with sample lmstat output
+                        var sampleOutput = @"License server status: test-server@27000
+Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
+""user1"" workstation1 (v2023.0) (start/hostname1)
+""user2"" workstation2 (v2023.0) (start/hostname2)";
+
+                        var parsedStatus = _outputParser.ParseLmstatOutput(sampleOutput, "test-server@27000");
+                        if (parsedStatus != null && parsedStatus.FeatureDetails.Count > 0)
+                        {
+                            _logger.LogDebug("Output parser health check passed");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Output parser health check failed - no features parsed");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning($"Output parser health check failed: {ex.Message}");
+                    }
+                }
+
+                // Check process executor health
+                if (_processExecutor != null)
+                {
+                    try
+                    {
+                        // Test process executor with a simple command
+                        var result = await _processExecutor.ExecuteAsync("cmd", "/c echo health_check", TimeSpan.FromSeconds(5));
+                        if (result.Success && result.Output.Contains("health_check"))
+                        {
+                            _logger.LogDebug("Process executor health check passed");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Process executor health check failed - command execution failed");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning($"Process executor health check failed: {ex.Message}");
+                    }
+                }
+
+                _logger.LogDebug("License query engine health check completed");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"License query engine health check failed: {ex.Message}", ex);
+                _serviceState.RecordError($"License query engine health check failed: {ex.Message}", ex);
+            }
+        }
+
+        // License Query Engine Public API Methods
+        /// <summary>
+        /// Gets the current license query engine instance
+        /// </summary>
+        /// <returns>License query engine instance or null if not initialized</returns>
+        public ILicenseQueryEngine GetLicenseQueryEngine()
+        {
+            return _licenseQueryEngine;
+        }
+
+        /// <summary>
+        /// Gets the current performance metrics for the license query engine
+        /// </summary>
+        /// <returns>Performance metrics or null if query engine is not available</returns>
+        public LicenseQueryMetrics GetLicenseQueryEngineMetrics()
+        {
+            try
+            {
+                return _licenseQueryEngine?.GetPerformanceMetrics();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Failed to get license query engine metrics: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets the current cache statistics for the license query engine
+        /// </summary>
+        /// <returns>Cache statistics or null if cache manager is not available</returns>
+        public CacheStatistics GetCacheStatistics()
+        {
+            try
+            {
+                return _cacheManager?.Statistics;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Failed to get cache statistics: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Clears the license query engine cache
+        /// </summary>
+        /// <returns>True if successful, false otherwise</returns>
+        public async Task<bool> ClearLicenseQueryCacheAsync()
+        {
+            try
+            {
+                if (_licenseQueryEngine != null)
+                {
+                    await _licenseQueryEngine.ClearAllCacheAsync();
+                    _logger.LogInformation("License query engine cache cleared successfully");
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Failed to clear license query engine cache: {ex.Message}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Resets the license query engine performance metrics
+        /// </summary>
+        /// <returns>True if successful, false otherwise</returns>
+        public bool ResetLicenseQueryMetrics()
+        {
+            try
+            {
+                _licenseQueryEngine?.ResetPerformanceMetrics();
+                _logger.LogInformation("License query engine metrics reset successfully");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Failed to reset license query engine metrics: {ex.Message}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Performs a comprehensive health check of the license query engine
+        /// </summary>
+        /// <returns>Health check result</returns>
+        public async Task<Dictionary<string, object>> GetLicenseQueryEngineHealthAsync()
+        {
+            var healthResult = new Dictionary<string, object>();
+
+            try
+            {
+                // Basic status
+                healthResult["Initialized"] = _queryEngineInitialized;
+                healthResult["EngineAvailable"] = _licenseQueryEngine != null;
+                healthResult["CacheAvailable"] = _cacheManager != null;
+                healthResult["ParserAvailable"] = _outputParser != null;
+
+                if (_licenseQueryEngine != null)
+                {
+                    // Configuration validation
+                    var validationErrors = _licenseQueryEngine.ValidateConfiguration();
+                    healthResult["ConfigurationValid"] = validationErrors.Count == 0;
+                    healthResult["ConfigurationErrors"] = validationErrors;
+
+                    // Performance metrics
+                    var metrics = _licenseQueryEngine.GetPerformanceMetrics();
+                    healthResult["TotalQueries"] = metrics.TotalQueries;
+                    healthResult["SuccessfulQueries"] = metrics.SuccessfulQueries;
+                    healthResult["FailedQueries"] = metrics.FailedQueries;
+                    healthResult["CachedQueries"] = metrics.CachedQueries;
+                    healthResult["SuccessRate"] = metrics.SuccessRate;
+                    healthResult["CacheHitRatio"] = metrics.CacheHitRatio;
+                    healthResult["AverageQueryTimeMs"] = metrics.AverageQueryTimeMs;
+                }
+
+                if (_cacheManager != null)
+                {
+                    // Cache statistics
+                    var cacheStats = _cacheManager.Statistics;
+                    healthResult["CacheItemCount"] = cacheStats.ItemCount;
+                    healthResult["CacheHitCount"] = cacheStats.HitCount;
+                    healthResult["CacheMissCount"] = cacheStats.MissCount;
+                    healthResult["CacheHitRate"] = cacheStats.HitRate;
+                    healthResult["CacheTotalSize"] = cacheStats.TotalSize;
+                }
+
+                healthResult["LastChecked"] = DateTime.Now;
+                healthResult["Healthy"] = _queryEngineInitialized && _licenseQueryEngine != null;
+
+                return healthResult;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Failed to get license query engine health: {ex.Message}", ex);
+                healthResult["Error"] = ex.Message;
+                healthResult["Healthy"] = false;
+                return healthResult;
+            }
         }
 
         // Configuration event handlers

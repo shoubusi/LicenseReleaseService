@@ -481,4 +481,147 @@ namespace LicenseReleaseService.TimerExecution
         /// </summary>
         Critical
     }
+
+    /// <summary>
+    /// Represents memory statistics for performance monitoring
+    /// </summary>
+    public class TimerMemoryStatistics
+    {
+        /// <summary>
+        /// Gets or sets the total memory allocated in bytes
+        /// </summary>
+        public long TotalMemoryAllocated { get; set; }
+
+        /// <summary>
+        /// Gets or sets the memory currently in use in bytes
+        /// </summary>
+        public long MemoryInUse { get; set; }
+
+        /// <summary>
+        /// Gets or sets the available memory in bytes
+        /// </summary>
+        public long AvailableMemory { get; set; }
+
+        /// <summary>
+        /// Gets or sets the memory pressure level
+        /// </summary>
+        public TimerMemoryPressureLevel MemoryPressureLevel { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of garbage collections performed
+        /// </summary>
+        public long GarbageCollectionsCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the time spent in garbage collection
+        /// </summary>
+        public TimeSpan GarbageCollectionTime { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of memory pressure events
+        /// </summary>
+        public long MemoryPressureEvents { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of memory optimizations performed
+        /// </summary>
+        public long MemoryOptimizationsPerformed { get; set; }
+
+        /// <summary>
+        /// Gets or sets the memory usage percentage
+        /// </summary>
+        public double MemoryUsagePercentage { get; set; }
+
+        /// <summary>
+        /// Gets or sets the last memory optimization time
+        /// </summary>
+        public DateTime? LastOptimizationTime { get; set; }
+
+        /// <summary>
+        /// Gets or sets the average memory usage over time
+        /// </summary>
+        public double AverageMemoryUsage { get; set; }
+
+        /// <summary>
+        /// Gets or sets the peak memory usage
+        /// </summary>
+        public long PeakMemoryUsage { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the TimerMemoryStatistics class
+        /// </summary>
+        public TimerMemoryStatistics()
+        {
+            TotalMemoryAllocated = 0;
+            MemoryInUse = 0;
+            AvailableMemory = 0;
+            MemoryPressureLevel = TimerMemoryPressureLevel.None;
+            GarbageCollectionsCount = 0;
+            GarbageCollectionTime = TimeSpan.Zero;
+            MemoryPressureEvents = 0;
+            MemoryOptimizationsPerformed = 0;
+            MemoryUsagePercentage = 0;
+            AverageMemoryUsage = 0;
+            PeakMemoryUsage = 0;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the memory statistics
+        /// </summary>
+        /// <returns>String representation</returns>
+        public override string ToString()
+        {
+            var builder = new System.Text.StringBuilder();
+            builder.AppendLine("Timer Memory Statistics:");
+            builder.AppendLine($"  Total Memory Allocated: {TotalMemoryAllocated / (1024 * 1024):F2}MB");
+            builder.AppendLine($"  Memory In Use: {MemoryInUse / (1024 * 1024):F2}MB");
+            builder.AppendLine($"  Available Memory: {AvailableMemory / (1024 * 1024):F2}MB");
+            builder.AppendLine($"  Memory Usage: {MemoryUsagePercentage:F2}%");
+            builder.AppendLine($"  Average Memory Usage: {AverageMemoryUsage:F2}%");
+            builder.AppendLine($"  Peak Memory Usage: {PeakMemoryUsage / (1024 * 1024):F2}MB");
+            builder.AppendLine($"  Memory Pressure: {MemoryPressureLevel}");
+            builder.AppendLine($"  Garbage Collections: {GarbageCollectionsCount}");
+            builder.AppendLine($"  GC Time: {GarbageCollectionTime.TotalMilliseconds:F2}ms");
+            builder.AppendLine($"  Memory Pressure Events: {MemoryPressureEvents}");
+            builder.AppendLine($"  Memory Optimizations: {MemoryOptimizationsPerformed}");
+
+            if (LastOptimizationTime.HasValue)
+            {
+                builder.AppendLine($"  Last Optimization: {LastOptimizationTime.Value}");
+            }
+
+            return builder.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Memory pressure levels for the timer memory manager
+    /// </summary>
+    public enum TimerMemoryPressureLevel
+    {
+        /// <summary>
+        /// No memory pressure
+        /// </summary>
+        None,
+
+        /// <summary>
+        /// Low memory pressure
+        /// </summary>
+        Low,
+
+        /// <summary>
+        /// Medium memory pressure
+        /// </summary>
+        Medium,
+
+        /// <summary>
+        /// High memory pressure
+        /// </summary>
+        High,
+
+        /// <summary>
+        /// Critical memory pressure
+        /// </summary>
+        Critical
+    }
 }

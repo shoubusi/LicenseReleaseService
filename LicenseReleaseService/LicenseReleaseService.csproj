@@ -163,11 +163,20 @@
     <Compile Include="TimerExecution\TimerExecutionService.cs" />
     <Compile Include="TimerExecution\TimerExecutor.cs" />
     <Compile Include="TimerExecution\TimerCircuitBreaker.cs" />
+    <Compile Include="TimerExecution\TimerState.cs" />
+    <Compile Include="TimerExecution\TimerStatus.cs" />
+        <Compile Include="TimerExecution\TimerErrorEvents.cs" />
+    <Compile Include="TimerExecution\TimerErrorClassifier.cs" />
+    <Compile Include="TimerExecution\TimerErrorHandler.cs" />
+    <Compile Include="TimerExecution\TimerHealthMonitor.cs" />
+    <Compile Include="TimerExecution\TimerRecoveryManager.cs" />
+    <Compile Include="TimerExecution\TimerComprehensivePerformanceMetrics.cs" />
 
     <!-- Timer Execution Performance Optimization -->
     <Compile Include="TimerExecution\TimerExecutionOptions.cs" />
     <Compile Include="TimerExecution\TimerExecutionException.cs" />
     <Compile Include="TimerExecution\TimerPerformanceOptimizer.cs" />
+    <Compile Include="TimerExecution\TimerOptimizationEventArgs.cs" />
     <Compile Include="TimerExecution\TimerPerformanceTuner.cs" />
     <Compile Include="TimerExecution\TimerPerformanceTunerOptions.cs" />
     <Compile Include="TimerExecution\TimerPerformanceTunerEventArgs.cs" />
@@ -185,12 +194,6 @@
     <Compile Include="TimerExecution\TimerMetricsCollector.cs" />
     <Compile Include="TimerExecution\TimerMetricsOptions.cs" />
     <Compile Include="TimerExecution\TimerMetricsEventArgs.cs" />
-    <Compile Include="TimerExecution\TimerErrorHandler.cs" />
-    <Compile Include="TimerExecution\TimerErrorEvents.cs" />
-    <Compile Include="TimerExecution\TimerErrorEventArgs.cs" />
-    <Compile Include="TimerExecution\TimerErrorClassifier.cs" />
-    <Compile Include="TimerExecution\TimerHealthMonitor.cs" />
-    <Compile Include="TimerExecution\TimerComprehensivePerformanceMetrics.cs" />
 
     <!-- Service Components -->
     <Compile Include="PerformanceCounters.cs" />

@@ -87,6 +87,16 @@ namespace LicenseReleaseService.Configuration
         }
 
         /// <summary>
+        /// Gets or sets the version configuration
+        /// </summary>
+        [ConfigurationProperty("versionConfiguration")]
+        public VersionConfigurationSection VersionConfiguration
+        {
+            get { return (VersionConfigurationSection)this["versionConfiguration"] ?? new VersionConfigurationSection(); }
+            set { this["versionConfiguration"] = value; }
+        }
+
+        /// <summary>
         /// Validates the configuration section
         /// </summary>
         /// <returns>List of validation errors</returns>
@@ -118,6 +128,9 @@ namespace LicenseReleaseService.Configuration
 
                     // Validate timer execution section
                     errors.AddRange(Timer.Validate());
+
+                    // Validate version configuration section
+                    errors.AddRange(VersionConfiguration.Validate());
                 }
                 catch (Exception ex)
                 {
@@ -143,6 +156,7 @@ namespace LicenseReleaseService.Configuration
             sb.AppendLine($"  ProcessExecution: {ProcessExecution}");
             sb.AppendLine($"  LicenseQuery: {LicenseQuery}");
             sb.AppendLine($"  Timer: {Timer}");
+            sb.AppendLine($"  VersionConfiguration: {VersionConfiguration}");
             return sb.ToString();
         }
     }

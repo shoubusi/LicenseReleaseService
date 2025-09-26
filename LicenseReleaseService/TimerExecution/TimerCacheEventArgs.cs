@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace LicenseReleaseService.TimerExecution
 {
@@ -496,58 +497,6 @@ namespace LicenseReleaseService.TimerExecution
             }
 
             return builder.ToString();
-        }
-    }
-
-    /// <summary>
-    /// Event arguments for performance tuning events
-    /// </summary>
-    public class TimerPerformanceTuningEventArgs : EventArgs
-    {
-        /// <summary>
-        /// Gets the tuning type
-        /// </summary>
-        public TimerOptimizationType TuningType { get; }
-
-        /// <summary>
-        /// Gets the priority
-        /// </summary>
-        public TimerOptimizationPriority Priority { get; }
-
-        /// <summary>
-        /// Gets the description
-        /// </summary>
-        public string Description { get; }
-
-        /// <summary>
-        /// Gets the performance improvement percentage
-        /// </summary>
-        public double PerformanceImprovement { get; set; }
-
-        /// <summary>
-        /// Gets the timestamp when the tuning was applied
-        /// </summary>
-        public DateTime Timestamp { get; }
-
-        /// <summary>
-        /// Gets the parameters used for tuning
-        /// </summary>
-        public Dictionary<string, object> Parameters { get; }
-
-        /// <summary>
-        /// Initializes a new instance of the TimerPerformanceTuningEventArgs class
-        /// </summary>
-        /// <param name="tuningType">The tuning type</param>
-        /// <param name="priority">The priority</param>
-        /// <param name="description">The description</param>
-        public TimerPerformanceTuningEventArgs(TimerOptimizationType tuningType, TimerOptimizationPriority priority, string description)
-        {
-            TuningType = tuningType;
-            Priority = priority;
-            Description = description;
-            PerformanceImprovement = 0;
-            Timestamp = DateTime.UtcNow;
-            Parameters = new Dictionary<string, object>();
         }
     }
 }

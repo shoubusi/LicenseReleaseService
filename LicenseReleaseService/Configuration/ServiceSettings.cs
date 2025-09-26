@@ -254,7 +254,12 @@ namespace LicenseReleaseService.Configuration
 
         #endregion
 
-        #region License Query Engine Settings
+        #region License Query Engine Settings (via Configuration Section)
+
+        /// <summary>
+        /// Gets the license query engine configuration options
+        /// </summary>
+        public LicenseQueryOptions LicenseQueryOptions => _configurationManager.CurrentConfiguration?.LicenseQuery.ToLicenseQueryOptions() ?? new LicenseQueryOptions();
 
         /// <summary>
         /// Gets whether the license query engine is enabled
@@ -328,6 +333,150 @@ namespace LicenseReleaseService.Configuration
 
         #endregion
 
+        #region Timer Execution Settings (via Configuration Section)
+
+        /// <summary>
+        /// Gets the timer execution configuration options
+        /// </summary>
+        public TimerExecution.TimerExecutionOptions TimerExecutionOptions => _configurationManager.CurrentConfiguration?.Timer.ToTimerExecutionOptions() ?? new TimerExecution.TimerExecutionOptions();
+
+        /// <summary>
+        /// Gets whether the timer execution system is enabled
+        /// </summary>
+        public bool EnableTimerExecution => GetAppSetting("EnableTimerExecution", true);
+
+        /// <summary>
+        /// Gets the timer startup delay in seconds
+        /// </summary>
+        public int TimerStartupDelay => GetAppSetting("TimerStartupDelay", 10);
+
+        /// <summary>
+        /// Gets the timer default interval in seconds
+        /// </summary>
+        public int TimerDefaultInterval => GetAppSetting("TimerDefaultInterval", 60);
+
+        /// <summary>
+        /// Gets the timer health check interval in seconds
+        /// </summary>
+        public int TimerHealthCheckInterval => GetAppSetting("TimerHealthCheckInterval", 60);
+
+        /// <summary>
+        /// Gets the timer metrics collection interval in seconds
+        /// </summary>
+        public int TimerMetricsCollectionInterval => GetAppSetting("TimerMetricsCollectionInterval", 30);
+
+        /// <summary>
+        /// Gets the timer configuration cache duration in seconds
+        /// </summary>
+        public int TimerConfigurationCacheDuration => GetAppSetting("TimerConfigurationCacheDuration", 300);
+
+        /// <summary>
+        /// Gets whether timer configuration file watching is enabled
+        /// </summary>
+        public bool EnableTimerConfigWatcher => GetAppSetting("EnableTimerConfigWatcher", true);
+
+        /// <summary>
+        /// Gets whether timer execution statistics are enabled
+        /// </summary>
+        public bool EnableTimerStatistics => GetAppSetting("EnableTimerStatistics", true);
+
+        /// <summary>
+        /// Gets whether timer execution metrics are enabled
+        /// </summary>
+        public bool EnableTimerMetrics => GetAppSetting("EnableTimerMetrics", true);
+
+        /// <summary>
+        /// Gets whether timer adaptive scheduling is enabled
+        /// </summary>
+        public bool EnableTimerAdaptiveScheduling => GetAppSetting("EnableTimerAdaptiveScheduling", false);
+
+        /// <summary>
+        /// Gets the timer memory monitoring threshold in bytes
+        /// </summary>
+        public long TimerMemoryThreshold => GetAppSetting("TimerMemoryThreshold", 52428800L);
+
+        /// <summary>
+        /// Gets the timer CPU monitoring threshold percentage
+        /// </summary>
+        public int TimerCpuThreshold => GetAppSetting("TimerCpuThreshold", 80);
+
+        /// <summary>
+        /// Gets the timer thread pool monitoring threshold
+        /// </summary>
+        public int TimerThreadPoolThreshold => GetAppSetting("TimerThreadPoolThreshold", 10);
+
+        /// <summary>
+        /// Gets the timer maximum execution history size
+        /// </summary>
+        public int TimerMaxExecutionHistory => GetAppSetting("TimerMaxExecutionHistory", 100);
+
+        /// <summary>
+        /// Gets whether timer execution overlap prevention is enabled
+        /// </summary>
+        public bool PreventTimerExecutionOverlap => GetAppSetting("PreventTimerExecutionOverlap", true);
+
+        /// <summary>
+        /// Gets whether timer circuit breaker is enabled
+        /// </summary>
+        public bool EnableTimerCircuitBreaker => GetAppSetting("EnableTimerCircuitBreaker", true);
+
+        /// <summary>
+        /// Gets the timer circuit breaker cooldown in seconds
+        /// </summary>
+        public int TimerCircuitBreakerCooldown => GetAppSetting("TimerCircuitBreakerCooldown", 300);
+
+        /// <summary>
+        /// Gets the timer maximum consecutive errors before circuit breaker
+        /// </summary>
+        public int TimerMaxConsecutiveErrors => GetAppSetting("TimerMaxConsecutiveErrors", 5);
+
+        /// <summary>
+        /// Gets whether timer auto restart is enabled
+        /// </summary>
+        public bool EnableTimerAutoRestart => GetAppSetting("EnableTimerAutoRestart", true);
+
+        /// <summary>
+        /// Gets whether timer execution timeout is enabled
+        /// </summary>
+        public bool EnableTimerExecutionTimeout => GetAppSetting("EnableTimerExecutionTimeout", true);
+
+        /// <summary>
+        /// Gets the timer execution timeout in seconds
+        /// </summary>
+        public int TimerExecutionTimeout => GetAppSetting("TimerExecutionTimeout", 300);
+
+        /// <summary>
+        /// Gets whether timer detailed logging is enabled
+        /// </summary>
+        public bool EnableTimerDetailedLogging => GetAppSetting("EnableTimerDetailedLogging", true);
+
+        /// <summary>
+        /// Gets whether timer stops on unhandled exceptions
+        /// </summary>
+        public bool TimerStopOnUnhandledException => GetAppSetting("TimerStopOnUnhandledException", false);
+
+        /// <summary>
+        /// Gets the timer disposal grace period in seconds
+        /// </summary>
+        public int TimerDisposalGracePeriod => GetAppSetting("TimerDisposalGracePeriod", 5);
+
+        /// <summary>
+        /// Gets the timer synchronization timeout in seconds
+        /// </summary>
+        public int TimerSyncTimeout => GetAppSetting("TimerSyncTimeout", 30);
+
+        /// <summary>
+        /// Gets the timer minimum interval in seconds
+        /// </summary>
+        public int TimerMinInterval => GetAppSetting("TimerMinInterval", 1);
+
+        /// <summary>
+        /// Gets the timer maximum interval in seconds
+        /// </summary>
+        public int TimerMaxInterval => GetAppSetting("TimerMaxInterval", 86400);
+
+        #endregion
+
         #region Helper Methods
 
         /// <summary>
@@ -375,6 +524,21 @@ namespace LicenseReleaseService.Configuration
         private bool GetAppSetting(string key, bool defaultValue)
         {
             if (bool.TryParse(GetAppSetting(key, defaultValue.ToString()), out var result))
+            {
+                return result;
+            }
+            return defaultValue;
+        }
+
+        /// <summary>
+        /// Gets an application setting value with a default fallback
+        /// </summary>
+        /// <param name="key">The setting key</param>
+        /// <param name="defaultValue">The default value</param>
+        /// <returns>The setting value</returns>
+        private long GetAppSetting(string key, long defaultValue)
+        {
+            if (long.TryParse(GetAppSetting(key, defaultValue.ToString()), out var result))
             {
                 return result;
             }

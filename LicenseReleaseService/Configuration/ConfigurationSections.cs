@@ -77,6 +77,16 @@ namespace LicenseReleaseService.Configuration
         }
 
         /// <summary>
+        /// Gets or sets the timer execution configuration
+        /// </summary>
+        [ConfigurationProperty("timer")]
+        public TimerConfigurationElement Timer
+        {
+            get { return (TimerConfigurationElement)this["timer"] ?? new TimerConfigurationElement(); }
+            set { this["timer"] = value; }
+        }
+
+        /// <summary>
         /// Validates the configuration section
         /// </summary>
         /// <returns>List of validation errors</returns>
@@ -105,6 +115,9 @@ namespace LicenseReleaseService.Configuration
 
                     // Validate license query section
                     errors.AddRange(LicenseQuery.Validate());
+
+                    // Validate timer execution section
+                    errors.AddRange(Timer.Validate());
                 }
                 catch (Exception ex)
                 {
@@ -129,6 +142,7 @@ namespace LicenseReleaseService.Configuration
             sb.AppendLine($"  Security: {Security}");
             sb.AppendLine($"  ProcessExecution: {ProcessExecution}");
             sb.AppendLine($"  LicenseQuery: {LicenseQuery}");
+            sb.AppendLine($"  Timer: {Timer}");
             return sb.ToString();
         }
     }

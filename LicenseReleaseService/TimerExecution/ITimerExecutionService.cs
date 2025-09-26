@@ -57,6 +57,14 @@ namespace LicenseReleaseService.TimerExecution
         void Start(TimeSpan interval, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Starts the timer asynchronously with the specified interval
+        /// </summary>
+        /// <param name="interval">The interval between timer executions</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task representing the start operation</returns>
+        Task StartAsync(TimeSpan interval, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Starts the timer for a one-time execution
         /// </summary>
         /// <param name="delay">The delay before execution</param>
@@ -64,9 +72,23 @@ namespace LicenseReleaseService.TimerExecution
         void StartOneTime(TimeSpan delay, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Starts the timer asynchronously for a one-time execution
+        /// </summary>
+        /// <param name="delay">The delay before execution</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task representing the start operation</returns>
+        Task StartOneTimeAsync(TimeSpan delay, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Stops the timer execution
         /// </summary>
         void Stop();
+
+        /// <summary>
+        /// Stops the timer execution asynchronously
+        /// </summary>
+        /// <returns>Task representing the stop operation</returns>
+        Task StopAsync();
 
         /// <summary>
         /// Pauses the timer execution
@@ -101,5 +123,17 @@ namespace LicenseReleaseService.TimerExecution
         /// Resets the timer statistics and error count
         /// </summary>
         void ResetStatistics();
+
+        /// <summary>
+        /// Gets the performance optimization status
+        /// </summary>
+        /// <returns>Performance optimization status</returns>
+        TimerPerformanceOptimizationStatus GetPerformanceOptimizationStatus();
+
+        /// <summary>
+        /// Gets comprehensive performance metrics
+        /// </summary>
+        /// <returns>Comprehensive performance metrics</returns>
+        Task<TimerComprehensivePerformanceMetrics> GetComprehensivePerformanceMetricsAsync();
     }
 }

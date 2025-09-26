@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
+using System.Linq;
 
 namespace LicenseReleaseService.Configuration
 {
@@ -229,6 +230,48 @@ namespace LicenseReleaseService.Configuration
             set { this["maxThreadPoolThreads"] = value; }
         }
 
+        [ConfigurationProperty("targetVersion", DefaultValue = "")]
+        public string TargetVersion
+        {
+            get { return (string)this["targetVersion"]; }
+            set { this["targetVersion"] = value; }
+        }
+
+        [ConfigurationProperty("defaultVersion", DefaultValue = "")]
+        public string DefaultVersion
+        {
+            get { return (string)this["defaultVersion"]; }
+            set { this["defaultVersion"] = value; }
+        }
+
+        [ConfigurationProperty("enableVersionSpecificConfig", DefaultValue = false)]
+        public bool EnableVersionSpecificConfig
+        {
+            get { return (bool)this["enableVersionSpecificConfig"]; }
+            set { this["enableVersionSpecificConfig"] = value; }
+        }
+
+        [ConfigurationProperty("versionDetectionInterval", DefaultValue = "00:30:00")]
+        public TimeSpan VersionDetectionInterval
+        {
+            get { return (TimeSpan)this["versionDetectionInterval"]; }
+            set { this["versionDetectionInterval"] = value; }
+        }
+
+        [ConfigurationProperty("enableVersionFallback", DefaultValue = true)]
+        public bool EnableVersionFallback
+        {
+            get { return (bool)this["enableVersionFallback"]; }
+            set { this["enableVersionFallback"] = value; }
+        }
+
+        [ConfigurationProperty("supportedVersions", DefaultValue = "")]
+        public string SupportedVersions
+        {
+            get { return (string)this["supportedVersions"]; }
+            set { this["supportedVersions"] = value; }
+        }
+
         /// <summary>
         /// Validates the timer configuration
         /// </summary>
@@ -414,6 +457,74 @@ namespace LicenseReleaseService.Configuration
                 {
                     errors.Add("Memory threshold exceeds recommended limit of 1GB");
                 }
+
+                // Version-specific validation
+                if (EnableVersionSpecificConfig)
+                {
+                    if (string.IsNullOrEmpty(TargetVersion) && string.IsNullOrEmpty(DefaultVersion))
+                    {
+                        errors.Add("Either targetVersion or defaultVersion must be specified when version-specific configuration is enabled");
+                    }
+
+                    if (!string.IsNullOrEmpty(TargetVersion))
+                    {
+                        ValidateVersionFormat(TargetVersion, errors, "targetVersion");
+                    }
+
+                    if (!string.IsNullOrEmpty(DefaultVersion))
+                    {
+                        ValidateVersionFormat(DefaultVersion, errors, "defaultVersion");
+                    }
+
+                    // Parse and validate supported versions
+                    if (!string.IsNullOrEmpty(SupportedVersions))
+                    {
+                        var versionList = ParseSupportedVersions();
+                        foreach (var version in versionList)
+                        {
+                            ValidateVersionFormat(version, errors, "supportedVersions");
+                        }
+
+                        // Validate target and default versions are in supported list
+                        if (!string.IsNullOrEmpty(TargetVersion) && versionList.Count > 0 && !versionList.Contains(TargetVersion))
+                        {
+                            errors.Add($"Target version '{TargetVersion}' is not in the list of supported versions");
+                        }
+
+                        if (!string.IsNullOrEmpty(DefaultVersion) && versionList.Count > 0 && !versionList.Contains(DefaultVersion))
+                        {
+                            errors.Add($"Default version '{DefaultVersion}' is not in the list of supported versions");
+                        }
+                    }
+
+                    if (VersionDetectionInterval < TimeSpan.FromMinutes(1))
+                    {
+                        errors.Add("Version detection interval must be at least 1 minute");
+                    }
+
+                    if (VersionDetectionInterval > TimeSpan.FromHours(24))
+                    {
+                        errors.Add("Version detection interval should not exceed 24 hours");
+                    }
+                }
+                else
+                {
+                    // Validate that version-specific settings are not used when disabled
+                    if (!string.IsNullOrEmpty(TargetVersion))
+                    {
+                        errors.Add("Target version should not be specified when version-specific configuration is disabled");
+                    }
+
+                    if (!string.IsNullOrEmpty(DefaultVersion))
+                    {
+                        errors.Add("Default version should not be specified when version-specific configuration is disabled");
+                    }
+
+                    if (!string.IsNullOrEmpty(SupportedVersions))
+                    {
+                        errors.Add("Supported versions should not be specified when version-specific configuration is disabled");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -429,6 +540,54 @@ namespace LicenseReleaseService.Configuration
         public override string ToString()
         {
             return $"TimerConfiguration[DefaultInterval={DefaultInterval.TotalMilliseconds:F2}ms, MaxConsecutiveErrors={MaxConsecutiveErrors}, MaxConcurrentExecutions={MaxConcurrentExecutions}, CircuitBreakerCooldown={CircuitBreakerCooldown.TotalMilliseconds:F2}ms, EnableAutoRestart={EnableAutoRestart}, EnableExecutionTimeout={EnableExecutionTimeout}, ExecutionTimeout={ExecutionTimeout.TotalMilliseconds:F2}ms, EnableMetrics={EnableMetrics}, EnableDetailedLogging={EnableDetailedLogging}, EnableCircuitBreaker={EnableCircuitBreaker}]";
+        }
+
+        /// <summary>
+        /// Validates the version format
+        /// </summary>
+        /// <param name="version">Version to validate</param>
+        /// <param name="errors">Error list to add validation errors to</param>
+        /// <param name="propertyName">Name of the property being validated</param>
+        private void ValidateVersionFormat(string version, List<string> errors, string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(version))
+                return;
+
+            // Validate version format (YYYY pattern for years)
+            if (!System.Text.RegularExpressions.Regex.IsMatch(version, @"^20[0-9]{2}$"))
+            {
+                errors.Add($"Invalid {propertyName} format: {version}. Version must be in YYYY format (e.g., 2023, 2024)");
+                return;
+            }
+
+            // Validate version is within supported range
+            if (int.TryParse(version, out int year))
+            {
+                if (year < 2020 || year > 2030)
+                {
+                    errors.Add($"{propertyName} {version} is outside the supported range (2020-2030)");
+                }
+            }
+            else
+            {
+                errors.Add($"Invalid {propertyName}: {version} is not a valid year");
+            }
+        }
+
+        /// <summary>
+        /// Parses the supported versions string into a list
+        /// </summary>
+        /// <returns>List of supported versions</returns>
+        private List<string> ParseSupportedVersions()
+        {
+            if (string.IsNullOrWhiteSpace(SupportedVersions))
+                return new List<string>();
+
+            return SupportedVersions.Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(v => v.Trim())
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct()
+                .ToList();
         }
 
         /// <summary>
@@ -455,7 +614,13 @@ namespace LicenseReleaseService.Configuration
                 SyncTimeout = SyncTimeout,
                 StopOnUnhandledException = StopOnUnhandledException,
                 DisposalGracePeriod = DisposalGracePeriod,
-                PreventExecutionOverlap = PreventExecutionOverlap
+                PreventExecutionOverlap = PreventExecutionOverlap,
+                TargetVersion = TargetVersion,
+                DefaultVersion = DefaultVersion,
+                EnableVersionSpecificConfig = EnableVersionSpecificConfig,
+                VersionDetectionInterval = VersionDetectionInterval,
+                EnableVersionFallback = EnableVersionFallback,
+                SupportedVersions = ParseSupportedVersions()
             };
 
             return options;

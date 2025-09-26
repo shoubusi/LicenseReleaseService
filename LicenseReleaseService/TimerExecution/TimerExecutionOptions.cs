@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 
 namespace LicenseReleaseService.TimerExecution
@@ -19,6 +20,12 @@ namespace LicenseReleaseService.TimerExecution
         private bool _enableDetailedLogging = true;
         private bool _enableCircuitBreaker = true;
         private int _maxExecutionHistory = 100;
+        private string _targetVersion = string.Empty;
+        private List<string> _supportedVersions = new List<string>();
+        private bool _enableVersionSpecificConfig = false;
+        private TimeSpan _versionDetectionInterval = TimeSpan.FromMinutes(30);
+        private bool _enableVersionFallback = true;
+        private string _defaultVersion = string.Empty;
 
         /// <summary>
         /// Gets or sets the default timer interval
@@ -209,6 +216,93 @@ namespace LicenseReleaseService.TimerExecution
         public bool PreventExecutionOverlap { get; set; } = true;
 
         /// <summary>
+        /// Gets or sets the target SolidWorks version for this timer
+        /// </summary>
+        [DefaultValue("")]
+        public string TargetVersion
+        {
+            get => _targetVersion;
+            set
+            {
+                _targetVersion = value ?? string.Empty;
+                if (!string.IsNullOrEmpty(_targetVersion))
+                {
+                    ValidateVersionFormat(_targetVersion);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the list of supported SolidWorks versions
+        /// </summary>
+        public List<string> SupportedVersions
+        {
+            get => _supportedVersions;
+            set
+            {
+                _supportedVersions = value ?? new List<string>();
+                foreach (var version in _supportedVersions)
+                {
+                    ValidateVersionFormat(version);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets whether to enable version-specific configuration
+        /// </summary>
+        [DefaultValue(false)]
+        public bool EnableVersionSpecificConfig
+        {
+            get => _enableVersionSpecificConfig;
+            set => _enableVersionSpecificConfig = value;
+        }
+
+        /// <summary>
+        /// Gets or sets the interval for version detection and validation
+        /// </summary>
+        [DefaultValue(typeof(TimeSpan), "00:30:00")]
+        public TimeSpan VersionDetectionInterval
+        {
+            get => _versionDetectionInterval;
+            set
+            {
+                if (value <= TimeSpan.Zero)
+                {
+                    throw new ArgumentException("Version detection interval must be greater than zero", nameof(value));
+                }
+                _versionDetectionInterval = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets whether to enable version fallback when target version is unavailable
+        /// </summary>
+        [DefaultValue(true)]
+        public bool EnableVersionFallback
+        {
+            get => _enableVersionFallback;
+            set => _enableVersionFallback = value;
+        }
+
+        /// <summary>
+        /// Gets or sets the default version to use when target version is unavailable
+        /// </summary>
+        [DefaultValue("")]
+        public string DefaultVersion
+        {
+            get => _defaultVersion;
+            set
+            {
+                _defaultVersion = value ?? string.Empty;
+                if (!string.IsNullOrEmpty(_defaultVersion))
+                {
+                    ValidateVersionFormat(_defaultVersion);
+                }
+            }
+        }
+
+        /// <summary>
         /// Initializes a new instance of the TimerExecutionOptions class
         /// </summary>
         public TimerExecutionOptions()
@@ -238,6 +332,40 @@ namespace LicenseReleaseService.TimerExecution
         }
 
         /// <summary>
+        /// Validates the version format
+        /// </summary>
+        /// <param name="version">Version to validate</param>
+        private void ValidateVersionFormat(string version)
+        {
+            if (string.IsNullOrWhiteSpace(version))
+                return;
+
+            // Validate version format (YYYY pattern for years)
+            if (!System.Text.RegularExpressions.Regex.IsMatch(version, @"^20[0-9]{2}$"))
+            {
+                throw new ArgumentException($"Invalid version format: {version}. Version must be in YYYY format (e.g., 2023, 2024)", nameof(version));
+            }
+
+            // Validate version is within supported range
+            if (int.TryParse(version, out int year))
+            {
+                if (year < 2020 || year > 2030)
+                {
+                    throw new ArgumentException($"Version {version} is outside the supported range (2020-2030)", nameof(version));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets the list of default supported SolidWorks versions
+        /// </summary>
+        /// <returns>List of supported versions</returns>
+        public static List<string> GetDefaultSupportedVersions()
+        {
+            return new List<string> { "2020", "2021", "2022", "2023", "2024", "2025" };
+        }
+
+        /// <summary>
         /// Creates a copy of the current options
         /// </summary>
         /// <returns>Copy of the options</returns>
@@ -261,7 +389,13 @@ namespace LicenseReleaseService.TimerExecution
                 SyncTimeout = SyncTimeout,
                 StopOnUnhandledException = StopOnUnhandledException,
                 DisposalGracePeriod = DisposalGracePeriod,
-                PreventExecutionOverlap = PreventExecutionOverlap
+                PreventExecutionOverlap = PreventExecutionOverlap,
+                TargetVersion = TargetVersion,
+                SupportedVersions = new List<string>(SupportedVersions),
+                EnableVersionSpecificConfig = EnableVersionSpecificConfig,
+                VersionDetectionInterval = VersionDetectionInterval,
+                EnableVersionFallback = EnableVersionFallback,
+                DefaultVersion = DefaultVersion
             };
         }
 
@@ -338,6 +472,73 @@ namespace LicenseReleaseService.TimerExecution
                 errors.Add("Default interval cannot be greater than max interval");
             }
 
+            // Version-specific validation
+            if (EnableVersionSpecificConfig)
+            {
+                if (string.IsNullOrEmpty(TargetVersion) && string.IsNullOrEmpty(DefaultVersion))
+                {
+                    errors.Add("Either TargetVersion or DefaultVersion must be specified when version-specific configuration is enabled");
+                }
+
+                if (!string.IsNullOrEmpty(TargetVersion) && SupportedVersions.Count > 0 && !SupportedVersions.Contains(TargetVersion))
+                {
+                    errors.Add($"Target version {TargetVersion} is not in the list of supported versions");
+                }
+
+                if (!string.IsNullOrEmpty(DefaultVersion) && SupportedVersions.Count > 0 && !SupportedVersions.Contains(DefaultVersion))
+                {
+                    errors.Add($"Default version {DefaultVersion} is not in the list of supported versions");
+                }
+
+                if (VersionDetectionInterval < TimeSpan.FromMinutes(1))
+                {
+                    errors.Add("Version detection interval must be at least 1 minute");
+                }
+
+                if (VersionDetectionInterval > TimeSpan.FromHours(24))
+                {
+                    errors.Add("Version detection interval should not exceed 24 hours");
+                }
+            }
+
+            // Validate version formats
+            if (!string.IsNullOrEmpty(TargetVersion))
+            {
+                try
+                {
+                    ValidateVersionFormat(TargetVersion);
+                }
+                catch (ArgumentException ex)
+                {
+                    errors.Add($"Invalid target version: {ex.Message}");
+                }
+            }
+
+            if (!string.IsNullOrEmpty(DefaultVersion))
+            {
+                try
+                {
+                    ValidateVersionFormat(DefaultVersion);
+                }
+                catch (ArgumentException ex)
+                {
+                    errors.Add($"Invalid default version: {ex.Message}");
+                }
+            }
+
+            // Validate supported versions
+            foreach (var version in SupportedVersions)
+            {
+                try
+                {
+                    ValidateVersionFormat(version);
+                }
+                catch (ArgumentException ex)
+                {
+                    errors.Add($"Invalid supported version '{version}': {ex.Message}");
+                }
+            }
+
             return errors;
         }
 
@@ -366,6 +567,14 @@ namespace LicenseReleaseService.TimerExecution
             builder.AppendLine($"  Stop On Unhandled Exception: {StopOnUnhandledException}");
             builder.AppendLine($"  Disposal Grace Period: {DisposalGracePeriod.TotalMilliseconds:F2}ms");
             builder.AppendLine($"  Prevent Execution Overlap: {PreventExecutionOverlap}");
+
+            // Version-specific configuration
+            builder.AppendLine($"  Enable Version Specific Config: {EnableVersionSpecificConfig}");
+            builder.AppendLine($"  Target Version: {TargetVersion ?? "(none)"}");
+            builder.AppendLine($"  Default Version: {DefaultVersion ?? "(none)"}");
+            builder.AppendLine($"  Supported Versions: {string.Join(", ", SupportedVersions)}");
+            builder.AppendLine($"  Version Detection Interval: {VersionDetectionInterval.TotalMinutes:F1}m");
+            builder.AppendLine($"  Enable Version Fallback: {EnableVersionFallback}");
 
             return builder.ToString();
         }
@@ -468,6 +677,98 @@ namespace LicenseReleaseService.TimerExecution
                 MaxInterval = TimeSpan.FromSeconds(10),
                 StopOnUnhandledException = true,
                 PreventExecutionOverlap = true
+            };
+        }
+
+        /// <summary>
+        /// Gets version-specific options for SolidWorks 2025
+        /// </summary>
+        /// <returns>Options optimized for SolidWorks 2025</returns>
+        public static TimerExecutionOptions SolidWorks2025Options()
+        {
+            return new TimerExecutionOptions
+            {
+                DefaultInterval = TimeSpan.FromMinutes(3),
+                MaxConsecutiveErrors = 3,
+                MaxConcurrentExecutions = 1,
+                CircuitBreakerCooldown = TimeSpan.FromMinutes(8),
+                EnableAutoRestart = true,
+                EnableExecutionTimeout = true,
+                ExecutionTimeout = TimeSpan.FromMinutes(4),
+                EnableMetrics = true,
+                EnableDetailedLogging = true,
+                EnableCircuitBreaker = true,
+                MaxExecutionHistory = 75,
+                MinInterval = TimeSpan.FromSeconds(15),
+                MaxInterval = TimeSpan.FromMinutes(30),
+                PreventExecutionOverlap = true,
+                TargetVersion = "2025",
+                SupportedVersions = GetDefaultSupportedVersions(),
+                EnableVersionSpecificConfig = true,
+                VersionDetectionInterval = TimeSpan.FromMinutes(15),
+                EnableVersionFallback = true,
+                DefaultVersion = "2024"
+            };
+        }
+
+        /// <summary>
+        /// Gets version-specific options for SolidWorks 2024
+        /// </summary>
+        /// <returns>Options optimized for SolidWorks 2024</returns>
+        public static TimerExecutionOptions SolidWorks2024Options()
+        {
+            return new TimerExecutionOptions
+            {
+                DefaultInterval = TimeSpan.FromMinutes(4),
+                MaxConsecutiveErrors = 4,
+                MaxConcurrentExecutions = 1,
+                CircuitBreakerCooldown = TimeSpan.FromMinutes(10),
+                EnableAutoRestart = true,
+                EnableExecutionTimeout = true,
+                ExecutionTimeout = TimeSpan.FromMinutes(5),
+                EnableMetrics = true,
+                EnableDetailedLogging = true,
+                EnableCircuitBreaker = true,
+                MaxExecutionHistory = 60,
+                MinInterval = TimeSpan.FromSeconds(30),
+                MaxInterval = TimeSpan.FromMinutes(45),
+                PreventExecutionOverlap = true,
+                TargetVersion = "2024",
+                SupportedVersions = GetDefaultSupportedVersions(),
+                EnableVersionSpecificConfig = true,
+                VersionDetectionInterval = TimeSpan.FromMinutes(20),
+                EnableVersionFallback = true,
+                DefaultVersion = "2023"
+            };
+        }
+
+        /// <summary>
+        /// Gets options for multi-version environments
+        /// </summary>
+        /// <returns>Options optimized for multi-version support</returns>
+        public static TimerExecutionOptions MultiVersionOptions()
+        {
+            return new TimerExecutionOptions
+            {
+                DefaultInterval = TimeSpan.FromMinutes(5),
+                MaxConsecutiveErrors = 5,
+                MaxConcurrentExecutions = 2,
+                CircuitBreakerCooldown = TimeSpan.FromMinutes(15),
+                EnableAutoRestart = true,
+                EnableExecutionTimeout = true,
+                ExecutionTimeout = TimeSpan.FromMinutes(10),
+                EnableMetrics = true,
+                EnableDetailedLogging = true,
+                EnableCircuitBreaker = true,
+                MaxExecutionHistory = 150,
+                MinInterval = TimeSpan.FromMinutes(1),
+                MaxInterval = TimeSpan.FromHours(2),
+                PreventExecutionOverlap = false,
+                SupportedVersions = GetDefaultSupportedVersions(),
+                EnableVersionSpecificConfig = true,
+                VersionDetectionInterval = TimeSpan.FromMinutes(10),
+                EnableVersionFallback = true,
+                DefaultVersion = "2024"
             };
         }
     }

@@ -67,6 +67,16 @@ namespace LicenseReleaseService.Configuration
         }
 
         /// <summary>
+        /// Gets or sets the license query configuration
+        /// </summary>
+        [ConfigurationProperty("licenseQuery")]
+        public LicenseQueryElement LicenseQuery
+        {
+            get { return (LicenseQueryElement)this["licenseQuery"] ?? new LicenseQueryElement(); }
+            set { this["licenseQuery"] = value; }
+        }
+
+        /// <summary>
         /// Validates the configuration section
         /// </summary>
         /// <returns>List of validation errors</returns>
@@ -92,6 +102,9 @@ namespace LicenseReleaseService.Configuration
 
                     // Validate process execution section
                     errors.AddRange(ProcessExecution.Validate());
+
+                    // Validate license query section
+                    errors.AddRange(LicenseQuery.Validate());
                 }
                 catch (Exception ex)
                 {
@@ -115,6 +128,7 @@ namespace LicenseReleaseService.Configuration
             sb.AppendLine($"  Monitoring: {Monitoring}");
             sb.AppendLine($"  Security: {Security}");
             sb.AppendLine($"  ProcessExecution: {ProcessExecution}");
+            sb.AppendLine($"  LicenseQuery: {LicenseQuery}");
             return sb.ToString();
         }
     }
@@ -1163,6 +1177,443 @@ namespace LicenseReleaseService.Configuration
                     options.Encoding = System.Text.Encoding.UTF8;
                     break;
             }
+
+            return options;
+        }
+    }
+
+    /// <summary>
+    /// Configuration element for license query settings
+    /// </summary>
+    public class LicenseQueryElement : ConfigurationElement
+    {
+        [ConfigurationProperty("cacheExpiration", DefaultValue = "00:05:00")]
+        public TimeSpan CacheExpiration
+        {
+            get { return (TimeSpan)this["cacheExpiration"]; }
+            set { this["cacheExpiration"] = value; }
+        }
+
+        [ConfigurationProperty("queryTimeout", DefaultValue = "00:00:30")]
+        public TimeSpan QueryTimeout
+        {
+            get { return (TimeSpan)this["queryTimeout"]; }
+            set { this["queryTimeout"] = value; }
+        }
+
+        [ConfigurationProperty("parsingTimeout", DefaultValue = "00:00:15")]
+        public TimeSpan ParsingTimeout
+        {
+            get { return (TimeSpan)this["parsingTimeout"]; }
+            set { this["parsingTimeout"] = value; }
+        }
+
+        [ConfigurationProperty("serverResponseTimeout", DefaultValue = "00:00:20")]
+        public TimeSpan ServerResponseTimeout
+        {
+            get { return (TimeSpan)this["serverResponseTimeout"]; }
+            set { this["serverResponseTimeout"] = value; }
+        }
+
+        [ConfigurationProperty("retryDelay", DefaultValue = "00:00:02")]
+        public TimeSpan RetryDelay
+        {
+            get { return (TimeSpan)this["retryDelay"]; }
+            set { this["retryDelay"] = value; }
+        }
+
+        [ConfigurationProperty("maxRetries", DefaultValue = 3)]
+        [IntegerValidator(MinValue = 0, MaxValue = 10)]
+        public int MaxRetries
+        {
+            get { return (int)this["maxRetries"]; }
+            set { this["maxRetries"] = value; }
+        }
+
+        [ConfigurationProperty("maxCacheSize", DefaultValue = 1000)]
+        [IntegerValidator(MinValue = 1, MaxValue = 100000)]
+        public int MaxCacheSize
+        {
+            get { return (int)this["maxCacheSize"]; }
+            set { this["maxCacheSize"] = value; }
+        }
+
+        [ConfigurationProperty("maxMemoryUsage", DefaultValue = 52428800)]
+        [LongValidator(MinValue = 1048576, MaxValue = 1073741824)]
+        public long MaxMemoryUsage
+        {
+            get { return (long)this["maxMemoryUsage"]; }
+            set { this["maxMemoryUsage"] = value; }
+        }
+
+        [ConfigurationProperty("maxConcurrentQueries", DefaultValue = 10)]
+        [IntegerValidator(MinValue = 1, MaxValue = 100)]
+        public int MaxConcurrentQueries
+        {
+            get { return (int)this["maxConcurrentQueries"]; }
+            set { this["maxConcurrentQueries"] = value; }
+        }
+
+        [ConfigurationProperty("maxOutputSize", DefaultValue = 10485760)]
+        [LongValidator(MinValue = 0, MaxValue = 1073741824)]
+        public long MaxOutputSize
+        {
+            get { return (long)this["maxOutputSize"]; }
+            set { this["maxOutputSize"] = value; }
+        }
+
+        [ConfigurationProperty("statisticsRetentionDays", DefaultValue = 30)]
+        [IntegerValidator(MinValue = 1, MaxValue = 365)]
+        public int StatisticsRetentionDays
+        {
+            get { return (int)this["statisticsRetentionDays"]; }
+            set { this["statisticsRetentionDays"] = value; }
+        }
+
+        [ConfigurationProperty("maxStatisticsEntries", DefaultValue = 10000)]
+        [IntegerValidator(MinValue = 1, MaxValue = 100000)]
+        public int MaxStatisticsEntries
+        {
+            get { return (int)this["maxStatisticsEntries"]; }
+            set { this["maxStatisticsEntries"] = value; }
+        }
+
+        [ConfigurationProperty("enableCaching", DefaultValue = true)]
+        public bool EnableCaching
+        {
+            get { return (bool)this["enableCaching"]; }
+            set { this["enableCaching"] = value; }
+        }
+
+        [ConfigurationProperty("enableStatistics", DefaultValue = true)]
+        public bool EnableStatistics
+        {
+            get { return (bool)this["enableStatistics"]; }
+            set { this["enableStatistics"] = value; }
+        }
+
+        [ConfigurationProperty("enableVerboseOutput", DefaultValue = false)]
+        public bool EnableVerboseOutput
+        {
+            get { return (bool)this["enableVerboseOutput"]; }
+            set { this["enableVerboseOutput"] = value; }
+        }
+
+        [ConfigurationProperty("enableDetailedParsing", DefaultValue = true)]
+        public bool EnableDetailedParsing
+        {
+            get { return (bool)this["enableDetailedParsing"]; }
+            set { this["enableDetailedParsing"] = value; }
+        }
+
+        [ConfigurationProperty("enableErrorRecovery", DefaultValue = true)]
+        public bool EnableErrorRecovery
+        {
+            get { return (bool)this["enableErrorRecovery"]; }
+            set { this["enableErrorRecovery"] = value; }
+        }
+
+        [ConfigurationProperty("enableIncrementalUpdates", DefaultValue = true)]
+        public bool EnableIncrementalUpdates
+        {
+            get { return (bool)this["enableIncrementalUpdates"]; }
+            set { this["enableIncrementalUpdates"] = value; }
+        }
+
+        [ConfigurationProperty("enableFeatureBatching", DefaultValue = true)]
+        public bool EnableFeatureBatching
+        {
+            get { return (bool)this["enableFeatureBatching"]; }
+            set { this["enableFeatureBatching"] = value; }
+        }
+
+        [ConfigurationProperty("enableUserActivityTracking", DefaultValue = true)]
+        public bool EnableUserActivityTracking
+        {
+            get { return (bool)this["enableUserActivityTracking"]; }
+            set { this["enableUserActivityTracking"] = value; }
+        }
+
+        [ConfigurationProperty("enableBorrowingTracking", DefaultValue = true)]
+        public bool EnableBorrowingTracking
+        {
+            get { return (bool)this["enableBorrowingTracking"]; }
+            set { this["enableBorrowingTracking"] = value; }
+        }
+
+        [ConfigurationProperty("enableHealthMonitoring", DefaultValue = true)]
+        public bool EnableHealthMonitoring
+        {
+            get { return (bool)this["enableHealthMonitoring"]; }
+            set { this["enableHealthMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("enablePerformanceMetrics", DefaultValue = true)]
+        public bool EnablePerformanceMetrics
+        {
+            get { return (bool)this["enablePerformanceMetrics"]; }
+            set { this["enablePerformanceMetrics"] = value; }
+        }
+
+        [ConfigurationProperty("enableAlerting", DefaultValue = true)]
+        public bool EnableAlerting
+        {
+            get { return (bool)this["enableAlerting"]; }
+            set { this["enableAlerting"] = value; }
+        }
+
+        [ConfigurationProperty("failFastOnInvalidData", DefaultValue = false)]
+        public bool FailFastOnInvalidData
+        {
+            get { return (bool)this["failFastOnInvalidData"]; }
+            set { this["failFastOnInvalidData"] = value; }
+        }
+
+        [ConfigurationProperty("enableAutoCleanup", DefaultValue = true)]
+        public bool EnableAutoCleanup
+        {
+            get { return (bool)this["enableAutoCleanup"]; }
+            set { this["enableAutoCleanup"] = value; }
+        }
+
+        [ConfigurationProperty("enableCompactOutput", DefaultValue = false)]
+        public bool EnableCompactOutput
+        {
+            get { return (bool)this["enableCompactOutput"]; }
+            set { this["enableCompactOutput"] = value; }
+        }
+
+        [ConfigurationProperty("defaultOutputFormat", DefaultValue = "Standard")]
+        [StringValidator(MinLength = 1)]
+        public string DefaultOutputFormat
+        {
+            get { return (string)this["defaultOutputFormat"]; }
+            set { this["defaultOutputFormat"] = value; }
+        }
+
+        [ConfigurationProperty("preferredLanguage", DefaultValue = "en-US")]
+        [StringValidator(MinLength = 1)]
+        public string PreferredLanguage
+        {
+            get { return (string)this["preferredLanguage"]; }
+            set { this["preferredLanguage"] = value; }
+        }
+
+        [ConfigurationProperty("alertThreshold", DefaultValue = 90)]
+        [IntegerValidator(MinValue = 0, MaxValue = 100)]
+        public int AlertThreshold
+        {
+            get { return (int)this["alertThreshold"]; }
+            set { this["alertThreshold"] = value; }
+        }
+
+        [ConfigurationProperty("cleanupInterval", DefaultValue = 3600)]
+        [IntegerValidator(MinValue = 1, MaxValue = 86400)]
+        public int CleanupInterval
+        {
+            get { return (int)this["cleanupInterval"]; }
+            set { this["cleanupInterval"] = value; }
+        }
+
+        [ConfigurationProperty("healthCheckInterval", DefaultValue = 60)]
+        [IntegerValidator(MinValue = 1, MaxValue = 3600)]
+        public int HealthCheckInterval
+        {
+            get { return (int)this["healthCheckInterval"]; }
+            set { this["healthCheckInterval"] = value; }
+        }
+
+        [ConfigurationProperty("performanceMetricsInterval", DefaultValue = 30)]
+        [IntegerValidator(MinValue = 1, MaxValue = 3600)]
+        public int PerformanceMetricsInterval
+        {
+            get { return (int)this["performanceMetricsInterval"]; }
+            set { this["performanceMetricsInterval"] = value; }
+        }
+
+        /// <summary>
+        /// Validates the license query configuration
+        /// </summary>
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
+        {
+            var errors = new List<string>();
+
+            try
+            {
+                // Validate timeout relationships
+                if (QueryTimeout < ParsingTimeout)
+                {
+                    errors.Add("Query timeout should be greater than or equal to parsing timeout");
+                }
+
+                if (ServerResponseTimeout > QueryTimeout)
+                {
+                    errors.Add("Server response timeout should be less than or equal to query timeout");
+                }
+
+                // Validate retry logic
+                if (MaxRetries > 0 && RetryDelay.TotalSeconds == 0)
+                {
+                    errors.Add("Retry delay should be greater than zero when max retries is greater than zero");
+                }
+
+                // Validate memory limits
+                if (MaxMemoryUsage > 1073741824) // 1GB
+                {
+                    errors.Add("Max memory usage exceeds recommended limit of 1GB");
+                }
+
+                // Validate concurrent queries
+                if (MaxConcurrentQueries > 100)
+                {
+                    errors.Add("Max concurrent queries exceeds recommended limit of 100");
+                }
+
+                // Validate output size
+                if (MaxOutputSize > 104857600) // 100MB
+                {
+                    errors.Add("Max output size exceeds recommended limit of 100MB");
+                }
+
+                // Validate statistics settings
+                if (StatisticsRetentionDays > 365)
+                {
+                    errors.Add("Statistics retention days exceeds recommended limit of 365");
+                }
+
+                if (MaxStatisticsEntries > 100000)
+                {
+                    errors.Add("Max statistics entries exceeds recommended limit of 100000");
+                }
+
+                // Validate interval relationships
+                if (PerformanceMetricsInterval > HealthCheckInterval)
+                {
+                    errors.Add("Performance metrics interval should be less than or equal to health check interval");
+                }
+
+                if (CleanupInterval < HealthCheckInterval)
+                {
+                    errors.Add("Cleanup interval should be greater than or equal to health check interval");
+                }
+
+                // Validate alert threshold
+                if (AlertThreshold < 50 && EnableAlerting)
+                {
+                    errors.Add("Alert threshold less than 50% may generate excessive notifications");
+                }
+
+                // Validate output format
+                var validFormats = new[] { "Standard", "Verbose", "Compact", "JSON", "XML" };
+                if (!Array.Exists(validFormats, format => format.Equals(DefaultOutputFormat, StringComparison.OrdinalIgnoreCase)))
+                {
+                    errors.Add($"Invalid default output format: {DefaultOutputFormat}. Valid formats are: {string.Join(", ", validFormats)}");
+                }
+
+                // Validate language format
+                if (!System.Globalization.CultureInfo.GetCultures(System.Globalization.CultureTypes.AllCultures)
+                    .Any(c => c.Name.Equals(PreferredLanguage, StringComparison.OrdinalIgnoreCase)))
+                {
+                    errors.Add($"Invalid preferred language: {PreferredLanguage}");
+                }
+
+                // Validate cache settings
+                if (EnableCaching && MaxCacheSize <= 0)
+                {
+                    errors.Add("Max cache size must be greater than zero when caching is enabled");
+                }
+
+                if (EnableCaching && CacheExpiration.TotalSeconds <= 0)
+                {
+                    errors.Add("Cache expiration must be greater than zero when caching is enabled");
+                }
+
+                // Validate statistics settings
+                if (EnableStatistics && StatisticsRetentionDays <= 0)
+                {
+                    errors.Add("Statistics retention days must be greater than zero when statistics are enabled");
+                }
+
+                if (EnableStatistics && MaxStatisticsEntries <= 0)
+                {
+                    errors.Add("Max statistics entries must be greater than zero when statistics are enabled");
+                }
+
+                // Validate monitoring settings
+                if (EnableHealthMonitoring && HealthCheckInterval <= 0)
+                {
+                    errors.Add("Health check interval must be greater than zero when health monitoring is enabled");
+                }
+
+                if (EnablePerformanceMetrics && PerformanceMetricsInterval <= 0)
+                {
+                    errors.Add("Performance metrics interval must be greater than zero when performance metrics are enabled");
+                }
+
+                if (EnableAutoCleanup && CleanupInterval <= 0)
+                {
+                    errors.Add("Cleanup interval must be greater than zero when auto cleanup is enabled");
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"License query validation error: {ex.Message}");
+            }
+
+            return errors;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the configuration
+        /// </summary>
+        public override string ToString()
+        {
+            return $"LicenseQuery[CacheExp={CacheExpiration.TotalMinutes:F1}m, Timeout={QueryTimeout.TotalSeconds:F1}s, MaxRetries={MaxRetries}, Caching={EnableCaching}, DetailedParsing={EnableDetailedParsing}]";
+        }
+
+        /// <summary>
+        /// Converts the configuration to a LicenseQueryOptions object
+        /// </summary>
+        /// <returns>LicenseQueryOptions object</returns>
+        public LicenseQueryOptions ToLicenseQueryOptions()
+        {
+            var options = new LicenseQueryOptions
+            {
+                CacheExpiration = CacheExpiration,
+                QueryTimeout = QueryTimeout,
+                ParsingTimeout = ParsingTimeout,
+                ServerResponseTimeout = ServerResponseTimeout,
+                RetryDelay = RetryDelay,
+                MaxRetries = MaxRetries,
+                MaxCacheSize = MaxCacheSize,
+                MaxMemoryUsage = (int)MaxMemoryUsage,
+                MaxConcurrentQueries = MaxConcurrentQueries,
+                MaxOutputSize = (int)MaxOutputSize,
+                StatisticsRetentionDays = StatisticsRetentionDays,
+                MaxStatisticsEntries = MaxStatisticsEntries,
+                EnableCaching = EnableCaching,
+                EnableStatistics = EnableStatistics,
+                EnableVerboseOutput = EnableVerboseOutput,
+                EnableDetailedParsing = EnableDetailedParsing,
+                EnableErrorRecovery = EnableErrorRecovery,
+                EnableIncrementalUpdates = EnableIncrementalUpdates,
+                EnableFeatureBatching = EnableFeatureBatching,
+                EnableUserActivityTracking = EnableUserActivityTracking,
+                EnableBorrowingTracking = EnableBorrowingTracking,
+                EnableHealthMonitoring = EnableHealthMonitoring,
+                EnablePerformanceMetrics = EnablePerformanceMetrics,
+                EnableAlerting = EnableAlerting,
+                FailFastOnInvalidData = FailFastOnInvalidData,
+                EnableAutoCleanup = EnableAutoCleanup,
+                EnableCompactOutput = EnableCompactOutput,
+                DefaultOutputFormat = DefaultOutputFormat,
+                PreferredLanguage = PreferredLanguage,
+                AlertThreshold = AlertThreshold,
+                CleanupInterval = CleanupInterval,
+                HealthCheckInterval = HealthCheckInterval,
+                PerformanceMetricsInterval = PerformanceMetricsInterval
+            };
 
             return options;
         }

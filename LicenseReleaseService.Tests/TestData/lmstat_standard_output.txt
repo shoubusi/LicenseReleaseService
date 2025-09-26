@@ -1,0 +1,23 @@
+License server status: 27000@license-server
+    License file(s) on license-server:
+    SOLIDWORKS: license server UP (MASTER) v11.16.2
+
+Vendor daemon status (on license-server):
+    solidworks: UP v11.16.2
+
+Feature usage info:
+Users of solidworks:  (Total of 100 licenses issued;  Total of 25 licenses in use)
+
+"johndoe" workstation1 (v2023.1) (license-server/27000 123), start Mon 9/25 23:45
+"janedoe" workstation2 (v2023.1) (license-server/27000 456), start Mon 9/25 22:30
+"bobsmith" workstation3 (v2023.1) (license-server/27000 789), start Mon 9/25 21:15
+
+Users of toolbox:  (Total of 50 licenses issued;  Total of 10 licenses in use)
+
+"alice" workstation4 (v2023.1) (license-server/27000 101), start Mon 9/25 20:45
+"charlie" workstation5 (v2023.1) (license-server/27000 202), start Mon 9/25 19:30
+
+Users of photoview360:  (Total of 25 licenses issued;  Total of 5 licenses in use)
+
+"david" workstation6 (v2023.1) (license-server/27000 303), start Mon 9/25 18:15
+"eve" workstation7 (v2023.1) (license-server/27000 404), start Mon 9/25 17:00

@@ -1,0 +1,16 @@
+ERROR: Cannot connect to license server
+Connection refused to 27000@license-server
+Please check if the license server is running.
+
+Detailed error information:
+  Error code: -15
+  Error message: Connection refused
+  Server: 27000@license-server
+  Operation: lmstat
+  Timestamp: 2025-09-26T10:30:45Z
+
+Troubleshooting steps:
+  1. Verify license server is running on license-server:27000
+  2. Check network connectivity to license-server
+  3. Verify firewall settings allow port 27000
+  4. Check license server logs for errors

@@ -1,0 +1,43 @@
+License server status: 27000@license-server
+    License file(s) on license-server:
+    SOLIDWORKS: license server UP (MASTER) v11.16.2
+    Server start: Mon 9/25 08:00:15
+    Server uptime: 15 hours 30 minutes 45 seconds
+    Platform: Windows x64
+    Architecture: Intel(R) Xeon(R) CPU
+
+Vendor daemon status (on license-server):
+    solidworks: UP v11.16.2
+    lmgrd: UP v11.16.2
+    solidworks daemon: UP v11.16.2
+
+Feature usage info:
+Users of solidworks:  (Total of 100 licenses issued;  Total of 30 licenses in use)
+
+"johndoe" workstation1 (v2023.1) (license-server/27000 123), start Mon 9/25 23:45
+"janedoe" workstation2 (v2023.1) (license-server/27000 456), start Mon 9/25 22:30 (idle 15 minutes)
+"bobsmith" workstation3 (v2023.1) (license-server/27000 789), start Mon 9/25 21:15 (idle 1 hour 30 minutes)
+
+Users of toolbox:  (Total of 50 licenses issued;  Total of 15 licenses in use)
+    expires: 12/31/2024 23:59:59
+    version: v2023.1
+
+"alice" workstation4 (v2023.1) (license-server/27000 101), start Mon 9/25 20:45
+"charlie" workstation5 (v2023.1) (license-server/27000 202), start Mon 9/25 19:30 (borrowed)
+"diana" workstation6 (v2023.1) (license-server/27000 303), start Mon 9/25 18:15 (detached)
+
+Users of photoview360:  (Total of 25 licenses issued;  Total of 8 licenses in use)
+    expires: 06/30/2025
+    vendor: Dassault Systèmes
+
+"david" workstation7 (v2023.1) (license-server/27000 404), start Mon 9/25 17:00
+"eve" workstation8 (v2023.1) (license-server/27000 505), start Mon 9/25 16:45 (process 1234 sldworks.exe)
+"frank" workstation9 (v2022.3) (license-server/27000 606), start Mon 9/25 15:30
+
+Server status summary:
+  Total licenses: 175
+  Licenses in use: 53
+  Available licenses: 122
+  Connected users: 37
+  Server health: GOOD
+  Response time: 45ms

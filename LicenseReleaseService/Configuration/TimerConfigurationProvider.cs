@@ -24,6 +24,7 @@ namespace LicenseReleaseService.Configuration
         private DateTime _lastVersionDetectionTime;
         private readonly List<string> _detectedVersions = new List<string>();
         private Timer _versionDetectionTimer;
+        private TimerVersionConfigurationValidator _validator;
 
         /// <summary>
         /// Event raised when configuration is reloaded
@@ -51,6 +52,7 @@ namespace LicenseReleaseService.Configuration
             _versionSpecificCache = new Dictionary<string, TimerConfigurationElement>();
             InitializeConfigWatcher();
             InitializeVersionDetection();
+            InitializeValidation();
         }
 
         /// <summary>
@@ -535,6 +537,14 @@ namespace LicenseReleaseService.Configuration
         }
 
         /// <summary>
+        /// Initializes validation
+        /// </summary>
+        private void InitializeValidation()
+        {
+            _validator = new TimerVersionConfigurationValidator(this);
+        }
+
+        /// <summary>
         /// Callback for version detection timer
         /// </summary>
         /// <param name="state">Timer state</param>
@@ -820,6 +830,90 @@ namespace LicenseReleaseService.Configuration
                 ActiveVersion = GetActiveVersion(),
                 VersionDetectionInterval = CurrentConfiguration.VersionDetectionInterval
             };
+        }
+
+        /// <summary>
+        /// Validates the current version-specific configuration
+        /// </summary>
+        /// <returns>Validation result with errors and warnings</returns>
+        public TimerVersionValidationResult ValidateConfiguration()
+        {
+            try
+            {
+                return _validator.ValidateConfiguration();
+            }
+            catch (Exception ex)
+            {
+                return TimerVersionValidationResult.Failure($"Validation error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Validates the configuration and throws an exception if invalid
+        /// </summary>
+        /// <param name="includeWarnings">Whether to consider warnings as invalid</param>
+        public void ValidateConfigurationStrict(bool includeWarnings = false)
+        {
+            var result = ValidateConfiguration();
+
+            if (!result.IsValid || (includeWarnings && result.HasWarnings))
+            {
+                var message = $"Configuration validation failed. {result.GetStatusMessage()}";
+                if (result.Errors.Count > 0)
+                {
+                    message += $"\nErrors: {string.Join("; ", result.Errors)}";
+                }
+                if (includeWarnings && result.Warnings.Count > 0)
+                {
+                    message += $"\nWarnings: {string.Join("; ", result.Warnings)}";
+                }
+                throw new InvalidOperationException(message);
+            }
+        }
+
+        /// <summary>
+        /// Validates configuration and logs any issues
+        /// </summary>
+        /// <returns>True if configuration is valid, false otherwise</returns>
+        public bool ValidateAndLogConfiguration()
+        {
+            var result = ValidateConfiguration();
+
+            // Log validation results
+            if (!result.IsValid)
+            {
+                foreach (var error in result.Errors)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Configuration Error: {error}");
+                }
+            }
+
+            if (result.HasWarnings)
+            {
+                foreach (var warning in result.Warnings)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Configuration Warning: {warning}");
+                }
+            }
+
+            foreach (var info in result.Information)
+            {
+                System.Diagnostics.Debug.WriteLine($"Configuration Info: {info}");
+            }
+
+            System.Diagnostics.Debug.WriteLine($"Configuration Validation: {result.GetStatusMessage()}");
+
+            return result.IsValid;
+        }
+
+        /// <summary>
+        /// Gets validation summary for display
+        /// </summary>
+        /// <returns>Formatted validation summary</returns>
+        public string GetValidationSummary()
+        {
+            var result = ValidateConfiguration();
+            return result.GetSummary();
         }
 
         /// <summary>

@@ -12,6 +12,7 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <LangVersion>8.0</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -44,6 +45,8 @@
     <Reference Include="System.ServiceProcess" />
     <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Xml" />
+    <Reference Include="System.Runtime.Caching" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration\ConfigurationManager.cs" />
@@ -57,6 +60,72 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+
+    <!-- Process Execution Files -->
+    <Compile Include="Process\IProcessExecutor.cs" />
+    <Compile Include="Process\ProcessExecutionResult.cs" />
+    <Compile Include="Process\ProcessExecutionOptions.cs" />
+    <Compile Include="Process\ProcessExecutionException.cs" />
+    <Compile Include="Process\ProcessExecutor.cs" />
+
+    <!-- License Management Files -->
+    <Compile Include="LicenseManagement\OutputParsingException.cs" />
+    <Compile Include="LicenseManagement\LmutilCommands.cs" />
+    <Compile Include="LicenseManagement\ILicenseManager.cs" />
+    <Compile Include="LicenseManagement\ParsingPatterns.cs" />
+    <Compile Include="LicenseManagement\CommandArguments.cs" />
+    <Compile Include="LicenseManagement\LmutilOutputParser.cs" />
+    <Compile Include="LicenseManagement\LmutilCommandBuilder.cs" />
+    <Compile Include="LicenseManagement\LicenseReleaseResult.cs" />
+    <Compile Include="LicenseManagement\LmutilLicenseManager.cs" />
+    <Compile Include="LicenseManagement\CircuitBreaker.cs" />
+    <Compile Include="LicenseManagement\RetryPolicy.cs" />
+    <Compile Include="LicenseManagement\RecoveryManager.cs" />
+    <Compile Include="LicenseManagement\CircuitBreakerEnhanced.cs" />
+    <Compile Include="LicenseManagement\ErrorClassification.cs" />
+    <Compile Include="LicenseManagement\AutomaticRecoveryManager.cs" />
+    <Compile Include="LicenseManagement\ProcessMetrics.cs" />
+    <Compile Include="LicenseManagement\PerformanceMonitor.cs" />
+    <Compile Include="LicenseManagement\HealthChecker.cs" />
+    <Compile Include="LicenseManagement\MonitoredLicenseManager.cs" />
+
+    <!-- License Management Models -->
+    <Compile Include="LicenseManagement\Models\LicenseStatus.cs" />
+    <Compile Include="LicenseManagement\Models\LicenseInfo.cs" />
+    <Compile Include="LicenseManagement\Models\LicenseFeature.cs" />
+    <Compile Include="LicenseManagement\LicenseServerStatus.cs" />
+
+    <!-- License Management Parsing -->
+    <Compile Include="LicenseManagement\Parsing\ParsingPatterns.cs" />
+    <Compile Include="LicenseManagement\Parsing\OutputParsingException.cs" />
+    <Compile Include="LicenseManagement\Parsing\LmstatOutputParser.cs" />
+
+    <!-- License Management Caching -->
+    <Compile Include="LicenseManagement\Caching\ICacheManager.cs" />
+    <Compile Include="LicenseManagement\Caching\CacheOptions.cs" />
+    <Compile Include="LicenseManagement\Caching\CacheStatistics.cs" />
+    <Compile Include="LicenseManagement\Caching\MemoryCacheManager.cs" />
+
+    <!-- License Management Query Engine -->
+    <Compile Include="LicenseManagement\ILicenseQueryEngine.cs" />
+    <Compile Include="LicenseManagement\LicenseQueryException.cs" />
+    <Compile Include="LicenseManagement\LicenseQueryEngine.cs" />
+
+    <!-- Configuration Query Options -->
+    <Compile Include="Configuration\LicenseQueryOptions.cs" />
+
+    <!-- Configuration Management -->
+    <Compile Include="Configuration\ConfigurationEvents.cs" />
+    <Compile Include="Configuration\ConfigurationWatcher.cs" />
+    <Compile Include="Configuration\ConfigurationReloadManager.cs" />
+    <Compile Include="Configuration\ConfigurationHealthMonitor.cs" />
+
+    <!-- Service Components -->
+    <Compile Include="PerformanceCounters.cs" />
+    <Compile Include="ServiceHealth.cs" />
+    <Compile Include="RecoveryManager.cs" />
+    <Compile Include="ServiceState.cs" />
+    <Compile Include="ProjectInstaller.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

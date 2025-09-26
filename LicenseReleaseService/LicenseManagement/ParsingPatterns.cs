@@ -98,7 +98,7 @@ namespace LicenseReleaseService.LicenseManagement
 
         // lmhostid patterns
         public static readonly Regex HostIdPattern = new Regex(
-            @"^The\s+hostid\s+of\s+this\s+machine\s+is\s+\"([^\"]+)\"",
+            @"^The\s+hostid\s+of\s+this\s+machine\s+is\s+""([^""]+)""",
             RegexOptions.Compiled | RegexOptions.Multiline);
 
         // Utility patterns

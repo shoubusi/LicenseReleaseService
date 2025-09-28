@@ -683,7 +683,7 @@ namespace LicenseReleaseService.TimerExecution
             }
         }
 
-        private double GetCpuUsagePercent(Process process)
+        private double GetCpuUsagePercent(System.Diagnostics.Process process)
         {
             try
             {

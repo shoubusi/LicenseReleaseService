@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using LicenseReleaseService.Configuration;
 using LicenseReleaseService.LicenseManagement.Models;
 using LicenseReleaseService.Process;
+using LicenseReleaseService.LicenseManagement.Caching;
 
 namespace LicenseReleaseService.LicenseManagement
 {
@@ -173,84 +174,7 @@ namespace LicenseReleaseService.LicenseManagement
         List<string> ValidateConfiguration();
     }
 
-    /// <summary>
-    /// Represents license usage statistics
-    /// </summary>
-    public class LicenseUsageStatistics
-    {
-        /// <summary>
-        /// Gets or sets the total number of licenses
-        /// </summary>
-        public int TotalLicenses { get; set; }
-
-        /// <summary>
-        /// Gets or sets the number of licenses in use
-        /// </summary>
-        public int LicensesInUse { get; set; }
-
-        /// <summary>
-        /// Gets or sets the number of available licenses
-        /// </summary>
-        public int AvailableLicenses { get; set; }
-
-        /// <summary>
-        /// Gets or sets the number of active users
-        /// </summary>
-        public int ActiveUsers { get; set; }
-
-        /// <summary>
-        /// Gets or sets the number of idle users
-        /// </summary>
-        public int IdleUsers { get; set; }
-
-        /// <summary>
-        /// Gets or sets the number of borrowed users
-        /// </summary>
-        public int BorrowedUsers { get; set; }
-
-        /// <summary>
-        /// Gets or sets the utilization percentage
-        /// </summary>
-        public double UtilizationPercentage { get; set; }
-
-        /// <summary>
-        /// Gets or sets the availability percentage
-        /// </summary>
-        public double AvailabilityPercentage { get; set; }
-
-        /// <summary>
-        /// Gets or sets the idle percentage
-        /// </summary>
-        public double IdlePercentage { get; set; }
-
-        /// <summary>
-        /// Gets or sets the statistics timestamp
-        /// </summary>
-        public DateTime Timestamp { get; set; } = DateTime.Now;
-
-        /// <summary>
-        /// Gets or sets the server address
-        /// </summary>
-        public string Server { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Gets or sets the server port
-        /// </summary>
-        public int Port { get; set; }
-
-        /// <summary>
-        /// Returns a string representation of the license usage statistics
-        /// </summary>
-        /// <returns>String representation</returns>
-        public override string ToString()
-        {
-            return $"LicenseUsageStatistics[Server={Server}:{Port}, Total={TotalLicenses}, " +
-                   $"InUse={LicensesInUse}, Available={AvailableLicenses}, Users={ActiveUsers}, " +
-                   $"Utilization={UtilizationPercentage:F1}%, Availability={AvailabilityPercentage:F1}%, " +
-                   $"Idle={IdlePercentage:F1}%, Timestamp={Timestamp:yyyy-MM-dd HH:mm:ss}]";
-        }
-    }
-
+    
     /// <summary>
     /// Represents license server health information
     /// </summary>

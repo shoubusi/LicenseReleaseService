@@ -127,7 +127,7 @@ namespace LicenseReleaseService.LicenseManagement
     public class AutomaticRecoveryManager : IDisposable
     {
         private readonly ILogger _logger;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly Microsoft.Extensions.DependencyInjection.IServiceProvider _serviceProvider;
         private readonly ErrorClassifier _errorClassifier;
         private readonly RecoveryManager _recoveryManager;
         private readonly ConcurrentQueue<RecoveryRequest> _recoveryQueue;
@@ -153,7 +153,7 @@ namespace LicenseReleaseService.LicenseManagement
         /// <param name="recoveryManager">Recovery manager instance</param>
         public AutomaticRecoveryManager(
             ILogger logger,
-            IServiceProvider serviceProvider,
+            Microsoft.Extensions.DependencyInjection.IServiceProvider serviceProvider,
             ErrorClassifier errorClassifier,
             RecoveryManager recoveryManager)
         {

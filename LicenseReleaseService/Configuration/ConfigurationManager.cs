@@ -681,6 +681,24 @@ namespace LicenseReleaseService.Configuration
         }
 
         /// <summary>
+        /// Creates a configuration backup (synchronous)
+        /// </summary>
+        public string CreateBackup(string reason)
+        {
+            if (_reloadManager == null)
+                throw new InvalidOperationException("Reload manager is not available");
+
+            // Parse reason string to enum
+            BackupReason backupReason = BackupReason.Manual;
+            if (Enum.TryParse<BackupReason>(reason, true, out var parsedReason))
+            {
+                backupReason = parsedReason;
+            }
+
+            return CreateBackupAsync(backupReason).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
         /// Restores configuration from a backup
         /// </summary>
         public async Task<bool> RestoreFromBackupAsync(Guid backupId)
@@ -873,39 +891,4 @@ namespace LicenseReleaseService.Configuration
         }
     }
 
-    /// <summary>
-    /// Event arguments for configuration reload events
-    /// </summary>
-    public class ConfigurationReloadEventArgs : EventArgs
-    {
-        /// <summary>
-        /// Gets the old configuration
-        /// </summary>
-        public LicenseReleaseServiceSection OldConfiguration { get; }
-
-        /// <summary>
-        /// Gets the new configuration
-        /// </summary>
-        public LicenseReleaseServiceSection NewConfiguration { get; }
-
-        /// <summary>
-        /// Gets the validation errors
-        /// </summary>
-        public List<string> ValidationErrors { get; }
-
-        /// <summary>
-        /// Gets whether the reload was successful
-        /// </summary>
-        public bool IsSuccess => ValidationErrors.Count == 0;
-
-        /// <summary>
-        /// Initializes a new instance of the ConfigurationReloadEventArgs class
-        /// </summary>
-        public ConfigurationReloadEventArgs(LicenseReleaseServiceSection oldConfig, LicenseReleaseServiceSection newConfig, List<string> validationErrors)
-        {
-            OldConfiguration = oldConfig;
-            NewConfiguration = newConfig;
-            ValidationErrors = validationErrors ?? new List<string>();
-        }
     }
-}

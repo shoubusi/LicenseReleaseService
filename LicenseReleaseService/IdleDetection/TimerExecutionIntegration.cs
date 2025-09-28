@@ -4,6 +4,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LicenseReleaseService.TimerExecution;
+using LicenseReleaseService.IdleDetection.Models;
+using LicenseReleaseService.IdleDetection.Events;
+using LicenseReleaseService.IdleDetection.Collections;
 
 namespace LicenseReleaseService.IdleDetection
 {
@@ -937,27 +940,7 @@ namespace LicenseReleaseService.IdleDetection
         }
     }
 
-    /// <summary>
-    /// Read-only queue wrapper
-    /// </summary>
-    public class ReadOnlyQueue<T> : IReadOnlyQueue<T>
-    {
-        private readonly Queue<T> _queue;
-
-        public ReadOnlyQueue(Queue<T> queue)
-        {
-            _queue = queue ?? new Queue<T>();
-        }
-
-        public int Count => _queue.Count;
-
-        public T Peek() => _queue.Peek();
-
-        public IEnumerator<T> GetEnumerator() => _queue.GetEnumerator();
-
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _queue.GetEnumerator();
-    }
-
+    
     /// <summary>
     /// Represents a timer registration
     /// </summary>

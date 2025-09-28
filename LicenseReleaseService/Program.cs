@@ -6,9 +6,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Configuration.Install;
 using System.IO;
+using Microsoft.Extensions.DependencyInjection;
 using LicenseReleaseService.Configuration;
 using LicenseReleaseService.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace LicenseReleaseService
@@ -19,7 +19,7 @@ namespace LicenseReleaseService
 		private const string ServiceDisplayName = "License Release Service";
 		private const string ServiceDescription = "Manages software license releases and monitoring";
 		private static readonly ILogger _logger = new EventLogLogger();
-		private static IServiceProvider _serviceProvider;
+		private static Microsoft.Extensions.DependencyInjection.IServiceProvider _serviceProvider;
 
 		/// <summary>
 		/// The main entry point for the application.

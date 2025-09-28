@@ -595,9 +595,9 @@ namespace LicenseReleaseService.TimerExecution
     }
 
     /// <summary>
-    /// Memory pressure levels for the timer memory manager
+    /// Memory pressure levels for the timer performance tuner
     /// </summary>
-    public enum TimerMemoryPressureLevel
+    public enum TimerPerformanceTunerMemoryPressureLevel
     {
         /// <summary>
         /// No memory pressure

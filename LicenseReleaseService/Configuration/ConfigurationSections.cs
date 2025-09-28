@@ -7,6 +7,8 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using LicenseReleaseService.IdleDetection;
+using LicenseReleaseService.Process;
+using LicenseReleaseService.Configuration;
 
 namespace LicenseReleaseService.Configuration
 {

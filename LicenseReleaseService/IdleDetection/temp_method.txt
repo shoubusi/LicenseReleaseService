@@ -1,0 +1,56 @@
+        /// <summary>
+        /// Applies hysteresis to prevent rapid state changes
+        </summary>
+        public DetectionLevel ApplyHysteresis(DetectionLevel currentLevel, DetectionLevel newLevel, TimeSpan idleTime, string userName, string computerName)
+        {
+            if (!_config.EnableHysteresis)
+                return newLevel;
+
+            // Get user-specific hysteresis data
+            var userKey = GetUserKey(userName, computerName);
+            var userThreshold = GetUserThresholdData(userKey);
+
+            // Only allow state changes with sufficient margin
+            switch (currentLevel)
+            {
+                case DetectionLevel.Active:
+                    // Allow transition to Warning normally
+                    break;
+
+                case DetectionLevel.Warning:
+                    // Require exceeding Imminent threshold by hysteresis period
+                    if (newLevel == DetectionLevel.Imminent)
+                    {
+                        var imminentWithHysteresis = userThreshold.CurrentImminentThreshold + _config.HysteresisPeriod;
+                        if (idleTime < imminentWithHysteresis)
+                            return DetectionLevel.Warning;
+                    }
+                    break;
+
+                case DetectionLevel.Imminent:
+                    // Require exceeding Critical threshold by hysteresis period
+                    if (newLevel == DetectionLevel.Critical)
+                    {
+                        var criticalWithHysteresis = userThreshold.CurrentCriticalThreshold + _config.HysteresisPeriod;
+                        if (idleTime < criticalWithHysteresis)
+                            return DetectionLevel.Imminent;
+                    }
+                    break;
+
+                case DetectionLevel.Critical:
+                    // Require exceeding Release threshold by hysteresis period
+                    if (newLevel == DetectionLevel.Release)
+                    {
+                        var releaseWithHysteresis = userThreshold.CurrentCriticalThreshold + _config.HysteresisPeriod;
+                        if (idleTime < releaseWithHysteresis)
+                            return DetectionLevel.Critical;
+                    }
+                    break;
+
+                case DetectionLevel.Release:
+                    // Stay in Release state until activity detected
+                    break;
+            }
+
+            return newLevel;
+        }

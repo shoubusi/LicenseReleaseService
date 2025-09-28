@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LicenseReleaseService.LicenseManagement;
+using LicenseReleaseService.LicenseManagement.Models;
+using LicenseReleaseService.IdleDetection.Models;
 
 namespace LicenseReleaseService.IdleDetection
 {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
+using LicenseReleaseService.Models;
 
 namespace LicenseReleaseService.IdleDetection
 {
@@ -11,7 +12,7 @@ namespace LicenseReleaseService.IdleDetection
     public class TimeBasedDetectionConfig : ConfigurationElement
     {
         [ConfigurationProperty("detectionIntervalSeconds", DefaultValue = 60)]
-        [IntegerValidator(MinValue = 10, MaxValue = 3600)]
+        [System.Configuration.IntegerValidator(MinValue = 10, MaxValue = 3600)]
         public int DetectionIntervalSeconds
         {
             get { return (int)this["detectionIntervalSeconds"]; }
@@ -19,7 +20,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("warningThresholdMinutes", DefaultValue = 5)]
-        [IntegerValidator(MinValue = 1, MaxValue = 120)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 120)]
         public int WarningThresholdMinutes
         {
             get { return (int)this["warningThresholdMinutes"]; }
@@ -27,7 +28,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("imminentThresholdMinutes", DefaultValue = 10)]
-        [IntegerValidator(MinValue = 2, MaxValue = 240)]
+        [System.Configuration.IntegerValidator(MinValue = 2, MaxValue = 240)]
         public int ImminentThresholdMinutes
         {
             get { return (int)this["imminentThresholdMinutes"]; }
@@ -35,7 +36,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("criticalThresholdMinutes", DefaultValue = 15)]
-        [IntegerValidator(MinValue = 5, MaxValue = 480)]
+        [System.Configuration.IntegerValidator(MinValue = 5, MaxValue = 480)]
         public int CriticalThresholdMinutes
         {
             get { return (int)this["criticalThresholdMinutes"]; }
@@ -59,7 +60,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("workDayMultiplier", DefaultValue = 1.0)]
-        [DoubleValidator(MinValue = 0.1, MaxValue = 5.0)]
+        [DoubleValidator(Minimum = 0.1, Maximum = 5.0)]
         public double WorkDayMultiplier
         {
             get { return (double)this["workDayMultiplier"]; }
@@ -67,7 +68,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("offHourMultiplier", DefaultValue = 0.5)]
-        [DoubleValidator(MinValue = 0.1, MaxValue = 5.0)]
+        [DoubleValidator(Minimum = 0.1, Maximum = 5.0)]
         public double OffHourMultiplier
         {
             get { return (double)this["offHourMultiplier"]; }
@@ -75,7 +76,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("hysteresisMinutes", DefaultValue = 2)]
-        [IntegerValidator(MinValue = 0, MaxValue = 30)]
+        [System.Configuration.IntegerValidator(MinValue = 0, MaxValue = 30)]
         public int HysteresisMinutes
         {
             get { return (int)this["hysteresisMinutes"]; }
@@ -83,7 +84,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("confidenceThreshold", DefaultValue = 0.7)]
-        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
+        [DoubleValidator(Minimum = 0.0, Maximum = 1.0)]
         public double ConfidenceThreshold
         {
             get { return (double)this["confidenceThreshold"]; }
@@ -140,7 +141,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("monitoringSampleRateMs", DefaultValue = 100)]
-        [IntegerValidator(MinValue = 10, MaxValue = 1000)]
+        [System.Configuration.IntegerValidator(MinValue = 10, MaxValue = 1000)]
         public int MonitoringSampleRateMs
         {
             get { return (int)this["monitoringSampleRateMs"]; }
@@ -148,7 +149,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("maxDetectionTimeMs", DefaultValue = 5000)]
-        [IntegerValidator(MinValue = 1000, MaxValue = 30000)]
+        [System.Configuration.IntegerValidator(MinValue = 1000, MaxValue = 30000)]
         public int MaxDetectionTimeMs
         {
             get { return (int)this["maxDetectionTimeMs"]; }
@@ -156,7 +157,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("adaptiveLearningRate", DefaultValue = 0.1)]
-        [DoubleValidator(MinValue = 0.01, MaxValue = 0.5)]
+        [DoubleValidator(Minimum = 0.01, Maximum = 0.5)]
         public double AdaptiveLearningRate
         {
             get { return (double)this["adaptiveLearningRate"]; }
@@ -164,7 +165,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("minAdaptiveThreshold", DefaultValue = 0.1)]
-        [DoubleValidator(MinValue = 0.01, MaxValue = 1.0)]
+        [DoubleValidator(Minimum = 0.01, Maximum = 1.0)]
         public double MinAdaptiveThreshold
         {
             get { return (double)this["minAdaptiveThreshold"]; }
@@ -172,7 +173,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("maxAdaptiveThreshold", DefaultValue = 2.0)]
-        [DoubleValidator(MinValue = 0.1, MaxValue = 10.0)]
+        [DoubleValidator(Minimum = 0.1, Maximum = 10.0)]
         public double MaxAdaptiveThreshold
         {
             get { return (double)this["maxAdaptiveThreshold"]; }
@@ -187,7 +188,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("weekendMultiplier", DefaultValue = 0.3)]
-        [DoubleValidator(MinValue = 0.1, MaxValue = 5.0)]
+        [DoubleValidator(Minimum = 0.1, Maximum = 5.0)]
         public double WeekendMultiplier
         {
             get { return (double)this["weekendMultiplier"]; }
@@ -195,7 +196,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("holidaysMultiplier", DefaultValue = 0.2)]
-        [DoubleValidator(MinValue = 0.1, MaxValue = 5.0)]
+        [DoubleValidator(Minimum = 0.1, Maximum = 5.0)]
         public double HolidaysMultiplier
         {
             get { return (double)this["holidaysMultiplier"]; }
@@ -463,7 +464,7 @@ namespace LicenseReleaseService.IdleDetection
     /// <summary>
     /// Represents activity data for system monitoring
     /// </summary>
-    public class ActivityData
+    public class TimeBasedActivityData
     {
         /// <summary>
         /// Gets the timestamp of the activity
@@ -486,9 +487,9 @@ namespace LicenseReleaseService.IdleDetection
         public Dictionary<string, object> Metadata { get; set; }
 
         /// <summary>
-        /// Initializes a new instance of the ActivityData class
+        /// Initializes a new instance of the TimeBasedActivityData class
         /// </summary>
-        public ActivityData()
+        public TimeBasedActivityData()
         {
             Timestamp = DateTime.UtcNow;
             Confidence = 1.0;
@@ -507,7 +508,7 @@ namespace LicenseReleaseService.IdleDetection
     /// <summary>
     /// Defines the types of activity that can be monitored
     /// </summary>
-    public enum ActivityType
+    public enum TimeBasedActivityType
     {
         /// <summary>
         /// Keyboard input activity

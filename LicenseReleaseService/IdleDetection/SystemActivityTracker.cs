@@ -832,7 +832,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Updates process activity record
         /// </summary>
-        private ProcessActivityRecord UpdateProcessRecord(Process process)
+        private ProcessActivityRecord UpdateProcessRecord(System.Diagnostics.Process process)
         {
             return _processRecords.AddOrUpdate(process.Id,
                 pid => CreateProcessRecord(process),
@@ -842,7 +842,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Creates a new process activity record
         /// </summary>
-        private ProcessActivityRecord CreateProcessRecord(Process process)
+        private ProcessActivityRecord CreateProcessRecord(System.Diagnostics.Process process)
         {
             return new ProcessActivityRecord
             {
@@ -862,7 +862,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Updates an existing process activity record
         /// </summary>
-        private ProcessActivityRecord UpdateExistingProcessRecord(ProcessActivityRecord record, Process process)
+        private ProcessActivityRecord UpdateExistingProcessRecord(ProcessActivityRecord record, System.Diagnostics.Process process)
         {
             record.LastActivityTime = DateTime.UtcNow;
             record.WorkingSetSize = process.WorkingSet64;

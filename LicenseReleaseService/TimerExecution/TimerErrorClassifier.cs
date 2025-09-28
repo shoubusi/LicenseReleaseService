@@ -16,7 +16,7 @@ namespace LicenseReleaseService.TimerExecution
         private readonly ILogger<TimerErrorClassifier> _logger;
         private readonly Dictionary<Type, TimerErrorCategory> _exceptionMappings;
         private readonly Dictionary<Type, TimerErrorSeverity> _severityMappings;
-        private readonly Dictionary<TimerErrorCategory, TimerRecoveryAction> _recoveryMappings;
+        private readonly Dictionary<TimerErrorCategory, TimerRecoveryActionType> _recoveryMappings;
 
         /// <summary>
         /// Initializes a new instance of the TimerErrorClassifier class
@@ -28,7 +28,7 @@ namespace LicenseReleaseService.TimerExecution
 
             _exceptionMappings = new Dictionary<Type, TimerErrorCategory>();
             _severityMappings = new Dictionary<Type, TimerErrorSeverity>();
-            _recoveryMappings = new Dictionary<TimerErrorCategory, TimerRecoveryAction>();
+            _recoveryMappings = new Dictionary<TimerErrorCategory, TimerRecoveryActionType>();
 
             InitializeDefaultMappings();
         }
@@ -83,7 +83,7 @@ namespace LicenseReleaseService.TimerExecution
                 // Fallback classification
                 classification.Category = TimerErrorCategory.Unknown;
                 classification.Severity = TimerErrorSeverity.Medium;
-                classification.RecoveryAction = TimerRecoveryAction.LogAndContinue;
+                classification.RecoveryAction = TimerRecoveryActionType.LogAndContinue;
                 classification.IsTransient = false;
                 classification.IsRecoverable = true;
                 classification.AnalysisDetails = new Dictionary<string, object>
@@ -253,31 +253,31 @@ namespace LicenseReleaseService.TimerExecution
             switch (category)
             {
                 case TimerErrorCategory.Configuration:
-                    return TimerRecoveryAction.DisableTimer;
+                    return TimerRecoveryActionType.DisableTimer;
 
                 case TimerErrorCategory.Resource:
                     return severity >= TimerErrorSeverity.Critical
-                        ? TimerRecoveryAction.RestartService
-                        : TimerRecoveryAction.IncreaseInterval;
+                        ? TimerRecoveryActionType.RestartService
+                        : TimerRecoveryActionType.IncreaseInterval;
 
                 case TimerErrorCategory.LicenseServer:
-                    return TimerRecoveryAction.EnableCircuitBreaker;
+                    return TimerRecoveryActionType.EnableCircuitBreaker;
 
                 case TimerErrorCategory.Network:
-                    return TimerRecoveryAction.Retry;
+                    return TimerRecoveryActionType.Retry;
 
                 case TimerErrorCategory.Timeout:
-                    return TimerRecoveryAction.Retry;
+                    return TimerRecoveryActionType.Retry;
 
                 case TimerErrorCategory.Process:
-                    return TimerRecoveryAction.Retry;
+                    return TimerRecoveryActionType.Retry;
 
                 case TimerErrorCategory.Execution:
-                    return TimerRecoveryAction.ResetTimer;
+                    return TimerRecoveryActionType.ResetTimer;
 
                 case TimerErrorCategory.Unknown:
                 default:
-                    return TimerRecoveryAction.LogAndContinue;
+                    return TimerRecoveryActionType.LogAndContinue;
             }
         }
 
@@ -456,13 +456,13 @@ namespace LicenseReleaseService.TimerExecution
             _severityMappings[typeof(ObjectDisposedException)] = TimerErrorSeverity.High;
 
             // Recovery action mappings
-            _recoveryMappings[TimerErrorCategory.Configuration] = TimerRecoveryAction.DisableTimer;
-            _recoveryMappings[TimerErrorCategory.Resource] = TimerRecoveryAction.IncreaseInterval;
-            _recoveryMappings[TimerErrorCategory.LicenseServer] = TimerRecoveryAction.EnableCircuitBreaker;
-            _recoveryMappings[TimerErrorCategory.Network] = TimerRecoveryAction.Retry;
-            _recoveryMappings[TimerErrorCategory.Timeout] = TimerRecoveryAction.Retry;
-            _recoveryMappings[TimerErrorCategory.Process] = TimerRecoveryAction.Retry;
-            _recoveryMappings[TimerErrorCategory.Execution] = TimerRecoveryAction.ResetTimer;
+            _recoveryMappings[TimerErrorCategory.Configuration] = TimerRecoveryActionType.DisableTimer;
+            _recoveryMappings[TimerErrorCategory.Resource] = TimerRecoveryActionType.IncreaseInterval;
+            _recoveryMappings[TimerErrorCategory.LicenseServer] = TimerRecoveryActionType.EnableCircuitBreaker;
+            _recoveryMappings[TimerErrorCategory.Network] = TimerRecoveryActionType.Retry;
+            _recoveryMappings[TimerErrorCategory.Timeout] = TimerRecoveryActionType.Retry;
+            _recoveryMappings[TimerErrorCategory.Process] = TimerRecoveryActionType.Retry;
+            _recoveryMappings[TimerErrorCategory.Execution] = TimerRecoveryActionType.ResetTimer;
         }
 
         /// <summary>

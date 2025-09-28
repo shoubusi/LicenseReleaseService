@@ -792,7 +792,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Monitors performance for a specific process
         /// </summary>
-        private async Task MonitorProcessPerformanceAsync(Process process, CancellationToken cancellationToken)
+        private async Task MonitorProcessPerformanceAsync(System.Diagnostics.Process process, CancellationToken cancellationToken)
         {
             try
             {
@@ -863,7 +863,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Collects performance metrics for a specific process
         /// </summary>
-        private async Task<ProcessPerformanceMetrics> CollectProcessMetricsAsync(Process process)
+        private async Task<ProcessPerformanceMetrics> CollectProcessMetricsAsync(System.Diagnostics.Process process)
         {
             var metrics = new ProcessPerformanceMetrics
             {
@@ -923,7 +923,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets CPU usage for a process
         /// </summary>
-        private async Task<double> GetProcessCpuUsageAsync(Process process)
+        private async Task<double> GetProcessCpuUsageAsync(System.Diagnostics.Process process)
         {
             try
             {
@@ -945,7 +945,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets memory usage for a process
         /// </summary>
-        private async Task<double> GetProcessMemoryUsageAsync(Process process)
+        private async Task<double> GetProcessMemoryUsageAsync(System.Diagnostics.Process process)
         {
             try
             {
@@ -981,7 +981,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets GPU usage for a process (simplified implementation)
         /// </summary>
-        private async Task<double> GetProcessGpuUsageAsync(Process process)
+        private async Task<double> GetProcessGpuUsageAsync(System.Diagnostics.Process process)
         {
             try
             {
@@ -1008,7 +1008,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets disk usage for a process
         /// </summary>
-        private async Task<double> GetProcessDiskUsageAsync(Process process)
+        private async Task<double> GetProcessDiskUsageAsync(System.Diagnostics.Process process)
         {
             try
             {

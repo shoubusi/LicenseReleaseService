@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using LicenseReleaseService.Models;
+using LicenseReleaseService.LicenseManagement;
 
 namespace LicenseReleaseService.Interfaces
 {

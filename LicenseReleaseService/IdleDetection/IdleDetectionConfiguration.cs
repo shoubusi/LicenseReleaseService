@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
+using LicenseReleaseService.Models;
 
 namespace LicenseReleaseService.IdleDetection
 {
@@ -18,7 +19,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("detectionInterval", DefaultValue = 5)]
-        [IntegerValidator(MinValue = 1, MaxValue = 60)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 60)]
         public int DetectionInterval
         {
             get { return (int)this["detectionInterval"]; }
@@ -125,7 +126,7 @@ namespace LicenseReleaseService.IdleDetection
     public class TimeBasedDetectionElement : ConfigurationElement
     {
         [ConfigurationProperty("idleThresholdMinutes", DefaultValue = 30)]
-        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 480)]
         public int IdleThresholdMinutes
         {
             get { return (int)this["idleThresholdMinutes"]; }
@@ -133,7 +134,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("warningThresholdMinutes", DefaultValue = 20)]
-        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 480)]
         public int WarningThresholdMinutes
         {
             get { return (int)this["warningThresholdMinutes"]; }
@@ -141,7 +142,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("workHourThresholdMinutes", DefaultValue = 15)]
-        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 480)]
         public int WorkHourThresholdMinutes
         {
             get { return (int)this["workHourThresholdMinutes"]; }
@@ -149,7 +150,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("offHourThresholdMinutes", DefaultValue = 45)]
-        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 480)]
         public int OffHourThresholdMinutes
         {
             get { return (int)this["offHourThresholdMinutes"]; }
@@ -187,7 +188,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("weekendMultiplier", DefaultValue = 1.5)]
-        [DoubleValidator(MinValue = 1.0, MaxValue = 3.0)]
+        [DoubleValidator(Minimum = 1.0, Maximum = 3.0)]
         public double WeekendMultiplier
         {
             get { return (double)this["weekendMultiplier"]; }
@@ -266,7 +267,7 @@ namespace LicenseReleaseService.IdleDetection
     public class PingBasedDetectionElement : ConfigurationElement
     {
         [ConfigurationProperty("pingTimeoutMs", DefaultValue = 5000)]
-        [IntegerValidator(MinValue = 1000, MaxValue = 30000)]
+        [System.Configuration.IntegerValidator(MinValue = 1000, MaxValue = 30000)]
         public int PingTimeoutMs
         {
             get { return (int)this["pingTimeoutMs"]; }
@@ -274,7 +275,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("documentActivityThresholdMinutes", DefaultValue = 10)]
-        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 480)]
         public int DocumentActivityThresholdMinutes
         {
             get { return (int)this["documentActivityThresholdMinutes"]; }
@@ -282,7 +283,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("networkActivityThresholdKb", DefaultValue = 1024)]
-        [IntegerValidator(MinValue = 1, MaxValue = 10240)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 10240)]
         public int NetworkActivityThresholdKb
         {
             get { return (int)this["networkActivityThresholdKb"]; }
@@ -311,7 +312,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("maxPingRetries", DefaultValue = 3)]
-        [IntegerValidator(MinValue = 1, MaxValue = 10)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 10)]
         public int MaxPingRetries
         {
             get { return (int)this["maxPingRetries"]; }
@@ -319,7 +320,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("pingRetryDelayMs", DefaultValue = 1000)]
-        [IntegerValidator(MinValue = 100, MaxValue = 10000)]
+        [System.Configuration.IntegerValidator(MinValue = 100, MaxValue = 10000)]
         public int PingRetryDelayMs
         {
             get { return (int)this["pingRetryDelayMs"]; }
@@ -327,7 +328,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("processResponseThresholdMs", DefaultValue = 3000)]
-        [IntegerValidator(MinValue = 500, MaxValue = 15000)]
+        [System.Configuration.IntegerValidator(MinValue = 500, MaxValue = 15000)]
         public int ProcessResponseThresholdMs
         {
             get { return (int)this["processResponseThresholdMs"]; }
@@ -406,7 +407,7 @@ namespace LicenseReleaseService.IdleDetection
     public class ConsensusElement : ConfigurationElement
     {
         [ConfigurationProperty("minimumConfidence", DefaultValue = 0.7)]
-        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
+        [DoubleValidator(Minimum = 0.0, Maximum = 1.0)]
         public double MinimumConfidence
         {
             get { return (double)this["minimumConfidence"]; }
@@ -421,7 +422,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("consecutiveIdleCycles", DefaultValue = 2)]
-        [IntegerValidator(MinValue = 1, MaxValue = 10)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 10)]
         public int ConsecutiveIdleCycles
         {
             get { return (int)this["consecutiveIdleCycles"]; }
@@ -436,7 +437,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("timeBasedWeight", DefaultValue = 0.6)]
-        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
+        [DoubleValidator(Minimum = 0.0, Maximum = 1.0)]
         public double TimeBasedWeight
         {
             get { return (double)this["timeBasedWeight"]; }
@@ -444,7 +445,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("pingBasedWeight", DefaultValue = 0.4)]
-        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
+        [DoubleValidator(Minimum = 0.0, Maximum = 1.0)]
         public double PingBasedWeight
         {
             get { return (double)this["pingBasedWeight"]; }
@@ -452,7 +453,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("confidenceDecayRate", DefaultValue = 0.1)]
-        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
+        [DoubleValidator(Minimum = 0.0, Maximum = 1.0)]
         public double ConfidenceDecayRate
         {
             get { return (double)this["confidenceDecayRate"]; }
@@ -542,7 +543,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("hysteresisFactor", DefaultValue = 0.8)]
-        [DoubleValidator(MinValue = 0.1, MaxValue = 0.9)]
+        [DoubleValidator(Minimum = 0.1, Maximum = 0.9)]
         public double HysteresisFactor
         {
             get { return (double)this["hysteresisFactor"]; }
@@ -550,7 +551,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("maxIdleDurationMinutes", DefaultValue = 480)]
-        [IntegerValidator(MinValue = 60, MaxValue = 1440)]
+        [System.Configuration.IntegerValidator(MinValue = 60, MaxValue = 1440)]
         public int MaxIdleDurationMinutes
         {
             get { return (int)this["maxIdleDurationMinutes"]; }
@@ -565,7 +566,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("statePersistenceInterval", DefaultValue = 300)]
-        [IntegerValidator(MinValue = 60, MaxValue = 3600)]
+        [System.Configuration.IntegerValidator(MinValue = 60, MaxValue = 3600)]
         public int StatePersistenceInterval
         {
             get { return (int)this["statePersistenceInterval"]; }
@@ -587,7 +588,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("overrideTimeoutMinutes", DefaultValue = 60)]
-        [IntegerValidator(MinValue = 5, MaxValue = 480)]
+        [System.Configuration.IntegerValidator(MinValue = 5, MaxValue = 480)]
         public int OverrideTimeoutMinutes
         {
             get { return (int)this["overrideTimeoutMinutes"]; }
@@ -595,7 +596,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("maxConsecutiveOverrides", DefaultValue = 3)]
-        [IntegerValidator(MinValue = 1, MaxValue = 10)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 10)]
         public int MaxConsecutiveOverrides
         {
             get { return (int)this["maxConsecutiveOverrides"]; }
@@ -676,7 +677,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("systemActivityInterval", DefaultValue = 30)]
-        [IntegerValidator(MinValue = 10, MaxValue = 300)]
+        [System.Configuration.IntegerValidator(MinValue = 10, MaxValue = 300)]
         public int SystemActivityInterval
         {
             get { return (int)this["systemActivityInterval"]; }
@@ -726,7 +727,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("networkMonitoringInterval", DefaultValue = 60)]
-        [IntegerValidator(MinValue = 10, MaxValue = 600)]
+        [System.Configuration.IntegerValidator(MinValue = 10, MaxValue = 600)]
         public int NetworkMonitoringInterval
         {
             get { return (int)this["networkMonitoringInterval"]; }
@@ -734,7 +735,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("maxMonitoredProcesses", DefaultValue = 50)]
-        [IntegerValidator(MinValue = 1, MaxValue = 200)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 200)]
         public int MaxMonitoredProcesses
         {
             get { return (int)this["maxMonitoredProcesses"]; }
@@ -742,7 +743,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("maxMonitoredFiles", DefaultValue = 1000)]
-        [IntegerValidator(MinValue = 1, MaxValue = 10000)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 10000)]
         public int MaxMonitoredFiles
         {
             get { return (int)this["maxMonitoredFiles"]; }
@@ -757,7 +758,7 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         [ConfigurationProperty("notificationThrottleMs", DefaultValue = 1000)]
-        [IntegerValidator(MinValue = 100, MaxValue = 10000)]
+        [System.Configuration.IntegerValidator(MinValue = 100, MaxValue = 10000)]
         public int NotificationThrottleMs
         {
             get { return (int)this["notificationThrottleMs"]; }

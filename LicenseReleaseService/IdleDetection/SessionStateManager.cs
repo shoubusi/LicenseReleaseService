@@ -353,7 +353,7 @@ namespace LicenseReleaseService.IdleDetection
         {
             var expiredThreshold = DateTime.UtcNow - _configuration.SessionExpiration;
             var expiredSessions = _sessions
-                .Where kvp => kvp.Value.LastActivityTime < expiredThreshold)
+                .Where(kvp => kvp.Value.LastActivityTime < expiredThreshold)
                 .Select(kvp => kvp.Key)
                 .ToList();
 

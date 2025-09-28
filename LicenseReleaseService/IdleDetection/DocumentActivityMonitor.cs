@@ -423,11 +423,11 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets all running SolidWorks processes
         /// </summary>
-        private List<Process> GetSolidWorksProcesses()
+        private List<System.Diagnostics.Process> GetSolidWorksProcesses()
         {
             try
             {
-                return Process.GetProcessesByName("SLDWORKS")
+                return System.Diagnostics.Process.GetProcessesByName("SLDWORKS")
                     .Where(p => !p.HasExited)
                     .ToList();
             }
@@ -441,7 +441,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets document information for a specific process
         /// </summary>
-        private async Task<ProcessDocumentInfo> GetProcessDocumentInfoAsync(Process process, CancellationToken cancellationToken)
+        private async Task<ProcessDocumentInfo> GetProcessDocumentInfoAsync(System.Diagnostics.Process process, CancellationToken cancellationToken)
         {
             var info = new ProcessDocumentInfo();
 

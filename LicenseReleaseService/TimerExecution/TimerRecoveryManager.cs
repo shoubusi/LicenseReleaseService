@@ -8,6 +8,97 @@ using Microsoft.Extensions.Logging;
 namespace LicenseReleaseService.TimerExecution
 {
     /// <summary>
+    /// Defines the types of recovery actions available for timer execution errors
+    /// </summary>
+    public enum TimerRecoveryActionType
+    {
+        /// <summary>
+        /// Retry the failed operation
+        /// </summary>
+        Retry = 0,
+
+        /// <summary>
+        /// Increase the timer interval to reduce resource usage
+        /// </summary>
+        IncreaseInterval = 1,
+
+        /// <summary>
+        /// Enable the circuit breaker to prevent cascading failures
+        /// </summary>
+        EnableCircuitBreaker = 2,
+
+        /// <summary>
+        /// Restart the timer service
+        /// </summary>
+        RestartService = 3,
+
+        /// <summary>
+        /// Log the error and continue
+        /// </summary>
+        LogAndContinue = 4,
+
+        /// <summary>
+        /// Skip the current operation
+        /// </summary>
+        SkipOperation = 5,
+
+        /// <summary>
+        /// Reset internal state
+        /// </summary>
+        ResetState = 6,
+
+        /// <summary>
+        /// Reset the timer
+        /// </summary>
+        ResetTimer = 7
+    }
+
+    /// <summary>
+    /// Represents a recovery action for timer execution errors
+    /// </summary>
+    public class TimerRecoveryActionInstance
+    {
+        /// <summary>
+        /// Gets or sets the type of recovery action
+        /// </summary>
+        public TimerRecoveryActionType Type { get; set; }
+
+        /// <summary>
+        /// Gets or sets the name of the action
+        /// </summary>
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Gets or sets the description of the action
+        /// </summary>
+        public string Description { get; set; }
+
+        /// <summary>
+        /// Gets or sets the timeout for the action
+        /// </summary>
+        public TimeSpan Timeout { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether the action is critical
+        /// </summary>
+        public bool IsCritical { get; set; }
+
+        /// <summary>
+        /// Gets or sets the action to execute
+        /// </summary>
+        public Func<TimerErrorEventArgs, object, CancellationToken, Task<bool>> Action { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the TimerRecoveryActionInstance class
+        /// </summary>
+        public TimerRecoveryActionInstance()
+        {
+            Timeout = TimeSpan.FromSeconds(30);
+            IsCritical = false;
+        }
+    }
+
+    /// <summary>
     /// Manages recovery operations for timer execution errors
     /// </summary>
     public class TimerRecoveryManager : IDisposable
@@ -220,7 +311,7 @@ namespace LicenseReleaseService.TimerExecution
         /// <param name="context">Additional context information</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>The action result</returns>
-        public async Task<TimerRecoveryActionResult> ExecuteActionAsync(TimerRecoveryAction action, TimerErrorEventArgs errorEventArgs, object context = null, CancellationToken cancellationToken = default)
+        public async Task<TimerRecoveryActionResult> ExecuteActionAsync(TimerRecoveryActionInstance action, TimerErrorEventArgs errorEventArgs, object context = null, CancellationToken cancellationToken = default)
         {
             if (action == null)
                 throw new ArgumentNullException(nameof(action));
@@ -574,11 +665,11 @@ namespace LicenseReleaseService.TimerExecution
                     typeof(System.Net.Sockets.SocketException),
                     typeof(System.Net.Http.HttpRequestException)
                 },
-                Actions = new List<TimerRecoveryAction>
+                Actions = new List<TimerRecoveryActionInstance>
                 {
-                    new TimerRecoveryAction
+                    new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryAction.Retry,
+                        Type = TimerRecoveryActionType.Retry,
                         Name = "RetryWithBackoff",
                         Description = "Retry operation with exponential backoff",
                         Timeout = TimeSpan.FromSeconds(30),
@@ -605,11 +696,11 @@ namespace LicenseReleaseService.TimerExecution
                 Priority = 20,
                 ErrorCategories = new List<TimerErrorCategory> { TimerErrorCategory.Timeout },
                 ExceptionTypes = new List<Type> { typeof(TimeoutException) },
-                Actions = new List<TimerRecoveryAction>
+                Actions = new List<TimerRecoveryActionInstance>
                 {
-                    new TimerRecoveryAction
+                    new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryAction.Retry,
+                        Type = TimerRecoveryActionType.Retry,
                         Name = "RetryWithIncreasedTimeout",
                         Description = "Retry operation with increased timeout",
                         Timeout = TimeSpan.FromMinutes(1),
@@ -640,11 +731,11 @@ namespace LicenseReleaseService.TimerExecution
                     typeof(OutOfMemoryException),
                     typeof(InsufficientMemoryException)
                 },
-                Actions = new List<TimerRecoveryAction>
+                Actions = new List<TimerRecoveryActionInstance>
                 {
-                    new TimerRecoveryAction
+                    new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryAction.IncreaseInterval,
+                        Type = TimerRecoveryActionType.IncreaseInterval,
                         Name = "IncreaseTimerInterval",
                         Description = "Increase timer interval to reduce resource usage",
                         Timeout = TimeSpan.FromSeconds(10),
@@ -681,11 +772,11 @@ namespace LicenseReleaseService.TimerExecution
                 Description = "Handles license server connectivity issues",
                 Priority = 15,
                 ErrorCategories = new List<TimerErrorCategory> { TimerErrorCategory.LicenseServer },
-                Actions = new List<TimerRecoveryAction>
+                Actions = new List<TimerRecoveryActionInstance>
                 {
-                    new TimerRecoveryAction
+                    new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryAction.EnableCircuitBreaker,
+                        Type = TimerRecoveryActionType.EnableCircuitBreaker,
                         Name = "EnableCircuitBreaker",
                         Description = "Enable circuit breaker to prevent cascading failures",
                         Timeout = TimeSpan.FromSeconds(5),
@@ -717,11 +808,11 @@ namespace LicenseReleaseService.TimerExecution
                 Description = "Handles timer execution failures with restart capability",
                 Priority = 25,
                 ErrorCategories = new List<TimerErrorCategory> { TimerErrorCategory.Execution },
-                Actions = new List<TimerRecoveryAction>
+                Actions = new List<TimerRecoveryActionInstance>
                 {
-                    new TimerRecoveryAction
+                    new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryAction.RestartService,
+                        Type = TimerRecoveryActionType.RestartService,
                         Name = "RestartTimerService",
                         Description = "Restart the timer service",
                         Timeout = TimeSpan.FromSeconds(30),
@@ -874,7 +965,7 @@ namespace LicenseReleaseService.TimerExecution
         /// <summary>
         /// Gets or sets the recovery actions to execute
         /// </summary>
-        public List<TimerRecoveryAction> Actions { get; set; }
+        public List<TimerRecoveryActionInstance> Actions { get; set; }
 
         /// <summary>
         /// Gets or sets the maximum number of recovery attempts
@@ -899,7 +990,7 @@ namespace LicenseReleaseService.TimerExecution
             ErrorCategories = new List<TimerErrorCategory>();
             ErrorSeverities = new List<TimerErrorSeverity>();
             ExceptionTypes = new List<Type>();
-            Actions = new List<TimerRecoveryAction>();
+            Actions = new List<TimerRecoveryActionInstance>();
             Priority = 50;
             MaxRecoveryAttempts = 3;
             CooldownPeriod = TimeSpan.FromMinutes(1);
@@ -910,12 +1001,12 @@ namespace LicenseReleaseService.TimerExecution
     /// <summary>
     /// Represents a recovery action for timer execution errors
     /// </summary>
-    public class TimerRecoveryAction
+    public class TimerRecoveryActionDefinition
     {
         /// <summary>
         /// Gets or sets the type of recovery action
         /// </summary>
-        public TimerRecoveryAction Type { get; set; }
+        public TimerRecoveryActionType Type { get; set; }
 
         /// <summary>
         /// Gets or sets the name of the action
@@ -943,9 +1034,9 @@ namespace LicenseReleaseService.TimerExecution
         public Func<TimerErrorEventArgs, object, CancellationToken, Task<bool>> Action { get; set; }
 
         /// <summary>
-        /// Initializes a new instance of the TimerRecoveryAction class
+        /// Initializes a new instance of the TimerRecoveryActionDefinition class
         /// </summary>
-        public TimerRecoveryAction()
+        public TimerRecoveryActionDefinition()
         {
             Timeout = TimeSpan.FromSeconds(30);
             IsCritical = false;

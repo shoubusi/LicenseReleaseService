@@ -47,6 +47,11 @@ namespace LicenseReleaseService.Configuration
         public string Version => GetAppSetting("Version", "1.0.0");
 
         /// <summary>
+        /// Gets whether advanced features are enabled
+        /// </summary>
+        public bool EnableAdvancedFeatures => GetAppSetting("EnableAdvancedFeatures", false);
+
+        /// <summary>
         /// Gets the polling interval in seconds
         /// </summary>
         public int PollingInterval => GetAppSetting("PollingInterval", 300);

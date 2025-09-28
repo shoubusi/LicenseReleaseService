@@ -12,6 +12,8 @@ using Microsoft.Extensions.Logging;
 using LicenseReleaseService.Configuration;
 using LicenseReleaseService.LicenseManagement;
 using LicenseReleaseService.Process;
+using LicenseReleaseService.LicenseManagement.Caching;
+using LicenseReleaseService.LicenseManagement.Parsing;
 
 namespace LicenseReleaseService
 {
@@ -19,7 +21,7 @@ namespace LicenseReleaseService
     {
         private readonly ServiceState _serviceState;
         private readonly HealthChecker _healthChecker;
-        private readonly ILogger _logger;
+        private readonly Microsoft.Extensions.Logging.ILogger _logger;
         private readonly RecoveryManager _recoveryManager;
         private readonly ConfigurationManager _configurationManager;
         private CancellationTokenSource _cancellationTokenSource;
@@ -28,20 +30,20 @@ namespace LicenseReleaseService
         private bool _configurationInitialized;
 
         // License management components
-        private readonly ServiceSettings _serviceSettings;
-        private readonly IProcessExecutor _processExecutor;
-        private readonly ProcessExecutionOptions _processOptions;
-        private readonly ProcessMetrics _processMetrics;
-        private readonly PerformanceMonitor _performanceMonitor;
-        private readonly ILogger<LmutilLicenseManager> _licenseManagerLogger;
-        private readonly ILogger<ProcessExecutor> _processExecutorLogger;
+        private ServiceSettings _serviceSettings;
+        private IProcessExecutor _processExecutor;
+        private ProcessExecutionOptions _processOptions;
+        private ProcessMetrics _processMetrics;
+        private PerformanceMonitor _performanceMonitor;
+        private Microsoft.Extensions.Logging.ILogger<LmutilLicenseManager> _licenseManagerLogger;
+        private Microsoft.Extensions.Logging.ILogger<ProcessExecutor> _processExecutorLogger;
         private ILicenseManager _licenseManager;
         private MonitoredLicenseManager _monitoredLicenseManager;
         private bool _licenseManagementInitialized;
 
         // License query engine components
         private readonly LicenseQueryOptions _licenseQueryOptions;
-        private readonly ILogger<LicenseQueryEngine> _queryEngineLogger;
+        private readonly Microsoft.Extensions.Logging.ILogger<LicenseQueryEngine> _queryEngineLogger;
         private readonly CacheOptions _cacheOptions;
         private ICacheManager _cacheManager;
         private readonly LmstatOutputParser _outputParser;
@@ -176,7 +178,7 @@ namespace LicenseReleaseService
                 _logger.LogInformation("Initializing license management components");
 
                 // Initialize service settings
-                _serviceSettings = new ServiceSettings();
+                _serviceSettings = new ServiceSettings(_configurationManager);
 
                 // Initialize process execution options
                 _processOptions = new ProcessExecutionOptions();
@@ -1250,16 +1252,54 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
     {
     }
 
-    public class EventLogLogger : ILogger
+    public class EventLogLogger : Microsoft.Extensions.Logging.ILogger
     {
+        public IDisposable BeginScope<TState>(TState state)
+        {
+            return null; // Simple implementation
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true; // Enable all logging
+        }
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+        {
+            if (formatter != null)
+            {
+                var message = formatter(state, exception);
+                EventLogEntryType entryType = ConvertLogLevelToEventLogEntryType(logLevel);
+                EventLog.WriteEntry("LicenseReleaseService", message, entryType);
+            }
+        }
+
+        private EventLogEntryType ConvertLogLevelToEventLogEntryType(LogLevel logLevel)
+        {
+            switch (logLevel)
+            {
+                case LogLevel.Critical:
+                case LogLevel.Error:
+                    return EventLogEntryType.Error;
+                case LogLevel.Warning:
+                    return EventLogEntryType.Warning;
+                case LogLevel.Information:
+                case LogLevel.Debug:
+                case LogLevel.Trace:
+                default:
+                    return EventLogEntryType.Information;
+            }
+        }
+
+        // Legacy methods for backward compatibility
         public void LogInformation(string message)
         {
-            EventLog.WriteEntry("LicenseReleaseService", message, EventLogEntryType.Information);
+            Log(LogLevel.Information, default(EventId), message, null, (state, ex) => state.ToString());
         }
 
         public void LogWarning(string message)
         {
-            EventLog.WriteEntry("LicenseReleaseService", message, EventLogEntryType.Warning);
+            Log(LogLevel.Warning, default(EventId), message, null, (state, ex) => state.ToString());
         }
 
         // Enhanced methods for interactive console mode
@@ -1367,11 +1407,6 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         public void LogInfo(string message)
         {
             EventLog.WriteEntry("LicenseReleaseService", message, EventLogEntryType.Information);
-        }
-
-        public void LogWarning(string message)
-        {
-            EventLog.WriteEntry("LicenseReleaseService", message, EventLogEntryType.Warning);
         }
 
         public void LogDebug(string message)

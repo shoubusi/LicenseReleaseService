@@ -820,7 +820,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Checks for file activity associated with a specific process
         /// </summary>
-        private async Task CheckProcessFileActivityAsync(Process process, CancellationToken cancellationToken)
+        private async Task CheckProcessFileActivityAsync(System.Diagnostics.Process process, CancellationToken cancellationToken)
         {
             try
             {
@@ -1353,7 +1353,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Checks if a file is related to a specific process
         /// </summary>
-        private bool IsFileRelatedToProcess(Process process, string filePath)
+        private bool IsFileRelatedToProcess(System.Diagnostics.Process process, string filePath)
         {
             try
             {

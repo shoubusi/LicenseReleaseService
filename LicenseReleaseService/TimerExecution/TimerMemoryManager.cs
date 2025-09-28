@@ -268,22 +268,22 @@ namespace LicenseReleaseService.TimerExecution
         /// <param name="generation">GC generation to collect</param>
         /// <param name="mode">GC mode</param>
         /// <returns>Memory freed in bytes</returns>
-        public long ForceGarbageCollection(int generation = GC.MaxGeneration, GCCollectionMode mode = GCCollectionMode.Forced)
+        public long ForceGarbageCollection(int generation, GCCollectionMode mode = GCCollectionMode.Forced)
         {
             try
             {
-                var beforeMemory = Process.GetCurrentProcess().WorkingSet64;
+                var beforeMemory = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64;
 
                 GC.Collect(generation, mode);
                 GC.WaitForPendingFinalizers();
 
-                var afterMemory = Process.GetCurrentProcess().WorkingSet64;
+                var afterMemory = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64;
                 var memoryFreed = beforeMemory - afterMemory;
 
                 if (memoryFreed > 0)
                 {
-                    Interlocked.Add(ref _totalMemoryOptimized, memoryFreed);
-                    Interlocked.Increment(ref _gcCollectionsForced);
+                    System.Threading.Interlocked.Add(ref _totalMemoryOptimized, memoryFreed);
+                    System.Threading.Interlocked.Increment(ref _gcCollectionsForced);
                 }
 
                 _logger.LogDebug("Forced GC collection: Gen {Generation}, Mode: {Mode}, Freed: {Freed}MB",
@@ -296,6 +296,26 @@ namespace LicenseReleaseService.TimerExecution
                 _logger.LogError(ex, "Error forcing garbage collection");
                 return 0;
             }
+        }
+
+        /// <summary>
+        /// Forces garbage collection with default generation
+        /// </summary>
+        /// <param name="mode">GC mode</param>
+        /// <returns>Memory freed in bytes</returns>
+        public long ForceGarbageCollection(GCCollectionMode mode = GCCollectionMode.Forced)
+        {
+            return ForceGarbageCollection(GC.MaxGeneration, mode);
+        }
+
+        /// <summary>
+        /// Forces garbage collection with specified generation and default mode
+        /// </summary>
+        /// <param name="generation">GC generation to collect</param>
+        /// <returns>Memory freed in bytes</returns>
+        public long ForceGarbageCollection(int generation)
+        {
+            return ForceGarbageCollection(generation, GCCollectionMode.Forced);
         }
 
         /// <summary>
@@ -440,7 +460,7 @@ namespace LicenseReleaseService.TimerExecution
             }
         }
 
-        private TimerMemoryPressureLevel DetermineMemoryPressureLevel(Process process)
+        private TimerMemoryPressureLevel DetermineMemoryPressureLevel(System.Diagnostics.Process process)
         {
             var memoryMB = process.WorkingSet64 / (1024 * 1024);
             var totalMemoryMB = _memoryOptions.SystemMemoryMB ?? 8192; // Default 8GB
@@ -687,7 +707,7 @@ namespace LicenseReleaseService.TimerExecution
             }
         }
 
-        private double CalculateMemoryPressurePercent(Process process)
+        private double CalculateMemoryPressurePercent(System.Diagnostics.Process process)
         {
             var memoryMB = process.WorkingSet64 / (1024 * 1024);
             var totalMemoryMB = _memoryOptions.SystemMemoryMB ?? 8192;

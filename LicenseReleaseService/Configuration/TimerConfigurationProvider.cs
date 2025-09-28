@@ -836,7 +836,7 @@ namespace LicenseReleaseService.Configuration
         /// Validates the current version-specific configuration
         /// </summary>
         /// <returns>Validation result with errors and warnings</returns>
-        public TimerVersionValidationResult ValidateConfiguration()
+        public TimerVersionValidationResult ValidateVersionConfiguration()
         {
             try
             {
@@ -854,7 +854,7 @@ namespace LicenseReleaseService.Configuration
         /// <param name="includeWarnings">Whether to consider warnings as invalid</param>
         public void ValidateConfigurationStrict(bool includeWarnings = false)
         {
-            var result = ValidateConfiguration();
+            var result = ValidateVersionConfiguration();
 
             if (!result.IsValid || (includeWarnings && result.HasWarnings))
             {
@@ -877,7 +877,7 @@ namespace LicenseReleaseService.Configuration
         /// <returns>True if configuration is valid, false otherwise</returns>
         public bool ValidateAndLogConfiguration()
         {
-            var result = ValidateConfiguration();
+            var result = ValidateVersionConfiguration();
 
             // Log validation results
             if (!result.IsValid)
@@ -912,7 +912,7 @@ namespace LicenseReleaseService.Configuration
         /// <returns>Formatted validation summary</returns>
         public string GetValidationSummary()
         {
-            var result = ValidateConfiguration();
+            var result = ValidateVersionConfiguration();
             return result.GetSummary();
         }
 

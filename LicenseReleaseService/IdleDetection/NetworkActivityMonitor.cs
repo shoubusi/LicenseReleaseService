@@ -986,11 +986,11 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets all running SolidWorks processes
         /// </summary>
-        private List<Process> GetSolidWorksProcesses()
+        private List<System.Diagnostics.Process> GetSolidWorksProcesses()
         {
             try
             {
-                return Process.GetProcessesByName("SLDWORKS")
+                return System.Diagnostics.Process.GetProcessesByName("SLDWORKS")
                     .Where(p => !p.HasExited)
                     .ToList();
             }

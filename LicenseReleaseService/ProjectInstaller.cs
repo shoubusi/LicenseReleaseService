@@ -3,6 +3,7 @@ using System.Collections;
 using System.ComponentModel;
 using System.Configuration.Install;
 using System.ServiceProcess;
+using System.Diagnostics;
 using LicenseReleaseService.Configuration;
 using System.Collections.Generic;
 

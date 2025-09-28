@@ -143,7 +143,7 @@ namespace LicenseReleaseService.IdleDetection
 
         /// <summary>
         /// Applies hysteresis to prevent rapid state changes
-        </summary>
+        /// Summary comment
         public DetectionLevel ApplyHysteresis(DetectionLevel currentLevel, DetectionLevel newLevel, TimeSpan idleTime, string userName, string computerName)
         {
             if (!_config.EnableHysteresis)
@@ -529,7 +529,7 @@ namespace LicenseReleaseService.IdleDetection
         /// </summary>
         private double CalculateAccuracyScore(UserThresholdData userThreshold)
         {
-            var accuracies = new List<double>
+            var accuracies = new List<double>()
             {
                 userThreshold.WarningAccuracy,
                 userThreshold.ImminentAccuracy,

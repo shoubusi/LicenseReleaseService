@@ -968,7 +968,7 @@ namespace LicenseReleaseService.Services
 
         #region Private Helper Methods
 
-        private async Task<bool> CheckProcessAccessibilityAsync(Process process, string userName, CancellationToken cancellationToken)
+        private async Task<bool> CheckProcessAccessibilityAsync(System.Diagnostics.Process process, string userName, CancellationToken cancellationToken)
         {
             try
             {

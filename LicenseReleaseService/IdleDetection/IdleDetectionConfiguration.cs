@@ -6,120 +6,59 @@ using System.Configuration;
 namespace LicenseReleaseService.IdleDetection
 {
     /// <summary>
-    /// Main configuration class for idle detection settings
+    /// Configuration element for idle detection settings
     /// </summary>
-    public class IdleDetectionConfiguration : ConfigurationElement
+    public class IdleDetectionConfigurationElement : ConfigurationElement
     {
-        [ConfigurationProperty("isEnabled", DefaultValue = true)]
-        public bool IsEnabled
+        [ConfigurationProperty("enableIdleDetection", DefaultValue = true)]
+        public bool EnableIdleDetection
         {
-            get { return (bool)this["isEnabled"]; }
-            set { this["isEnabled"] = value; }
+            get { return (bool)this["enableIdleDetection"]; }
+            set { this["enableIdleDetection"] = value; }
         }
 
-        [ConfigurationProperty("detectionIntervalSeconds", DefaultValue = 60)]
-        [IntegerValidator(MinValue = 10, MaxValue = 3600)]
-        public int DetectionIntervalSeconds
+        [ConfigurationProperty("detectionInterval", DefaultValue = 5)]
+        [IntegerValidator(MinValue = 1, MaxValue = 60)]
+        public int DetectionInterval
         {
-            get { return (int)this["detectionIntervalSeconds"]; }
-            set { this["detectionIntervalSeconds"] = value; }
+            get { return (int)this["detectionInterval"]; }
+            set { this["detectionInterval"] = value; }
         }
 
-        [ConfigurationProperty("idleThresholdSeconds", DefaultValue = 900)]
-        [IntegerValidator(MinValue = 60, MaxValue = 7200)]
-        public int IdleThresholdSeconds
+        [ConfigurationProperty("timeBasedDetection")]
+        public TimeBasedDetectionElement TimeBasedDetection
         {
-            get { return (int)this["idleThresholdSeconds"]; }
-            set { this["idleThresholdSeconds"] = value; }
+            get { return (TimeBasedDetectionElement)this["timeBasedDetection"] ?? new TimeBasedDetectionElement(); }
+            set { this["timeBasedDetection"] = value; }
         }
 
-        [ConfigurationProperty("confidenceThreshold", DefaultValue = 0.7)]
-        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
-        public double ConfidenceThreshold
+        [ConfigurationProperty("pingBasedDetection")]
+        public PingBasedDetectionElement PingBasedDetection
         {
-            get { return (double)this["confidenceThreshold"]; }
-            set { this["confidenceThreshold"] = value; }
+            get { return (PingBasedDetectionElement)this["pingBasedDetection"] ?? new PingBasedDetectionElement(); }
+            set { this["pingBasedDetection"] = value; }
         }
 
-        [ConfigurationProperty("priority", DefaultValue = 10)]
-        [IntegerValidator(MinValue = 1, MaxValue = 100)]
-        public int Priority
+        [ConfigurationProperty("consensus")]
+        public ConsensusElement Consensus
         {
-            get { return (int)this["priority"]; }
-            set { this["priority"] = value; }
+            get { return (ConsensusElement)this["consensus"] ?? new ConsensusElement(); }
+            set { this["consensus"] = value; }
         }
 
-        [ConfigurationProperty("maxDetectionTimeMs", DefaultValue = 5000)]
-        [IntegerValidator(MinValue = 1000, MaxValue = 30000)]
-        public int MaxDetectionTimeMs
+        [ConfigurationProperty("stateManagement")]
+        public StateManagementElement StateManagement
         {
-            get { return (int)this["maxDetectionTimeMs"]; }
-            set { this["maxDetectionTimeMs"] = value; }
+            get { return (StateManagementElement)this["stateManagement"] ?? new StateManagementElement(); }
+            set { this["stateManagement"] = value; }
         }
 
-        [ConfigurationProperty("timeoutSeconds", DefaultValue = 30)]
-        [IntegerValidator(MinValue = 5, MaxValue = 300)]
-        public int TimeoutSeconds
+        [ConfigurationProperty("activityMonitoring")]
+        public ActivityMonitoringElement ActivityMonitoring
         {
-            get { return (int)this["timeoutSeconds"]; }
-            set { this["timeoutSeconds"] = value; }
+            get { return (ActivityMonitoringElement)this["activityMonitoring"] ?? new ActivityMonitoringElement(); }
+            set { this["activityMonitoring"] = value; }
         }
-
-        [ConfigurationProperty("retryCount", DefaultValue = 3)]
-        [IntegerValidator(MinValue = 0, MaxValue = 10)]
-        public int RetryCount
-        {
-            get { return (int)this["retryCount"]; }
-            set { this["retryCount"] = value; }
-        }
-
-        [ConfigurationProperty("retryDelayMs", DefaultValue = 1000)]
-        [IntegerValidator(MinValue = 100, MaxValue = 10000)]
-        public int RetryDelayMs
-        {
-            get { return (int)this["retryDelayMs"]; }
-            set { this["retryDelayMs"] = value; }
-        }
-
-        [ConfigurationProperty("maxConcurrentOperations", DefaultValue = 5)]
-        [IntegerValidator(MinValue = 1, MaxValue = 50)]
-        public int MaxConcurrentOperations
-        {
-            get { return (int)this["maxConcurrentOperations"]; }
-            set { this["maxConcurrentOperations"] = value; }
-        }
-
-        [ConfigurationProperty("customParameters")]
-        public CustomParametersCollection CustomParameters
-        {
-            get { return (CustomParametersCollection)this["customParameters"] ?? new CustomParametersCollection(); }
-            set { this["customParameters"] = value; }
-        }
-
-        /// <summary>
-        /// Gets the detection interval as TimeSpan
-        /// </summary>
-        public TimeSpan DetectionInterval => TimeSpan.FromSeconds(DetectionIntervalSeconds);
-
-        /// <summary>
-        /// Gets the idle threshold as TimeSpan
-        /// </summary>
-        public TimeSpan IdleThreshold => TimeSpan.FromSeconds(IdleThresholdSeconds);
-
-        /// <summary>
-        /// Gets the timeout as TimeSpan
-        /// </summary>
-        public TimeSpan Timeout => TimeSpan.FromSeconds(TimeoutSeconds);
-
-        /// <summary>
-        /// Gets the retry delay as TimeSpan
-        /// </summary>
-        public TimeSpan RetryDelay => TimeSpan.FromMilliseconds(RetryDelayMs);
-
-        /// <summary>
-        /// Gets the maximum detection time as TimeSpan
-        /// </summary>
-        public TimeSpan MaxDetectionTime => TimeSpan.FromMilliseconds(MaxDetectionTimeMs);
 
         /// <summary>
         /// Validates the idle detection configuration
@@ -131,76 +70,41 @@ namespace LicenseReleaseService.IdleDetection
 
             try
             {
-                // Validate interval relationships
-                if (DetectionIntervalSeconds <= 0)
+                // Validate detection interval
+                if (DetectionInterval < 1 || DetectionInterval > 60)
                 {
-                    errors.Add("Detection interval must be greater than zero");
+                    errors.Add("Detection interval must be between 1 and 60 minutes");
                 }
 
-                if (IdleThresholdSeconds <= DetectionIntervalSeconds)
+                // Validate time-based detection configuration
+                errors.AddRange(TimeBasedDetection.Validate());
+
+                // Validate ping-based detection configuration
+                errors.AddRange(PingBasedDetection.Validate());
+
+                // Validate consensus configuration
+                errors.AddRange(Consensus.Validate());
+
+                // Validate state management configuration
+                errors.AddRange(StateManagement.Validate());
+
+                // Validate activity monitoring configuration
+                errors.AddRange(ActivityMonitoring.Validate());
+
+                // Validate configuration consistency
+                if (TimeBasedDetection.IdleThresholdMinutes > StateManagement.MaxIdleDurationMinutes)
                 {
-                    errors.Add("Idle threshold must be greater than detection interval");
+                    errors.Add("Time-based idle threshold cannot exceed maximum idle duration");
                 }
 
-                if (TimeoutSeconds <= 0)
+                if (PingBasedDetection.PingTimeoutMs > TimeBasedDetection.IdleThresholdMinutes * 60 * 1000)
                 {
-                    errors.Add("Timeout must be greater than zero");
-                }
-
-                if (MaxDetectionTimeMs <= 0)
-                {
-                    errors.Add("Max detection time must be greater than zero");
-                }
-
-                // Validate retry settings
-                if (RetryCount < 0)
-                {
-                    errors.Add("Retry count cannot be negative");
-                }
-
-                if (RetryDelayMs <= 0)
-                {
-                    errors.Add("Retry delay must be greater than zero");
-                }
-
-                // Validate concurrent operations
-                if (MaxConcurrentOperations <= 0)
-                {
-                    errors.Add("Max concurrent operations must be greater than zero");
-                }
-
-                // Validate confidence threshold
-                if (ConfidenceThreshold < 0.0 || ConfidenceThreshold > 1.0)
-                {
-                    errors.Add("Confidence threshold must be between 0.0 and 1.0");
-                }
-
-                // Validate priority
-                if (Priority <= 0)
-                {
-                    errors.Add("Priority must be greater than zero");
-                }
-
-                // Validate custom parameters
-                if (CustomParameters != null)
-                {
-                    foreach (CustomParameterElement parameter in CustomParameters)
-                    {
-                        if (string.IsNullOrWhiteSpace(parameter.Name))
-                        {
-                            errors.Add("Custom parameter name cannot be empty");
-                        }
-
-                        if (parameter.Value == null)
-                        {
-                            errors.Add($"Custom parameter value cannot be null for parameter: {parameter.Name}");
-                        }
-                    }
+                    errors.Add("Ping timeout should be less than idle threshold");
                 }
             }
             catch (Exception ex)
             {
-                errors.Add($"Idle detection configuration validation error: {ex.Message}");
+                errors.Add($"Idle detection validation error: {ex.Message}");
             }
 
             return errors;
@@ -211,7 +115,7 @@ namespace LicenseReleaseService.IdleDetection
         /// </summary>
         public override string ToString()
         {
-            return $"IdleDetection[Enabled={IsEnabled}, Interval={DetectionIntervalSeconds}s, Threshold={IdleThresholdSeconds}s, Confidence={ConfidenceThreshold:F2}, Priority={Priority}]";
+            return $"IdleDetection[Enabled={EnableIdleDetection}, Interval={DetectionInterval}m, TimeBased={TimeBasedDetection}, PingBased={PingBasedDetection}]";
         }
     }
 

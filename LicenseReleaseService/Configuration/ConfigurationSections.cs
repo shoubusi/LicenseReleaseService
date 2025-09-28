@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using LicenseReleaseService.IdleDetection;
 
 namespace LicenseReleaseService.Configuration
 {
@@ -97,6 +98,16 @@ namespace LicenseReleaseService.Configuration
         }
 
         /// <summary>
+        /// Gets or sets the idle detection configuration
+        /// </summary>
+        [ConfigurationProperty("idleDetection")]
+        public IdleDetectionConfigurationElement IdleDetection
+        {
+            get { return (IdleDetectionConfigurationElement)this["idleDetection"] ?? new IdleDetectionConfigurationElement(); }
+            set { this["idleDetection"] = value; }
+        }
+
+        /// <summary>
         /// Validates the configuration section
         /// </summary>
         /// <returns>List of validation errors</returns>
@@ -131,6 +142,9 @@ namespace LicenseReleaseService.Configuration
 
                     // Validate version configuration section
                     errors.AddRange(VersionConfiguration.Validate());
+
+                    // Validate idle detection section
+                    errors.AddRange(IdleDetection.Validate());
                 }
                 catch (Exception ex)
                 {
@@ -157,6 +171,7 @@ namespace LicenseReleaseService.Configuration
             sb.AppendLine($"  LicenseQuery: {LicenseQuery}");
             sb.AppendLine($"  Timer: {Timer}");
             sb.AppendLine($"  VersionConfiguration: {VersionConfiguration}");
+            sb.AppendLine($"  IdleDetection: {IdleDetection}");
             return sb.ToString();
         }
     }

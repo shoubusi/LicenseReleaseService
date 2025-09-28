@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime;
+using System.Timers;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -21,7 +22,7 @@ namespace LicenseReleaseService.TimerExecution
         private readonly Stopwatch _uptimeStopwatch;
         private readonly Queue<TimerMemoryPressureEvent> _pressureHistory;
         private readonly Dictionary<string, TimerMemoryPool> _memoryPools;
-        private readonly Timer _memoryMonitorTimer;
+        private readonly System.Timers.Timer _memoryMonitorTimer;
 
         private bool _isRunning;
         private bool _isDisposed;
@@ -91,7 +92,7 @@ namespace LicenseReleaseService.TimerExecution
             _uptimeStopwatch = new Stopwatch();
             _pressureHistory = new Queue<TimerMemoryPressureEvent>(100);
             _memoryPools = new Dictionary<string, TimerMemoryPool>();
-            _memoryMonitorTimer = new Timer(_memoryOptions.MonitorIntervalMs);
+            _memoryMonitorTimer = new System.Timers.Timer(_memoryOptions.MonitorIntervalMs);
 
             _currentPressureLevel = TimerMemoryPressureLevel.None;
         }

@@ -1236,24 +1236,21 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         }
     }
 
-    public interface ILogger
-    {
-        void LogInformation(string message);
-        void LogWarning(string message);
-        void LogError(string message, Exception exception = null);
-        void LogDebug(string message);
-    }
-
-    /// <summary>
-    /// Generic logger interface for compatibility with Microsoft.Extensions.Logging pattern
-    /// </summary>
-    /// <typeparam name="T">The type the logger is for</typeparam>
-    public interface ILogger<T> : ILogger
-    {
-    }
-
     public class EventLogLogger : Microsoft.Extensions.Logging.ILogger
     {
+        private readonly ServiceState _serviceState;
+        private readonly HealthChecker _healthChecker;
+        private readonly PerformanceMonitor _performanceCounters;
+        private readonly RecoveryManager _recoveryManager;
+
+        public EventLogLogger(ServiceState serviceState, HealthChecker healthChecker, PerformanceMonitor performanceCounters, RecoveryManager recoveryManager)
+        {
+            _serviceState = serviceState;
+            _healthChecker = healthChecker;
+            _performanceCounters = performanceCounters;
+            _recoveryManager = recoveryManager;
+        }
+
         public IDisposable BeginScope<TState>(TState state)
         {
             return null; // Simple implementation
@@ -1291,17 +1288,7 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
             }
         }
 
-        // Legacy methods for backward compatibility
-        public void LogInformation(string message)
-        {
-            Log(LogLevel.Information, default(EventId), message, null, (state, ex) => state.ToString());
-        }
-
-        public void LogWarning(string message)
-        {
-            Log(LogLevel.Warning, default(EventId), message, null, (state, ex) => state.ToString());
-        }
-
+        
         // Enhanced methods for interactive console mode
         public string GetServiceStatus()
         {
@@ -1395,57 +1382,6 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
             {
                 return $"Error getting recovery status: {ex.Message}";
             }
-        }
-
-        public void LogError(string message, Exception exception = null)
-        {
-            var fullMessage = exception != null ? $"{message}\nException: {exception}\nStackTrace: {exception.StackTrace}" : message;
-            EventLog.WriteEntry("LicenseReleaseService", fullMessage, EventLogEntryType.Error);
-        }
-
-        // Additional methods needed for configuration integration
-        public void LogInfo(string message)
-        {
-            EventLog.WriteEntry("LicenseReleaseService", message, EventLogEntryType.Information);
-        }
-
-        public void LogDebug(string message)
-        {
-            EventLog.WriteEntry("LicenseReleaseService", message, EventLogEntryType.Information);
-        }
-    }
-
-    /// <summary>
-    /// Generic logger implementation for compatibility with Microsoft.Extensions.Logging pattern
-    /// </summary>
-    /// <typeparam name="T">The type the logger is for</typeparam>
-    public class Logger<T> : ILogger<T>
-    {
-        private readonly ILogger _logger;
-
-        public Logger(ILogger logger)
-        {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
-
-        public void LogInformation(string message)
-        {
-            _logger.LogInformation(message);
-        }
-
-        public void LogWarning(string message)
-        {
-            _logger.LogWarning(message);
-        }
-
-        public void LogError(string message, Exception exception = null)
-        {
-            _logger.LogError(message, exception);
-        }
-
-        public void LogDebug(string message)
-        {
-            _logger.LogDebug(message);
         }
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Timers;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,7 +16,7 @@ namespace LicenseReleaseService.TimerExecution
         private readonly int _maxSize;
         private readonly object _lock = new object();
         private readonly Dictionary<string, TimerCacheItem> _items;
-        private readonly Timer _expirationTimer;
+        private readonly System.Timers.Timer _expirationTimer;
         private long _hits;
         private long _misses;
         private long _evictions;
@@ -118,7 +119,8 @@ namespace LicenseReleaseService.TimerExecution
             ExpirationPolicy = expirationPolicy ?? new TimerCacheExpirationPolicy();
             EvictionPolicy = evictionPolicy ?? new TimerCacheEvictionPolicy();
             _items = new Dictionary<string, TimerCacheItem>();
-            _expirationTimer = new Timer(60000); // Check expiration every minute
+            _expirationTimer = new System.Timers.Timer(60000); // Check expiration every minute
+            _expirationTimer.AutoReset = true;
             _expirationTimer.Elapsed += OnExpirationTimerElapsed;
             _expirationTimer.Start();
         }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Timers;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -19,8 +20,8 @@ namespace LicenseReleaseService.TimerExecution
         private readonly object _lock = new object();
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly Stopwatch _uptimeStopwatch;
-        private readonly Timer _monitorTimer;
-        private readonly Timer _cleanupTimer;
+        private readonly System.Timers.Timer _monitorTimer;
+        private readonly System.Timers.Timer _cleanupTimer;
         private readonly Dictionary<string, TimerCache> _caches;
         private readonly Queue<TimerCacheEvent> _optimizationHistory;
 
@@ -95,8 +96,8 @@ namespace LicenseReleaseService.TimerExecution
 
             _cancellationTokenSource = new CancellationTokenSource();
             _uptimeStopwatch = new Stopwatch();
-            _monitorTimer = new Timer(_cacheOptions.MonitorIntervalMs);
-            _cleanupTimer = new Timer(_cacheOptions.CleanupIntervalMs);
+            _monitorTimer = new System.Timers.Timer(_cacheOptions.MonitorIntervalMs);
+            _cleanupTimer = new System.Timers.Timer(_cacheOptions.CleanupIntervalMs);
             _caches = new Dictionary<string, TimerCache>();
             _optimizationHistory = new Queue<TimerCacheEvent>(50);
         }

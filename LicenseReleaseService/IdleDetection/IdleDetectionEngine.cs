@@ -18,7 +18,7 @@ namespace LicenseReleaseService.IdleDetection
         private readonly ITimerExecutionService _timerService;
         private readonly SessionStateManager _sessionStateManager;
         private readonly DetectionConsensusEngine _consensusEngine;
-        private readonly IdleDetectionConfiguration _configuration;
+        private readonly IdleDetectionConfigurationElement _configuration;
         private readonly List<IIdleDetector> _detectors;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly TimeSpan _detectionInterval;
@@ -78,7 +78,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets the configuration
         /// </summary>
-        public IdleDetectionConfiguration Configuration => _configuration;
+        public IdleDetectionConfigurationElement Configuration => _configuration;
 
         /// <summary>
         /// Gets the registered detectors
@@ -119,7 +119,7 @@ namespace LicenseReleaseService.IdleDetection
             ITimerExecutionService timerService,
             SessionStateManager sessionStateManager,
             DetectionConsensusEngine consensusEngine,
-            IdleDetectionConfiguration configuration,
+            IdleDetectionConfigurationElement configuration,
             ILogger<IdleDetectionEngine> logger)
         {
             _timerService = timerService ?? throw new ArgumentNullException(nameof(timerService));
@@ -130,7 +130,7 @@ namespace LicenseReleaseService.IdleDetection
 
             _detectors = new List<IIdleDetector>();
             _cancellationTokenSource = new CancellationTokenSource();
-            _detectionInterval = TimeSpan.FromSeconds(_configuration.DetectionIntervalSeconds);
+            _detectionInterval = TimeSpan.FromMinutes(_configuration.DetectionInterval);
             Status = EngineStatus.NotInitialized;
             _lastExecutionTime = DateTime.UtcNow;
         }

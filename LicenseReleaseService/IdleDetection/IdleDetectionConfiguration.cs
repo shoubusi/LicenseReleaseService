@@ -120,200 +120,734 @@ namespace LicenseReleaseService.IdleDetection
     }
 
     /// <summary>
-    /// Collection of custom parameters for idle detection
+    /// Configuration element for time-based detection settings
     /// </summary>
-    public class CustomParametersCollection : ConfigurationElementCollection
+    public class TimeBasedDetectionElement : ConfigurationElement
     {
-        /// <summary>
-        /// Creates a new configuration element
-        /// </summary>
-        protected override ConfigurationElement CreateNewElement()
+        [ConfigurationProperty("idleThresholdMinutes", DefaultValue = 30)]
+        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        public int IdleThresholdMinutes
         {
-            return new CustomParameterElement();
+            get { return (int)this["idleThresholdMinutes"]; }
+            set { this["idleThresholdMinutes"] = value; }
+        }
+
+        [ConfigurationProperty("warningThresholdMinutes", DefaultValue = 20)]
+        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        public int WarningThresholdMinutes
+        {
+            get { return (int)this["warningThresholdMinutes"]; }
+            set { this["warningThresholdMinutes"] = value; }
+        }
+
+        [ConfigurationProperty("workHourThresholdMinutes", DefaultValue = 15)]
+        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        public int WorkHourThresholdMinutes
+        {
+            get { return (int)this["workHourThresholdMinutes"]; }
+            set { this["workHourThresholdMinutes"] = value; }
+        }
+
+        [ConfigurationProperty("offHourThresholdMinutes", DefaultValue = 45)]
+        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        public int OffHourThresholdMinutes
+        {
+            get { return (int)this["offHourThresholdMinutes"]; }
+            set { this["offHourThresholdMinutes"] = value; }
+        }
+
+        [ConfigurationProperty("enableAdaptiveDetection", DefaultValue = true)]
+        public bool EnableAdaptiveDetection
+        {
+            get { return (bool)this["enableAdaptiveDetection"]; }
+            set { this["enableAdaptiveDetection"] = value; }
+        }
+
+        [ConfigurationProperty("workHoursStart", DefaultValue = "09:00")]
+        [StringValidator(MinLength = 1)]
+        public string WorkHoursStart
+        {
+            get { return (string)this["workHoursStart"]; }
+            set { this["workHoursStart"] = value; }
+        }
+
+        [ConfigurationProperty("workHoursEnd", DefaultValue = "17:00")]
+        [StringValidator(MinLength = 1)]
+        public string WorkHoursEnd
+        {
+            get { return (string)this["workHoursEnd"]; }
+            set { this["workHoursEnd"] = value; }
+        }
+
+        [ConfigurationProperty("enableWeekendDetection", DefaultValue = true)]
+        public bool EnableWeekendDetection
+        {
+            get { return (bool)this["enableWeekendDetection"]; }
+            set { this["enableWeekendDetection"] = value; }
+        }
+
+        [ConfigurationProperty("weekendMultiplier", DefaultValue = 1.5)]
+        [DoubleValidator(MinValue = 1.0, MaxValue = 3.0)]
+        public double WeekendMultiplier
+        {
+            get { return (double)this["weekendMultiplier"]; }
+            set { this["weekendMultiplier"] = value; }
         }
 
         /// <summary>
-        /// Gets the element key
+        /// Validates the time-based detection configuration
         /// </summary>
-        protected override object GetElementKey(ConfigurationElement element)
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
         {
-            return ((CustomParameterElement)element).Name;
-        }
+            var errors = new List<string>();
 
-        /// <summary>
-        /// Gets or sets a custom parameter by name
-        /// </summary>
-        public new CustomParameterElement this[string name]
-        {
-            get
+            try
             {
-                return (CustomParameterElement)BaseGet(name);
-            }
-            set
-            {
-                if (BaseGet(name) != null)
+                // Validate threshold relationships
+                if (WarningThresholdMinutes >= IdleThresholdMinutes)
                 {
-                    BaseRemove(name);
+                    errors.Add("Warning threshold must be less than idle threshold");
                 }
-                BaseAdd(value);
-            }
-        }
 
-        /// <summary>
-        /// Gets or sets a custom parameter by index
-        /// </summary>
-        public CustomParameterElement this[int index]
-        {
-            get
-            {
-                return (CustomParameterElement)BaseGet(index);
-            }
-            set
-            {
-                if (BaseGet(index) != null)
+                if (WorkHourThresholdMinutes >= IdleThresholdMinutes)
                 {
-                    BaseRemoveAt(index);
+                    errors.Add("Work hour threshold must be less than idle threshold");
                 }
-                BaseAdd(index, value);
+
+                if (OffHourThresholdMinutes <= IdleThresholdMinutes)
+                {
+                    errors.Add("Off hour threshold must be greater than idle threshold");
+                }
+
+                // Validate work hours format
+                if (!TimeSpan.TryParse(WorkHoursStart, out _))
+                {
+                    errors.Add($"Invalid work hours start format: {WorkHoursStart}");
+                }
+
+                if (!TimeSpan.TryParse(WorkHoursEnd, out _))
+                {
+                    errors.Add($"Invalid work hours end format: {WorkHoursEnd}");
+                }
+
+                // Validate weekend multiplier
+                if (WeekendMultiplier < 1.0 || WeekendMultiplier > 3.0)
+                {
+                    errors.Add("Weekend multiplier must be between 1.0 and 3.0");
+                }
+
+                // Validate adaptive detection consistency
+                if (EnableAdaptiveDetection && (WorkHourThresholdMinutes == IdleThresholdMinutes))
+                {
+                    errors.Add("Adaptive detection requires different work hour and off hour thresholds");
+                }
             }
-        }
-
-        /// <summary>
-        /// Adds a custom parameter to the collection
-        /// </summary>
-        public void Add(CustomParameterElement parameter)
-        {
-            BaseAdd(parameter);
-        }
-
-        /// <summary>
-        /// Removes a custom parameter from the collection
-        /// </summary>
-        public void Remove(string name)
-        {
-            BaseRemove(name);
-        }
-
-        /// <summary>
-        /// Removes a custom parameter at the specified index
-        /// </summary>
-        public void RemoveAt(int index)
-        {
-            BaseRemoveAt(index);
-        }
-
-        /// <summary>
-        /// Clears all custom parameters from the collection
-        /// </summary>
-        public void Clear()
-        {
-            BaseClear();
-        }
-
-        /// <summary>
-        /// Gets the number of custom parameters in the collection
-        /// </summary>
-        public new int Count
-        {
-            get { return base.Count; }
-        }
-
-        /// <summary>
-        /// Gets all custom parameters as a dictionary
-        /// </summary>
-        public Dictionary<string, object> ToDictionary()
-        {
-            var dictionary = new Dictionary<string, object>();
-            foreach (CustomParameterElement parameter in this)
+            catch (Exception ex)
             {
-                dictionary[parameter.Name] = parameter.Value;
+                errors.Add($"Time-based detection validation error: {ex.Message}");
             }
-            return dictionary;
+
+            return errors;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the configuration
+        /// </summary>
+        public override string ToString()
+        {
+            return $"TimeBased[Idle={IdleThresholdMinutes}m, Warning={WarningThresholdMinutes}m, WorkHours={WorkHourThresholdMinutes}m, OffHours={OffHourThresholdMinutes}m]";
         }
     }
 
     /// <summary>
-    /// Configuration element for custom parameters
+    /// Configuration element for ping-based detection settings
     /// </summary>
-    public class CustomParameterElement : ConfigurationElement
+    public class PingBasedDetectionElement : ConfigurationElement
     {
-        [ConfigurationProperty("name", IsRequired = true)]
-        [StringValidator(MinLength = 1)]
-        public string Name
+        [ConfigurationProperty("pingTimeoutMs", DefaultValue = 5000)]
+        [IntegerValidator(MinValue = 1000, MaxValue = 30000)]
+        public int PingTimeoutMs
         {
-            get { return (string)this["name"]; }
-            set { this["name"] = value; }
+            get { return (int)this["pingTimeoutMs"]; }
+            set { this["pingTimeoutMs"] = value; }
         }
 
-        [ConfigurationProperty("value", IsRequired = true)]
-        public string Value
+        [ConfigurationProperty("documentActivityThresholdMinutes", DefaultValue = 10)]
+        [IntegerValidator(MinValue = 1, MaxValue = 480)]
+        public int DocumentActivityThresholdMinutes
         {
-            get { return (string)this["value"]; }
-            set { this["value"] = value; }
+            get { return (int)this["documentActivityThresholdMinutes"]; }
+            set { this["documentActivityThresholdMinutes"] = value; }
         }
 
-        [ConfigurationProperty("type", DefaultValue = "string")]
-        [StringValidator(MinLength = 1)]
-        public string Type
+        [ConfigurationProperty("networkActivityThresholdKb", DefaultValue = 1024)]
+        [IntegerValidator(MinValue = 1, MaxValue = 10240)]
+        public int NetworkActivityThresholdKb
         {
-            get { return (string)this["type"]; }
-            set { this["type"] = value; }
+            get { return (int)this["networkActivityThresholdKb"]; }
+            set { this["networkActivityThresholdKb"] = value; }
+        }
+
+        [ConfigurationProperty("enableNetworkMonitoring", DefaultValue = true)]
+        public bool EnableNetworkMonitoring
+        {
+            get { return (bool)this["enableNetworkMonitoring"]; }
+            set { this["enableNetworkMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("enableDocumentMonitoring", DefaultValue = true)]
+        public bool EnableDocumentMonitoring
+        {
+            get { return (bool)this["enableDocumentMonitoring"]; }
+            set { this["enableDocumentMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("enableProcessHealthMonitoring", DefaultValue = true)]
+        public bool EnableProcessHealthMonitoring
+        {
+            get { return (bool)this["enableProcessHealthMonitoring"]; }
+            set { this["enableProcessHealthMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("maxPingRetries", DefaultValue = 3)]
+        [IntegerValidator(MinValue = 1, MaxValue = 10)]
+        public int MaxPingRetries
+        {
+            get { return (int)this["maxPingRetries"]; }
+            set { this["maxPingRetries"] = value; }
+        }
+
+        [ConfigurationProperty("pingRetryDelayMs", DefaultValue = 1000)]
+        [IntegerValidator(MinValue = 100, MaxValue = 10000)]
+        public int PingRetryDelayMs
+        {
+            get { return (int)this["pingRetryDelayMs"]; }
+            set { this["pingRetryDelayMs"] = value; }
+        }
+
+        [ConfigurationProperty("processResponseThresholdMs", DefaultValue = 3000)]
+        [IntegerValidator(MinValue = 500, MaxValue = 15000)]
+        public int ProcessResponseThresholdMs
+        {
+            get { return (int)this["processResponseThresholdMs"]; }
+            set { this["processResponseThresholdMs"] = value; }
         }
 
         /// <summary>
-        /// Gets the parameter value as the specified type
+        /// Validates the ping-based detection configuration
         /// </summary>
-        public object GetTypedValue()
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
         {
-            if (string.IsNullOrWhiteSpace(Value))
+            var errors = new List<string>();
+
+            try
             {
-                return null;
+                // Validate timeout settings
+                if (PingTimeoutMs < 1000 || PingTimeoutMs > 30000)
+                {
+                    errors.Add("Ping timeout must be between 1000ms and 30000ms");
+                }
+
+                if (ProcessResponseThresholdMs > PingTimeoutMs)
+                {
+                    errors.Add("Process response threshold must be less than or equal to ping timeout");
+                }
+
+                // Validate retry settings
+                if (MaxPingRetries < 1 || MaxPingRetries > 10)
+                {
+                    errors.Add("Max ping retries must be between 1 and 10");
+                }
+
+                if (PingRetryDelayMs < 100 || PingRetryDelayMs > 10000)
+                {
+                    errors.Add("Ping retry delay must be between 100ms and 10000ms");
+                }
+
+                // Validate threshold settings
+                if (DocumentActivityThresholdMinutes < 1 || DocumentActivityThresholdMinutes > 480)
+                {
+                    errors.Add("Document activity threshold must be between 1 and 480 minutes");
+                }
+
+                if (NetworkActivityThresholdKb < 1 || NetworkActivityThresholdKb > 10240)
+                {
+                    errors.Add("Network activity threshold must be between 1KB and 10240KB");
+                }
+
+                // Validate monitoring consistency
+                if (!EnableProcessHealthMonitoring && !EnableDocumentMonitoring && !EnableNetworkMonitoring)
+                {
+                    errors.Add("At least one monitoring type must be enabled");
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Ping-based detection validation error: {ex.Message}");
             }
 
-            switch (Type?.ToLowerInvariant())
-            {
-                case "int":
-                case "integer":
-                    if (int.TryParse(Value, out var intValue))
-                    {
-                        return intValue;
-                    }
-                    break;
-                case "bool":
-                case "boolean":
-                    if (bool.TryParse(Value, out var boolValue))
-                    {
-                        return boolValue;
-                    }
-                    break;
-                case "double":
-                case "decimal":
-                    if (double.TryParse(Value, out var doubleValue))
-                    {
-                        return doubleValue;
-                    }
-                    break;
-                case "timespan":
-                    if (TimeSpan.TryParse(Value, out var timespanValue))
-                    {
-                        return timespanValue;
-                    }
-                    break;
-                case "string":
-                default:
-                    return Value;
-            }
-
-            // Return as string if type conversion fails
-            return Value;
+            return errors;
         }
 
         /// <summary>
-        /// Returns a string representation of the custom parameter
+        /// Returns a string representation of the configuration
         /// </summary>
         public override string ToString()
         {
-            return $"{Name}={Value} ({Type})";
+            return $"PingBased[Timeout={PingTimeoutMs}ms, Document={DocumentActivityThresholdMinutes}m, Network={NetworkActivityThresholdKb}KB, Process={EnableProcessHealthMonitoring}]";
+        }
+    }
+
+    /// <summary>
+    /// Configuration element for consensus settings
+    /// </summary>
+    public class ConsensusElement : ConfigurationElement
+    {
+        [ConfigurationProperty("minimumConfidence", DefaultValue = 0.7)]
+        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
+        public double MinimumConfidence
+        {
+            get { return (double)this["minimumConfidence"]; }
+            set { this["minimumConfidence"] = value; }
+        }
+
+        [ConfigurationProperty("requireAllDetectors", DefaultValue = false)]
+        public bool RequireAllDetectors
+        {
+            get { return (bool)this["requireAllDetectors"]; }
+            set { this["requireAllDetectors"] = value; }
+        }
+
+        [ConfigurationProperty("consecutiveIdleCycles", DefaultValue = 2)]
+        [IntegerValidator(MinValue = 1, MaxValue = 10)]
+        public int ConsecutiveIdleCycles
+        {
+            get { return (int)this["consecutiveIdleCycles"]; }
+            set { this["consecutiveIdleCycles"] = value; }
+        }
+
+        [ConfigurationProperty("enableWeightedConsensus", DefaultValue = true)]
+        public bool EnableWeightedConsensus
+        {
+            get { return (bool)this["enableWeightedConsensus"]; }
+            set { this["enableWeightedConsensus"] = value; }
+        }
+
+        [ConfigurationProperty("timeBasedWeight", DefaultValue = 0.6)]
+        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
+        public double TimeBasedWeight
+        {
+            get { return (double)this["timeBasedWeight"]; }
+            set { this["timeBasedWeight"] = value; }
+        }
+
+        [ConfigurationProperty("pingBasedWeight", DefaultValue = 0.4)]
+        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
+        public double PingBasedWeight
+        {
+            get { return (double)this["pingBasedWeight"]; }
+            set { this["pingBasedWeight"] = value; }
+        }
+
+        [ConfigurationProperty("confidenceDecayRate", DefaultValue = 0.1)]
+        [DoubleValidator(MinValue = 0.0, MaxValue = 1.0)]
+        public double ConfidenceDecayRate
+        {
+            get { return (double)this["confidenceDecayRate"]; }
+            set { this["confidenceDecayRate"] = value; }
+        }
+
+        /// <summary>
+        /// Validates the consensus configuration
+        /// </summary>
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
+        {
+            var errors = new List<string>();
+
+            try
+            {
+                // Validate confidence settings
+                if (MinimumConfidence < 0.0 || MinimumConfidence > 1.0)
+                {
+                    errors.Add("Minimum confidence must be between 0.0 and 1.0");
+                }
+
+                if (ConsecutiveIdleCycles < 1 || ConsecutiveIdleCycles > 10)
+                {
+                    errors.Add("Consecutive idle cycles must be between 1 and 10");
+                }
+
+                // Validate weighted consensus settings
+                if (EnableWeightedConsensus)
+                {
+                    var totalWeight = TimeBasedWeight + PingBasedWeight;
+                    if (Math.Abs(totalWeight - 1.0) > 0.01)
+                    {
+                        errors.Add("Time-based and ping-based weights must sum to 1.0");
+                    }
+
+                    if (TimeBasedWeight < 0.0 || TimeBasedWeight > 1.0)
+                    {
+                        errors.Add("Time-based weight must be between 0.0 and 1.0");
+                    }
+
+                    if (PingBasedWeight < 0.0 || PingBasedWeight > 1.0)
+                    {
+                        errors.Add("Ping-based weight must be between 0.0 and 1.0");
+                    }
+                }
+
+                // Validate confidence decay rate
+                if (ConfidenceDecayRate < 0.0 || ConfidenceDecayRate > 1.0)
+                {
+                    errors.Add("Confidence decay rate must be between 0.0 and 1.0");
+                }
+
+                // Validate logical consistency
+                if (RequireAllDetectors && MinimumConfidence < 1.0)
+                {
+                    errors.Add("Minimum confidence should be 1.0 when requiring all detectors");
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Consensus validation error: {ex.Message}");
+            }
+
+            return errors;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the configuration
+        /// </summary>
+        public override string ToString()
+        {
+            return $"Consensus[MinConfidence={MinimumConfidence:P0}, RequireAll={RequireAllDetectors}, ConsecutiveCycles={ConsecutiveIdleCycles}]";
+        }
+    }
+
+    /// <summary>
+    /// Configuration element for state management settings
+    /// </summary>
+    public class StateManagementElement : ConfigurationElement
+    {
+        [ConfigurationProperty("enableHysteresis", DefaultValue = true)]
+        public bool EnableHysteresis
+        {
+            get { return (bool)this["enableHysteresis"]; }
+            set { this["enableHysteresis"] = value; }
+        }
+
+        [ConfigurationProperty("hysteresisFactor", DefaultValue = 0.8)]
+        [DoubleValidator(MinValue = 0.1, MaxValue = 0.9)]
+        public double HysteresisFactor
+        {
+            get { return (double)this["hysteresisFactor"]; }
+            set { this["hysteresisFactor"] = value; }
+        }
+
+        [ConfigurationProperty("maxIdleDurationMinutes", DefaultValue = 480)]
+        [IntegerValidator(MinValue = 60, MaxValue = 1440)]
+        public int MaxIdleDurationMinutes
+        {
+            get { return (int)this["maxIdleDurationMinutes"]; }
+            set { this["maxIdleDurationMinutes"] = value; }
+        }
+
+        [ConfigurationProperty("statePersistenceEnabled", DefaultValue = true)]
+        public bool StatePersistenceEnabled
+        {
+            get { return (bool)this["statePersistenceEnabled"]; }
+            set { this["statePersistenceEnabled"] = value; }
+        }
+
+        [ConfigurationProperty("statePersistenceInterval", DefaultValue = 300)]
+        [IntegerValidator(MinValue = 60, MaxValue = 3600)]
+        public int StatePersistenceInterval
+        {
+            get { return (int)this["statePersistenceInterval"]; }
+            set { this["statePersistenceInterval"] = value; }
+        }
+
+        [ConfigurationProperty("enableStateRecovery", DefaultValue = true)]
+        public bool EnableStateRecovery
+        {
+            get { return (bool)this["enableStateRecovery"]; }
+            set { this["enableStateRecovery"] = value; }
+        }
+
+        [ConfigurationProperty("enableUserOverride", DefaultValue = true)]
+        public bool EnableUserOverride
+        {
+            get { return (bool)this["enableUserOverride"]; }
+            set { this["enableUserOverride"] = value; }
+        }
+
+        [ConfigurationProperty("overrideTimeoutMinutes", DefaultValue = 60)]
+        [IntegerValidator(MinValue = 5, MaxValue = 480)]
+        public int OverrideTimeoutMinutes
+        {
+            get { return (int)this["overrideTimeoutMinutes"]; }
+            set { this["overrideTimeoutMinutes"] = value; }
+        }
+
+        [ConfigurationProperty("maxConsecutiveOverrides", DefaultValue = 3)]
+        [IntegerValidator(MinValue = 1, MaxValue = 10)]
+        public int MaxConsecutiveOverrides
+        {
+            get { return (int)this["maxConsecutiveOverrides"]; }
+            set { this["maxConsecutiveOverrides"] = value; }
+        }
+
+        /// <summary>
+        /// Validates the state management configuration
+        /// </summary>
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
+        {
+            var errors = new List<string>();
+
+            try
+            {
+                // Validate hysteresis settings
+                if (EnableHysteresis && (HysteresisFactor < 0.1 || HysteresisFactor > 0.9))
+                {
+                    errors.Add("Hysteresis factor must be between 0.1 and 0.9");
+                }
+
+                // Validate timeout settings
+                if (MaxIdleDurationMinutes < 60 || MaxIdleDurationMinutes > 1440)
+                {
+                    errors.Add("Max idle duration must be between 60 and 1440 minutes");
+                }
+
+                if (StatePersistenceInterval < 60 || StatePersistenceInterval > 3600)
+                {
+                    errors.Add("State persistence interval must be between 60 and 3600 seconds");
+                }
+
+                if (OverrideTimeoutMinutes < 5 || OverrideTimeoutMinutes > 480)
+                {
+                    errors.Add("Override timeout must be between 5 and 480 minutes");
+                }
+
+                // Validate override settings
+                if (MaxConsecutiveOverrides < 1 || MaxConsecutiveOverrides > 10)
+                {
+                    errors.Add("Max consecutive overrides must be between 1 and 10");
+                }
+
+                // Validate persistence consistency
+                if (StatePersistenceEnabled && !EnableStateRecovery)
+                {
+                    errors.Add("State recovery should be enabled when persistence is enabled");
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"State management validation error: {ex.Message}");
+            }
+
+            return errors;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the configuration
+        /// </summary>
+        public override string ToString()
+        {
+            return $"StateManagement[Hysteresis={EnableHysteresis}, MaxDuration={MaxIdleDurationMinutes}m, Persistence={StatePersistenceEnabled}]";
+        }
+    }
+
+    /// <summary>
+    /// Configuration element for activity monitoring settings
+    /// </summary>
+    public class ActivityMonitoringElement : ConfigurationElement
+    {
+        [ConfigurationProperty("enableSystemActivityMonitoring", DefaultValue = true)]
+        public bool EnableSystemActivityMonitoring
+        {
+            get { return (bool)this["enableSystemActivityMonitoring"]; }
+            set { this["enableSystemActivityMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("systemActivityInterval", DefaultValue = 30)]
+        [IntegerValidator(MinValue = 10, MaxValue = 300)]
+        public int SystemActivityInterval
+        {
+            get { return (int)this["systemActivityInterval"]; }
+            set { this["systemActivityInterval"] = value; }
+        }
+
+        [ConfigurationProperty("enableFileMonitoring", DefaultValue = true)]
+        public bool EnableFileMonitoring
+        {
+            get { return (bool)this["enableFileMonitoring"]; }
+            set { this["enableFileMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("fileMonitoringPaths", DefaultValue = "")]
+        public string FileMonitoringPaths
+        {
+            get { return (string)this["fileMonitoringPaths"]; }
+            set { this["fileMonitoringPaths"] = value; }
+        }
+
+        [ConfigurationProperty("fileMonitoringFilter", DefaultValue = "*.sld*")]
+        public string FileMonitoringFilter
+        {
+            get { return (string)this["fileMonitoringFilter"]; }
+            set { this["fileMonitoringFilter"] = value; }
+        }
+
+        [ConfigurationProperty("enableProcessMonitoring", DefaultValue = true)]
+        public bool EnableProcessMonitoring
+        {
+            get { return (bool)this["enableProcessMonitoring"]; }
+            set { this["enableProcessMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("processNames", DefaultValue = "SLDWORKS.exe")]
+        public string ProcessNames
+        {
+            get { return (string)this["processNames"]; }
+            set { this["processNames"] = value; }
+        }
+
+        [ConfigurationProperty("enableNetworkMonitoring", DefaultValue = true)]
+        public bool EnableNetworkMonitoring
+        {
+            get { return (bool)this["enableNetworkMonitoring"]; }
+            set { this["enableNetworkMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("networkMonitoringInterval", DefaultValue = 60)]
+        [IntegerValidator(MinValue = 10, MaxValue = 600)]
+        public int NetworkMonitoringInterval
+        {
+            get { return (int)this["networkMonitoringInterval"]; }
+            set { this["networkMonitoringInterval"] = value; }
+        }
+
+        [ConfigurationProperty("maxMonitoredProcesses", DefaultValue = 50)]
+        [IntegerValidator(MinValue = 1, MaxValue = 200)]
+        public int MaxMonitoredProcesses
+        {
+            get { return (int)this["maxMonitoredProcesses"]; }
+            set { this["maxMonitoredProcesses"] = value; }
+        }
+
+        [ConfigurationProperty("maxMonitoredFiles", DefaultValue = 1000)]
+        [IntegerValidator(MinValue = 1, MaxValue = 10000)]
+        public int MaxMonitoredFiles
+        {
+            get { return (int)this["maxMonitoredFiles"]; }
+            set { this["maxMonitoredFiles"] = value; }
+        }
+
+        [ConfigurationProperty("enableRealTimeNotifications", DefaultValue = true)]
+        public bool EnableRealTimeNotifications
+        {
+            get { return (bool)this["enableRealTimeNotifications"]; }
+            set { this["enableRealTimeNotifications"] = value; }
+        }
+
+        [ConfigurationProperty("notificationThrottleMs", DefaultValue = 1000)]
+        [IntegerValidator(MinValue = 100, MaxValue = 10000)]
+        public int NotificationThrottleMs
+        {
+            get { return (int)this["notificationThrottleMs"]; }
+            set { this["notificationThrottleMs"] = value; }
+        }
+
+        /// <summary>
+        /// Validates the activity monitoring configuration
+        /// </summary>
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
+        {
+            var errors = new List<string>();
+
+            try
+            {
+                // Validate monitoring intervals
+                if (SystemActivityInterval < 10 || SystemActivityInterval > 300)
+                {
+                    errors.Add("System activity interval must be between 10 and 300 seconds");
+                }
+
+                if (NetworkMonitoringInterval < 10 || NetworkMonitoringInterval > 600)
+                {
+                    errors.Add("Network monitoring interval must be between 10 and 600 seconds");
+                }
+
+                // Validate monitoring limits
+                if (MaxMonitoredProcesses < 1 || MaxMonitoredProcesses > 200)
+                {
+                    errors.Add("Max monitored processes must be between 1 and 200");
+                }
+
+                if (MaxMonitoredFiles < 1 || MaxMonitoredFiles > 10000)
+                {
+                    errors.Add("Max monitored files must be between 1 and 10000");
+                }
+
+                // Validate notification settings
+                if (NotificationThrottleMs < 100 || NotificationThrottleMs > 10000)
+                {
+                    errors.Add("Notification throttle must be between 100 and 10000 ms");
+                }
+
+                // Validate monitoring consistency
+                if (!EnableSystemActivityMonitoring && !EnableFileMonitoring && !EnableProcessMonitoring && !EnableNetworkMonitoring)
+                {
+                    errors.Add("At least one monitoring type must be enabled");
+                }
+
+                // Validate file monitoring settings
+                if (EnableFileMonitoring && string.IsNullOrWhiteSpace(FileMonitoringPaths))
+                {
+                    errors.Add("File monitoring paths must be specified when file monitoring is enabled");
+                }
+
+                // Validate process monitoring settings
+                if (EnableProcessMonitoring && string.IsNullOrWhiteSpace(ProcessNames))
+                {
+                    errors.Add("Process names must be specified when process monitoring is enabled");
+                }
+
+                // Validate file paths format
+                if (EnableFileMonitoring && !string.IsNullOrWhiteSpace(FileMonitoringPaths))
+                {
+                    var paths = FileMonitoringPaths.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var path in paths)
+                    {
+                        var trimmedPath = path.Trim();
+                        if (string.IsNullOrWhiteSpace(trimmedPath))
+                        {
+                            errors.Add("Empty file monitoring path found");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Activity monitoring validation error: {ex.Message}");
+            }
+
+            return errors;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the configuration
+        /// </summary>
+        public override string ToString()
+        {
+            return $"ActivityMonitoring[System={EnableSystemActivityMonitoring}, Files={EnableFileMonitoring}, Processes={EnableProcessMonitoring}, Network={EnableNetworkMonitoring}]";
         }
     }
 }

@@ -57,22 +57,22 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets whether idle detection is enabled
         /// </summary>
-        public bool IsIdleDetectionEnabled => CurrentConfiguration?.IsEnabled ?? false;
+        public bool IsIdleDetectionEnabled => CurrentConfiguration?.EnableIdleDetection ?? false;
 
         /// <summary>
         /// Gets the detection interval
         /// </summary>
-        public TimeSpan DetectionInterval => CurrentConfiguration?.DetectionInterval ?? TimeSpan.FromSeconds(60);
+        public TimeSpan DetectionInterval => TimeSpan.FromMinutes(CurrentConfiguration?.DetectionInterval ?? 5);
 
         /// <summary>
         /// Gets the default idle threshold
         /// </summary>
-        public TimeSpan DefaultIdleThreshold => CurrentConfiguration?.IdleThreshold ?? TimeSpan.FromMinutes(15);
+        public TimeSpan DefaultIdleThreshold => TimeSpan.FromMinutes(CurrentConfiguration?.TimeBasedDetection?.IdleThresholdMinutes ?? 30);
 
         /// <summary>
         /// Gets the confidence threshold
         /// </summary>
-        public double ConfidenceThreshold => CurrentConfiguration?.ConfidenceThreshold ?? 0.7;
+        public double ConfidenceThreshold => CurrentConfiguration?.Consensus?.MinimumConfidence ?? 0.7;
 
         /// <summary>
         /// Initializes a new instance of the ConfigurationIntegration class

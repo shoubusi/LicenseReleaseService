@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 using System.Configuration.Install;
 using System.IO;
 using LicenseReleaseService.Configuration;
+using LicenseReleaseService.Models;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace LicenseReleaseService
 {
@@ -16,6 +19,7 @@ namespace LicenseReleaseService
 		private const string ServiceDisplayName = "License Release Service";
 		private const string ServiceDescription = "Manages software license releases and monitoring";
 		private static readonly ILogger _logger = new EventLogLogger();
+		private static IServiceProvider _serviceProvider;
 
 		/// <summary>
 		/// The main entry point for the application.
@@ -92,8 +96,26 @@ namespace LicenseReleaseService
 			{
 				_logger.LogInformation("Initializing configuration management");
 
+				// Set up dependency injection
+				var services = new ServiceCollection();
+			 ConfigureServices(services);
+				_serviceProvider = services.BuildServiceProvider();
+
 				// Get the ConfigurationManager instance to initialize it
 				var configManager = ConfigurationManager.Instance;
+
+				// Load and validate license release configuration
+				var licenseConfig = LoadLicenseReleaseConfiguration();
+				var configValidation = licenseConfig.Validate();
+				if (!configValidation.IsValid)
+				{
+					var errorString = string.Join("; ", configValidation.Errors);
+					_logger.LogWarning($"LicenseReleaseConfiguration validation warnings: {errorString}");
+				}
+				else
+				{
+					_logger.LogInformation("LicenseReleaseConfiguration validation passed");
+				}
 
 				// Validate configuration
 				var validationErrors = configManager.ValidateConfiguration();
@@ -115,12 +137,118 @@ namespace LicenseReleaseService
 					_logger.LogInformation("Advanced configuration features enabled");
 				}
 
+				// Start health endpoints if configured
+				var licenseConfig = _serviceProvider?.GetService<LicenseReleaseConfiguration>();
+				if (licenseConfig?.HealthMonitoring.Enabled == true)
+				{
+					try
+					{
+						var healthEndpoints = _serviceProvider?.GetService<HealthEndpoints>();
+						healthEndpoints?.Start();
+						_logger.LogInformation("Health endpoints started successfully");
+					}
+					catch (Exception ex)
+					{
+						_logger.LogError($"Failed to start health endpoints: {ex.Message}");
+						// Continue without health endpoints
+					}
+				}
+
 				_logger.LogInformation("Configuration management initialized successfully");
 			}
 			catch (Exception ex)
 			{
 				_logger.LogError($"Failed to initialize configuration management: {ex.Message}", ex);
 				throw new ConfigurationInitializationException($"Configuration initialization failed: {ex.Message}", ex);
+			}
+		}
+
+		/// <summary>
+		/// Configure dependency injection services
+		/// </summary>
+		/// <param name="services">Service collection</param>
+		private static void ConfigureServices(IServiceCollection services)
+		{
+			_logger.LogInformation("Configuring dependency injection services");
+
+			// Add logging
+			services.AddLogging(builder =>
+			{
+				builder.AddConsole();
+				builder.AddDebug();
+				builder.SetMinimumLevel(LogLevel.Information);
+			});
+
+			// Add configuration
+			services.AddSingleton(ConfigurationManager.Instance);
+			services.AddSingleton<LicenseReleaseConfiguration>(sp =>
+			{
+				var config = LoadLicenseReleaseConfiguration();
+				return config;
+			});
+
+			// Add health monitoring
+			services.AddSingleton<ServiceHealth>();
+			services.AddSingleton<HealthChecker>();
+
+			// Add license management
+			services.AddTransient<ILicenseManager, LmutilLicenseManager>();
+			services.AddTransient<IProcessExecutor, ProcessExecutor>();
+			services.AddTransient<ILicenseQueryEngine, LicenseQueryEngine>();
+
+			// Add caching
+			services.AddSingleton<ICacheManager, MemoryCacheManager>();
+
+			// Add performance monitoring
+			services.AddSingleton<PerformanceMonitor>();
+			services.AddSingleton<ProcessMetrics>();
+
+			// Add error recovery
+			services.AddSingleton<RecoveryManager>();
+			services.AddSingleton<CircuitBreaker>();
+			services.AddSingleton<AutomaticRecoveryManager>();
+
+			// Add timer execution
+			services.AddSingleton<TimerExecutionIntegration>();
+
+			// Add configuration components
+			services.AddSingleton<ConfigurationWatcher>();
+			services.AddSingleton<ConfigurationReloadManager>();
+			services.AddSingleton<ConfigurationHealthMonitor>();
+
+			// Add health endpoints
+			services.AddSingleton<HealthEndpoints>();
+
+			_logger.LogInformation("Dependency injection services configured successfully");
+		}
+
+		/// <summary>
+		/// Load license release configuration
+		/// </summary>
+		/// <returns>License release configuration</returns>
+		private static LicenseReleaseConfiguration LoadLicenseReleaseConfiguration()
+		{
+			try
+			{
+				var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ServiceConfig.json");
+
+				if (!File.Exists(configPath))
+				{
+					_logger.LogWarning($"ServiceConfig.json not found at {configPath}, using default configuration");
+					return new LicenseReleaseConfiguration();
+				}
+
+				var json = File.ReadAllText(configPath);
+				var config = System.Text.Json.JsonSerializer.Deserialize<LicenseReleaseConfiguration>(json);
+
+				_logger.LogInformation($"Loaded license release configuration from {configPath}");
+				return config ?? new LicenseReleaseConfiguration();
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError($"Failed to load license release configuration: {ex.Message}");
+				_logger.LogInformation("Using default configuration");
+				return new LicenseReleaseConfiguration();
 			}
 		}
 
@@ -203,9 +331,13 @@ namespace LicenseReleaseService
 			try
 			{
 				_logger.LogInformation("Creating Windows Service instances");
+
+				// Create service using dependency injection
+				var service = _serviceProvider?.GetService<LicenseReleaseService>() ?? new LicenseReleaseService();
+
 				ServiceBase[] ServicesToRun =
 				{
-					new LicenseReleaseService()
+					service
 				};
 				_logger.LogInformation("Starting Windows Service runtime");
 				ServiceBase.Run(ServicesToRun);
@@ -225,7 +357,8 @@ namespace LicenseReleaseService
 			Console.WriteLine("Press Ctrl+C to stop the service");
 			Console.WriteLine();
 
-			var service = new LicenseReleaseService();
+			// Create service using dependency injection
+			var service = _serviceProvider?.GetService<LicenseReleaseService>() ?? new LicenseReleaseService();
 			var cancellationTokenSource = new System.Threading.CancellationTokenSource();
 
 			// Set up console cancellation
@@ -409,7 +542,8 @@ namespace LicenseReleaseService
 			Console.WriteLine("Available commands: start, stop, pause, continue, status, health, exit");
 			Console.WriteLine();
 
-			var service = new LicenseReleaseService();
+			// Create service using dependency injection
+			var service = _serviceProvider?.GetService<LicenseReleaseService>() ?? new LicenseReleaseService();
 			bool isRunning = false;
 
 			while (true)
@@ -513,8 +647,28 @@ namespace LicenseReleaseService
 			try
 			{
 				var configManager = ConfigurationManager.Instance;
+				var licenseConfig = _serviceProvider?.GetService<LicenseReleaseConfiguration>() ?? new LicenseReleaseConfiguration();
+
 				Console.WriteLine("Configuration Information:");
 				Console.WriteLine(configManager.GetConfigurationSummary());
+				Console.WriteLine();
+				Console.WriteLine("License Release Configuration:");
+				Console.WriteLine(licenseConfig.GetSummary());
+				Console.WriteLine();
+				Console.WriteLine("License Server Configuration:");
+				Console.WriteLine($"  Host: {licenseConfig.LicenseServer.Host}:{licenseConfig.LicenseServer.Port}");
+				Console.WriteLine($"  License File: {licenseConfig.LicenseServer.LicenseFilePath}");
+				Console.WriteLine($"  Lmutil Path: {licenseConfig.LicenseServer.LmutilPath}");
+				Console.WriteLine();
+				Console.WriteLine("Error Recovery Configuration:");
+				Console.WriteLine($"  Enabled: {licenseConfig.ErrorRecovery.Enabled}");
+				Console.WriteLine($"  Max Retries: {licenseConfig.ErrorRecovery.MaxRetryAttempts}");
+				Console.WriteLine($"  Retry Delay: {licenseConfig.ErrorRecovery.RetryDelayMilliseconds}ms");
+				Console.WriteLine();
+				Console.WriteLine("Health Monitoring Configuration:");
+				Console.WriteLine($"  Enabled: {licenseConfig.HealthMonitoring.Enabled}");
+				Console.WriteLine($"  Check Interval: {licenseConfig.HealthMonitoring.HealthCheckIntervalSeconds}s");
+				Console.WriteLine($"  Endpoint: {licenseConfig.HealthMonitoring.HealthCheckEndpoint}");
 			}
 			catch (Exception ex)
 			{
@@ -532,7 +686,11 @@ namespace LicenseReleaseService
 			try
 			{
 				var configManager = ConfigurationManager.Instance;
+				var licenseConfig = _serviceProvider?.GetService<LicenseReleaseConfiguration>() ?? new LicenseReleaseConfiguration();
+
 				var validationErrors = configManager.ValidateConfiguration();
+				var licenseConfigValidation = licenseConfig.Validate();
+				validationErrors.AddRange(licenseConfigValidation.Errors);
 
 				Console.WriteLine("Configuration Validation:");
 				Console.WriteLine($"Configuration file: {configManager.ConfigFilePath}");
@@ -540,10 +698,11 @@ namespace LicenseReleaseService
 				Console.WriteLine($"Last reload: {configManager.LastSuccessfulReload:yyyy-MM-dd HH:mm:ss}");
 				Console.WriteLine($"Advanced features enabled: {configManager.AdvancedFeaturesEnabled}");
 				Console.WriteLine($"Configuration health: {configManager.HealthStatus}");
+				Console.WriteLine($"License Release Configuration valid: {licenseConfigValidation.IsValid}");
 
 				if (validationErrors.Count == 0)
 				{
-					Console.WriteLine("✓ Configuration is valid");
+					Console.WriteLine("✓ All configurations are valid");
 					Environment.Exit(0);
 				}
 				else

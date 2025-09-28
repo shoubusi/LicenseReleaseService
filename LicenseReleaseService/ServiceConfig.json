@@ -1,0 +1,121 @@
+{
+  "Enabled": true,
+  "CheckIntervalSeconds": 60,
+  "MaxConcurrentOperations": 5,
+  "LicenseServer": {
+    "Host": "localhost",
+    "Port": 27000,
+    "ConnectionTimeoutSeconds": 30,
+    "LicenseFilePath": "C:\\flexlm\\license.dat",
+    "LmutilPath": "C:\\flexlm\\lmutil.exe",
+    "MonitoredFeatures": [
+      "solidworks",
+      "matlab",
+      "autocad"
+    ]
+  },
+  "ErrorRecovery": {
+    "Enabled": true,
+    "MaxRetryAttempts": 3,
+    "RetryDelayMilliseconds": 1000,
+    "BackoffMultiplier": 2.0,
+    "RecoveryTimeoutSeconds": 300,
+    "EnableGracefulDegradation": true,
+    "RecoverableErrorTypes": [
+      "NetworkError",
+      "TimeoutError",
+      "TransientError"
+    ]
+  },
+  "HealthMonitoring": {
+    "Enabled": true,
+    "HealthCheckIntervalSeconds": 30,
+    "HealthCheckTimeoutSeconds": 10,
+    "HealthCheckEndpoint": "http://localhost:8080/health",
+    "MaxConsecutiveFailures": 3,
+    "EnableDetailedHealthReporting": true
+  },
+  "CircuitBreaker": {
+    "Enabled": true,
+    "FailureThreshold": 5,
+    "ResetTimeoutSeconds": 60,
+    "HalfOpenAttempts": 1
+  },
+  "RetryPolicy": {
+    "Enabled": true,
+    "MaxRetryAttempts": 3,
+    "InitialDelayMilliseconds": 1000,
+    "MaxDelayMilliseconds": 30000,
+    "BackoffMultiplier": 2.0
+  },
+  "Logging": {
+    "LogLevel": "Information",
+    "LogFilePath": "C:\\Logs\\LicenseReleaseService.log",
+    "MaxLogFileSizeMB": 10,
+    "MaxLogFiles": 5,
+    "EnableEventLogging": true,
+    "EnableConsoleLogging": true
+  },
+  "Performance": {
+    "Enabled": true,
+    "MonitoringIntervalSeconds": 60,
+    "CpuUsageThresholdPercent": 80,
+    "MemoryUsageThresholdPercent": 85,
+    "EnablePerformanceCounters": true
+  },
+  "SafetyValidation": {
+    "Enabled": true,
+    "ValidationTimeoutSeconds": 30,
+    "MaxConsecutiveFailures": 5,
+    "SafetyLockoutDurationMinutes": 60,
+    "MinimumIdleTimeMinutes": 15,
+    "ProtectedProcesses": [
+      "explorer.exe",
+      "lsass.exe",
+      "csrss.exe",
+      "winlogon.exe",
+      "services.exe",
+      "svchost.exe"
+    ],
+    "CriticalApplications": [
+      "devenv.exe",
+      "notepad++.exe",
+      "code.exe",
+      "winword.exe",
+      "excel.exe"
+    ],
+    "RequireUserConfirmation": true,
+    "UserActivityCheckIntervalSeconds": 5,
+    "MaxCpuUsagePercent": 80,
+    "MaxMemoryUsagePercent": 85,
+    "ValidateNetworkConnectivity": true,
+    "NetworkConnectivityTimeoutSeconds": 10,
+    "AllowedLicenseServers": [],
+    "EnableDebugLogging": false,
+    "CustomValidationRules": {},
+    "FailureAction": "Block",
+    "WarningAction": "Warn"
+  },
+  "TimerExecution": {
+    "Enabled": true,
+    "TimerIntervalSeconds": 60,
+    "TimerTimeoutSeconds": 30,
+    "EnableTimerSynchronization": true
+  },
+  "ConfigurationManagement": {
+    "Enabled": true,
+    "EnableHotReload": true,
+    "HotReloadDebounceSeconds": 5,
+    "EnableValidation": true,
+    "EnableBackup": true,
+    "BackupRetentionDays": 30
+  },
+  "Deployment": {
+    "Environment": "Production",
+    "ServiceAccount": "NT AUTHORITY\\LocalService",
+    "ServiceDisplayName": "License Release Service",
+    "ServiceDescription": "Manages software license releases and monitoring",
+    "StartupMode": "Automatic",
+    "EnableServiceRecovery": true
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "idleDetection": {
+    "isEnabled": true,
+    "detectionInterval": "00:00:30",
+    "confidenceThreshold": 0.8,
+    "maxDetectionTime": "00:00:30",
+    "maxConcurrentDetections": 100,
+    "memoryLimitMB": 100,
+    "enableTimeBasedDetection": true,
+    "enablePingBasedDetection": true,
+    "enableActivityMonitoring": true,
+    "consensusStrategy": "Majority",
+    "enableAdaptiveThresholds": true,
+    "enableWorkHourRules": true,
+    "enableDetailedLogging": true,
+    "logRetentionDays": 30,
+    "timeBasedDetection": {
+      "baseThreshold": "00:05:00",
+      "warningThreshold": "00:10:00",
+      "imminentThreshold": "00:15:00",
+      "criticalThreshold": "00:20:00",
+      "workHourMultiplier": 1.0,
+      "offHourMultiplier": 1.5,
+      "enableHysteresis": true,
+      "hysteresisDelay": "00:01:00",
+      "enableGraduatedDetection": true,
+      "activitySampleRateMs": 1000,
+      "enableSystemActivityMonitoring": true
+    },
+    "pingBasedDetection": {
+      "pingInterval": "00:00:10",
+      "pingTimeout": "00:00:05",
+      "maxRetries": 3,
+      "enableProcessPing": true,
+      "enableDocumentActivityMonitoring": true,
+      "enableNetworkActivityMonitoring": true,
+      "maxConcurrentPings": 50,
+      "enableRemoteDesktopSupport": true,
+      "networkActivity": {
+        "enableTcpMonitoring": true,
+        "enableUdpMonitoring": true,
+        "solidWorksPortRanges": [
+          "5800-5900",
+          "27000-27009"
+        ],
+        "maxConnections": 100
+      }
+    },
+    "activityMonitoring": {
+      "enableFileSystemMonitoring": true,
+      "enablePerformanceMonitoring": true,
+      "enableSystemActivityTracking": true,
+      "fileSystem": {
+        "monitoredExtensions": [".sldprt", ".sldasm", ".slddrw"],
+        "includeSubdirectories": true,
+        "monitorIntervalMs": 5000,
+        "maxMonitoredDirectories": 50
+      },
+      "performance": {
+        "monitorIntervalMs": 5000,
+        "cpuThresholdPercent": 80,
+        "memoryThresholdPercent": 80,
+        "diskThresholdPercent": 90
+      },
+      "systemActivity": {
+        "keyboardActivityThresholdMs": 30000,
+        "mouseActivityThresholdMs": 30000,
+        "windowSwitchThresholdMs": 60000,
+        "enableRealTimeMonitoring": true
+      }
+    }
+  },
+  "monitoring": {
+    "enableHealthMonitoring": true,
+    "healthCheckInterval": "00:01:00",
+    "enablePerformanceMonitoring": true,
+    "performanceMetricsInterval": "00:05:00",
+    "enableErrorMonitoring": true,
+    "errorRetentionDays": 30,
+    "alerting": {
+      "enableEmailAlerts": true,
+      "enableSystemLogs": true,
+      "criticalAlertThreshold": 3,
+      "warningAlertThreshold": 5,
+      "alertSuppressionWindow": "00:15:00"
+    }
+  },
+  "logging": {
+    "logLevel": "Information",
+    "enableConsoleLogging": true,
+    "enableFileLogging": true,
+    "logFilePath": "C:\\ProgramData\\LicenseReleaseService\\Logs",
+    "maxLogFileSizeMB": 10,
+    "maxLogFiles": 10,
+    "enableStructuredLogging": true,
+    "includeScopes": true
+  },
+  "deployment": {
+    "environment": "Production",
+    "enableAutoUpdate": false,
+    "backupBeforeUpdate": true,
+    "rollbackOnError": true,
+    "maintenanceWindow": {
+      "enabled": true,
+      "startTime": "22:00:00",
+      "endTime": "06:00:00",
+      "timeZone": "UTC"
+    },
+    "serviceConfiguration": {
+      "serviceName": "LicenseReleaseService",
+      "displayName": "License Release Service",
+      "description": "License Release Service with Idle Detection",
+      "startType": "Automatic",
+      "account": "LocalSystem",
+      "dependencies": [
+        "EventLog",
+        "Tcpip"
+      ]
+    }
+  }
+}

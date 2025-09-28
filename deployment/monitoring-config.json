@@ -1,0 +1,328 @@
+{
+  "monitoring": {
+    "enableHealthMonitoring": true,
+    "healthCheckInterval": "00:01:00",
+    "enablePerformanceMonitoring": true,
+    "performanceMetricsInterval": "00:05:00",
+    "enableErrorMonitoring": true,
+    "errorRetentionDays": 30,
+    "enableLogMonitoring": true,
+    "logCheckInterval": "00:02:00",
+    "enableServiceMonitoring": true,
+    "serviceCheckInterval": "00:00:30",
+    "enableSystemResourceMonitoring": true,
+    "resourceCheckInterval": "00:01:00",
+    "enableNetworkMonitoring": true,
+    "networkCheckInterval": "00:05:00"
+  },
+  "alerting": {
+    "enableEmailAlerts": true,
+    "enableSystemLogs": true,
+    "enableEventLogAlerts": true,
+    "enablePerformanceAlerts": true,
+    "enableResourceAlerts": true,
+    "criticalAlertThreshold": 3,
+    "warningAlertThreshold": 5,
+    "alertSuppressionWindow": "00:15:00",
+    "alertEscalationEnabled": true,
+    "escalationDelay": "00:30:00",
+    "alertAggregationWindow": "00:05:00"
+  },
+  "emailNotifications": {
+    "smtpServer": "smtp.company.com",
+    "smtpPort": 587,
+    "useSsl": true,
+    "username": "alerts@company.com",
+    "password": "encrypted_password_here",
+    "fromAddress": "LicenseReleaseService@company.com",
+    "toAddresses": [
+      "admin@company.com",
+      "support@company.com"
+    ],
+    "ccAddresses": [],
+    "bccAddresses": [],
+    "enablePriorityRouting": true,
+    "priorityRecipients": {
+      "Critical": ["oncall@company.com", "admin@company.com"],
+      "Warning": ["support@company.com"],
+      "Information": ["logs@company.com"]
+    }
+  },
+  "systemLogAlerts": {
+    "enableWindowsEventLog": true,
+    "enableApplicationLog": true,
+    "enableSecurityLog": true,
+    "logSources": [
+      {
+        "logName": "Application",
+        "sourceName": "LicenseReleaseService",
+        "eventTypes": ["Error", "Warning"],
+        "keywords": ["exception", "error", "failed", "timeout"]
+      },
+      {
+        "logName": "System",
+        "sourceName": "Service Control Manager",
+        "eventTypes": ["Error"],
+        "keywords": ["LicenseReleaseService"]
+      }
+    ],
+    "customFilters": [
+      {
+        "name": "High Memory Usage",
+        "pattern": "Memory usage exceeded",
+        "severity": "Warning"
+      },
+      {
+        "name": "Service Failure",
+        "pattern": "Service failed to start",
+        "severity": "Critical"
+      },
+      {
+        "name": "Detection Timeout",
+        "pattern": "Detection timeout",
+        "severity": "Warning"
+      }
+    ]
+  },
+  "performanceAlerts": {
+    "enableResponseTimeAlerts": true,
+    "enableThroughputAlerts": true,
+    "enableMemoryAlerts": true,
+    "enableCpuAlerts": true,
+    "enableErrorRateAlerts": true,
+    "thresholds": {
+      "responseTime": {
+        "warning": 1000,
+        "critical": 5000,
+        "measurementWindow": "00:05:00"
+      },
+      "throughput": {
+        "warning": 50,
+        "critical": 10,
+        "measurementWindow": "00:05:00"
+      },
+      "memoryUsage": {
+        "warning": 80,
+        "critical": 95,
+        "measurementWindow": "00:01:00"
+      },
+      "cpuUsage": {
+        "warning": 70,
+        "critical": 90,
+        "measurementWindow": "00:01:00"
+      },
+      "errorRate": {
+        "warning": 0.05,
+        "critical": 0.10,
+        "measurementWindow": "00:05:00"
+      }
+    },
+    "baselines": {
+      "responseTime": 50,
+      "throughput": 100,
+      "memoryUsage": 30,
+      "cpuUsage": 20,
+      "errorRate": 0.01
+    }
+  },
+  "resourceAlerts": {
+    "enableDiskSpaceAlerts": true,
+    "enableMemoryPressureAlerts": true,
+    "enableHandleLeakAlerts": true,
+    "enableThreadLeakAlerts": true,
+    "enableConnectionLeakAlerts": true,
+    "thresholds": {
+      "diskSpace": {
+        "warning": 20,
+        "critical": 5,
+        "unit": "GB",
+        "drives": ["C:", "D:"]
+      },
+      "memoryPressure": {
+        "warning": 80,
+        "critical": 90,
+        "measurementWindow": "00:01:00"
+      },
+      "handleCount": {
+        "warning": 1000,
+        "critical": 5000,
+        "measurementWindow": "00:05:00"
+      },
+      "threadCount": {
+        "warning": 100,
+        "critical": 500,
+        "measurementWindow": "00:05:00"
+      },
+      "connectionCount": {
+        "warning": 100,
+        "critical": 500,
+        "measurementWindow": "00:01:00"
+      }
+    }
+  },
+  "healthChecks": {
+    "enableServiceHealthCheck": true,
+    "enableConfigurationHealthCheck": true,
+    "enablePerformanceHealthCheck": true,
+    "enableLogHealthCheck": true,
+    "enableNetworkHealthCheck": true,
+    "enableSecurityHealthCheck": true,
+    "enableDatabaseHealthCheck": false,
+    "enableExternalServiceHealthCheck": false,
+    "checkIntervals": {
+      "serviceHealth": "00:00:30",
+      "configurationHealth": "00:05:00",
+      "performanceHealth": "00:01:00",
+      "logHealth": "00:02:00",
+      "networkHealth": "00:05:00",
+      "securityHealth": "00:10:00"
+    },
+    "timeouts": {
+      "serviceHealth": "00:00:10",
+      "configurationHealth": "00:00:05",
+      "performanceHealth": "00:00:30",
+      "logHealth": "00:00:15",
+      "networkHealth": "00:00:30",
+      "securityHealth": "00:00:15"
+    }
+  },
+  "reporting": {
+    "enableDailyReports": true,
+    "enableWeeklyReports": true,
+    "enableMonthlyReports": true,
+    "enableOnDemandReports": true,
+    "reportFormats": ["Html", "Pdf", "Json"],
+    "reportRetentionDays": 90,
+    "emailReports": true,
+    "reportRecipients": [
+      "admin@company.com",
+      "management@company.com"
+    ],
+    "schedules": {
+      "daily": {
+        "time": "08:00:00",
+        "includeMetrics": true,
+        "includeAlerts": true,
+        "includeHealth": true
+      },
+      "weekly": {
+        "day": "Monday",
+        "time": "08:00:00",
+        "includeTrends": true,
+        "includeComparison": true
+      },
+      "monthly": {
+        "day": 1,
+        "time": "08:00:00",
+        "includeSummary": true,
+        "includeRecommendations": true
+      }
+    }
+  },
+  "dashboard": {
+    "enableWebDashboard": true,
+    "dashboardPort": 8080,
+    "enableRealTimeUpdates": true,
+    "updateInterval": "00:00:05",
+    "retentionPeriod": "7.00:00:00",
+    "enableAuthentication": true,
+    "allowedUsers": ["admin", "support"],
+    "enableExport": true,
+    "exportFormats": ["Csv", "Json", "Pdf"],
+    "widgets": [
+      {
+        "name": "Service Status",
+        "type": "status",
+        "position": "top-left",
+        "refreshInterval": "00:00:30"
+      },
+      {
+        "name": "Performance Metrics",
+        "type": "chart",
+        "position": "top-center",
+        "metrics": ["ResponseTime", "Throughput", "ErrorRate"],
+        "refreshInterval": "00:00:05"
+      },
+      {
+        "name": "Resource Usage",
+        "type": "gauge",
+        "position": "top-right",
+        "metrics": ["MemoryUsage", "CpuUsage", "DiskUsage"],
+        "refreshInterval": "00:00:10"
+      },
+      {
+        "name": "Recent Alerts",
+        "type": "list",
+        "position": "bottom-left",
+        "maxItems": 10,
+        "refreshInterval": "00:00:15"
+      },
+      {
+        "name": "Health Check Results",
+        "type": "table",
+        "position": "bottom-center",
+        "refreshInterval": "00:01:00"
+      },
+      {
+        "name": "System Logs",
+        "type": "log",
+        "position": "bottom-right",
+        "maxLines": 50,
+        "refreshInterval": "00:00:30"
+      }
+    ]
+  },
+  "integration": {
+    "enableWindowsEventLog": true,
+    "enablePerfmonCounters": true,
+    "enableWmiMonitoring": true,
+    "enableSnmpMonitoring": false,
+    "enableRestApi": true,
+    "apiPort": 8081,
+    "enableWebhooks": false,
+    "enableSlackIntegration": false,
+    "enableTeamsIntegration": false,
+    "enablePagerDutyIntegration": false,
+    "enableDatadogIntegration": false,
+    "enableNewRelicIntegration": false,
+    "customEndpoints": []
+  },
+  "maintenance": {
+    "enableMaintenanceMode": false,
+    "maintenanceSchedule": {
+      "enabled": false,
+      "startTime": "22:00:00",
+      "endTime": "06:00:00",
+      "daysOfWeek": ["Saturday", "Sunday"],
+      "timeZone": "UTC"
+    },
+    "autoMaintenance": {
+      "enabled": true,
+      "logRotation": {
+        "enabled": true,
+        "maxFileSizeMB": 10,
+        "maxFiles": 10,
+        "schedule": "00:00:00"
+      },
+      "databaseMaintenance": {
+        "enabled": false,
+        "schedule": "02:00:00"
+      },
+      "performanceDataCleanup": {
+        "enabled": true,
+        "retentionDays": 30,
+        "schedule": "03:00:00"
+      }
+    }
+  },
+  "disasterRecovery": {
+    "enableBackupMonitoring": true,
+    "backupSchedule": "00:00:00",
+    "backupRetentionDays": 30,
+    "enableFailoverMonitoring": false,
+    "failoverServers": [],
+    "enableDataReplication": false,
+    "replicationInterval": "00:05:00",
+    "enableSiteRecovery": false
+  }
+}

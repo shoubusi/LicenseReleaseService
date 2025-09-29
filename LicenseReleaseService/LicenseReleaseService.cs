@@ -66,8 +66,6 @@ namespace LicenseReleaseService
             _cacheOptions = CreateCacheOptionsFromSettings();
             _outputParser = new LmstatOutputParser();
             _queryEngineLogger = new Microsoft.Extensions.Logging.LoggerFactory()
-                .AddConsole()
-                .AddDebug()
                 .CreateLogger<LicenseQueryEngine>();
 
             InitializeLicenseManagement();
@@ -186,34 +184,24 @@ namespace LicenseReleaseService
 
                 // Initialize loggers for license management components
                 _licenseManagerLogger = new Microsoft.Extensions.Logging.LoggerFactory()
-                    .AddConsole()
-                    .AddDebug()
-                    .CreateLogger<LmutilLicenseManager>();
+                                        .CreateLogger<LmutilLicenseManager>();
 
                 _processExecutorLogger = new Microsoft.Extensions.Logging.LoggerFactory()
-                    .AddConsole()
-                    .AddDebug()
-                    .CreateLogger<ProcessExecutor>();
+                                        .CreateLogger<ProcessExecutor>();
 
                 _monitoredLicenseManagerLogger = new Microsoft.Extensions.Logging.LoggerFactory()
-                    .AddConsole()
-                    .AddDebug()
-                    .CreateLogger<MonitoredLicenseManager>();
+                                        .CreateLogger<MonitoredLicenseManager>();
 
                 // Initialize process executor
                 _processExecutor = new ProcessExecutor(_processExecutorLogger, _processOptions);
 
                 // Initialize process metrics
                 _processMetrics = new ProcessMetrics(new Microsoft.Extensions.Logging.LoggerFactory()
-                    .AddConsole()
-                    .AddDebug()
-                    .CreateLogger<ProcessMetrics>(), 1000);
+                                        .CreateLogger<ProcessMetrics>(), 1000);
 
                 // Initialize performance monitor
                 _performanceMonitor = new LicenseManagement.PerformanceMonitor(new Microsoft.Extensions.Logging.LoggerFactory()
-                    .AddConsole()
-                    .AddDebug()
-                    .CreateLogger<LicenseManagement.PerformanceMonitor>(), _processMetrics);
+                                        .CreateLogger<LicenseManagement.PerformanceMonitor>(), _processMetrics);
 
                 // Initialize license manager
                 _licenseManager = new LmutilLicenseManager(
@@ -230,8 +218,7 @@ namespace LicenseReleaseService
                     _performanceMonitor,
                     new global::LicenseReleaseService.LicenseManagement.HealthChecker(
                     new Microsoft.Extensions.Logging.LoggerFactory()
-                        .AddConsole()
-                        .AddDebug()
+                                                .AddDebug()
                         .CreateLogger<global::LicenseReleaseService.LicenseManagement.HealthChecker>(),
                     _licenseManager,
                     _processMetrics,
@@ -940,7 +927,7 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         /// Gets the current cache statistics for the license query engine
         /// </summary>
         /// <returns>Cache statistics or null if cache manager is not available</returns>
-        public CacheStatistics GetCacheStatistics()
+        public global::LicenseReleaseService.LicenseManagement.Caching.CacheStatistics GetCacheStatistics()
         {
             try
             {

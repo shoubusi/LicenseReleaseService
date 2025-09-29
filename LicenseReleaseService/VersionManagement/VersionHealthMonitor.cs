@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
+using Microsoft.Extensions.Logging;
 
 namespace LicenseReleaseService.VersionManagement
 {

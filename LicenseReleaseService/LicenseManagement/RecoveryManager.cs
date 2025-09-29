@@ -567,11 +567,11 @@ namespace LicenseReleaseService.LicenseManagement
         /// Gets recovery statistics
         /// </summary>
         /// <returns>Recovery statistics</returns>
-        public RecoveryStatistics GetStatistics()
+        public ScenarioRecoveryStatistics GetStatistics()
         {
             // This would normally track actual recovery attempts and results
             // For now, returning basic information
-            return new RecoveryStatistics
+            return new ScenarioRecoveryStatistics
             {
                 TotalScenarios = _scenarios.Count,
                 EnabledScenarios = _scenarios.Values.Count(s => s.IsEnabled),
@@ -598,7 +598,7 @@ namespace LicenseReleaseService.LicenseManagement
     /// <summary>
     /// Represents recovery statistics
     /// </summary>
-    public class RecoveryStatistics
+    public class ScenarioRecoveryStatistics
     {
         /// <summary>
         /// Gets or sets the total number of registered scenarios

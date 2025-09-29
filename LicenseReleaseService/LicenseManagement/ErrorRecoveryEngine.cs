@@ -83,7 +83,7 @@ namespace LicenseReleaseService.LicenseManagement
     /// <summary>
     /// Represents a recovery request
     /// </summary>
-    public class RecoveryRequest
+    public class ErrorRecoveryRequest
     {
         /// <summary>
         /// Gets or sets the unique request ID
@@ -298,8 +298,8 @@ namespace LicenseReleaseService.LicenseManagement
         private readonly ServiceResilienceCoordinator _resilienceCoordinator;
         private readonly HealthChecker _healthChecker;
 
-        private readonly ConcurrentQueue<RecoveryRequest> _recoveryQueue;
-        private readonly ConcurrentDictionary<string, RecoveryRequest> _activeRecoveries;
+        private readonly ConcurrentQueue<ErrorRecoveryRequest> _recoveryQueue;
+        private readonly ConcurrentDictionary<string, ErrorRecoveryRequest> _activeRecoveries;
         private readonly ConcurrentDictionary<string, DateTime> _completedRecoveries;
         private readonly CancellationTokenSource _shutdownCts;
         private readonly Timer _processingTimer;
@@ -313,7 +313,7 @@ namespace LicenseReleaseService.LicenseManagement
         /// <summary>
         /// Event raised when a recovery request is submitted
         /// </summary>
-        public event EventHandler<RecoveryRequest> RecoveryRequested;
+        public event EventHandler<ErrorRecoveryRequest> ErrorRecoveryRequested;
 
         /// <summary>
         /// Event raised when a recovery is completed
@@ -368,8 +368,8 @@ namespace LicenseReleaseService.LicenseManagement
             _resilienceCoordinator = resilienceCoordinator ?? throw new ArgumentNullException(nameof(resilienceCoordinator));
             _healthChecker = healthChecker ?? throw new ArgumentNullException(nameof(healthChecker));
 
-            _recoveryQueue = new ConcurrentQueue<RecoveryRequest>();
-            _activeRecoveries = new ConcurrentDictionary<string, RecoveryRequest>();
+            _recoveryQueue = new ConcurrentQueue<ErrorRecoveryRequest>();
+            _activeRecoveries = new ConcurrentDictionary<string, ErrorRecoveryRequest>();
             _completedRecoveries = new ConcurrentDictionary<string, DateTime>();
             _shutdownCts = new CancellationTokenSource();
             _stateLock = new object();
@@ -406,7 +406,7 @@ namespace LicenseReleaseService.LicenseManagement
         /// <param name="context">Additional context</param>
         /// <param name="callback">Callback for completion</param>
         /// <returns>The recovery request ID</returns>
-        public string SubmitRecoveryRequest(
+        public string SubmitErrorRecoveryRequest(
             RecoveryTriggerType triggerType,
             string sourceComponent,
             string operationName,
@@ -424,7 +424,7 @@ namespace LicenseReleaseService.LicenseManagement
             var requestId = Guid.NewGuid().ToString("N");
             var errorClassification = _errorClassifier.ClassifyException(exception, context, operationName);
 
-            var request = new RecoveryRequest
+            var request = new ErrorRecoveryRequest
             {
                 RequestId = requestId,
                 TriggerType = triggerType,
@@ -452,7 +452,7 @@ namespace LicenseReleaseService.LicenseManagement
             Interlocked.Increment(ref Statistics.TotalRequests);
 
             // Notify listeners
-            OnRecoveryRequested(request);
+            OnErrorRecoveryRequested(request);
 
             _logger.LogInformation("Submitted recovery request {RequestId} for {Component}.{Operation} with priority {Priority}",
                 requestId, sourceComponent, operationName, priority);
@@ -477,7 +477,7 @@ namespace LicenseReleaseService.LicenseManagement
             _logger.LogInformation("Triggering manual recovery for component {Component}: {Reason}", component, reason);
 
             // Submit manual recovery request
-            SubmitRecoveryRequest(
+            SubmitErrorRecoveryRequest(
                 RecoveryTriggerType.Manual,
                 component,
                 "ManualRecovery",
@@ -516,7 +516,7 @@ namespace LicenseReleaseService.LicenseManagement
         /// </summary>
         /// <param name="requestId">The request ID</param>
         /// <returns>Recovery request status or null if not found</returns>
-        public RecoveryRequest GetRecoveryRequestStatus(string requestId)
+        public ErrorRecoveryRequest GetErrorRecoveryRequestStatus(string requestId)
         {
             // Check active recoveries
             if (_activeRecoveries.TryGetValue(requestId, out var activeRequest))
@@ -540,7 +540,7 @@ namespace LicenseReleaseService.LicenseManagement
         /// <param name="requestId">The request ID</param>
         /// <param name="reason">The reason for cancellation</param>
         /// <returns>True if the request was cancelled</returns>
-        public bool CancelRecoveryRequest(string requestId, string reason)
+        public bool CancelErrorRecoveryRequest(string requestId, string reason)
         {
             // Try to cancel from active recoveries
             if (_activeRecoveries.TryRemove(requestId, out var activeRequest))
@@ -560,7 +560,7 @@ namespace LicenseReleaseService.LicenseManagement
             }
 
             // Try to cancel from queue
-            var tempQueue = new Queue<RecoveryRequest>();
+            var tempQueue = new Queue<ErrorRecoveryRequest>();
             var found = false;
 
             while (_recoveryQueue.TryDequeue(out var request))
@@ -657,7 +657,7 @@ namespace LicenseReleaseService.LicenseManagement
                 }
 
                 // Find the highest priority request that's ready to be processed
-                RecoveryRequest request = null;
+                ErrorRecoveryRequest request = null;
                 while (_recoveryQueue.TryDequeue(out var nextRequest))
                 {
                     if (nextRequest.ProcessAt <= DateTime.Now)
@@ -679,7 +679,7 @@ namespace LicenseReleaseService.LicenseManagement
                     request.IsProcessing = true;
 
                     // Process asynchronously
-                    _ = Task.Run(() => ProcessRecoveryRequestAsync(request));
+                    _ = Task.Run(() => ProcessErrorRecoveryRequestAsync(request));
                 }
             }
             catch (Exception ex)
@@ -688,7 +688,7 @@ namespace LicenseReleaseService.LicenseManagement
             }
         }
 
-        private async Task ProcessRecoveryRequestAsync(RecoveryRequest request)
+        private async Task ProcessErrorRecoveryRequestAsync(ErrorRecoveryRequest request)
         {
             var startTime = DateTime.Now;
             RecoveryResult result = null;
@@ -750,7 +750,7 @@ namespace LicenseReleaseService.LicenseManagement
             }
         }
 
-        private async Task<RecoveryResult> ExecuteRecoveryAsync(RecoveryRequest request)
+        private async Task<RecoveryResult> ExecuteRecoveryAsync(ErrorRecoveryRequest request)
         {
             // Try automatic recovery manager first
             if (_automaticRecoveryManager != null)
@@ -909,9 +909,9 @@ namespace LicenseReleaseService.LicenseManagement
             }
         }
 
-        private void OnRecoveryRequested(RecoveryRequest request)
+        private void OnErrorRecoveryRequested(ErrorRecoveryRequest request)
         {
-            RecoveryRequested?.Invoke(this, request);
+            ErrorRecoveryRequested?.Invoke(this, request);
         }
 
         private void OnRecoveryCompleted(RecoveryResult result)

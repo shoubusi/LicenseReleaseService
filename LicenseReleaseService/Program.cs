@@ -8,6 +8,7 @@ using System.Configuration.Install;
 using System.IO;
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using LicenseReleaseService;
 using LicenseReleaseService.Configuration;
 using LicenseReleaseService.Models;
 using LicenseReleaseService.LicenseManagement;
@@ -31,7 +32,7 @@ namespace LicenseReleaseService
         {
             _logger = new EventLogLogger();
         }
-		private static Microsoft.Extensions.DependencyInjection.IServiceProvider _serviceProvider;
+		private static IServiceProvider _serviceProvider;
 
 		/// <summary>
 		/// The main entry point for the application.

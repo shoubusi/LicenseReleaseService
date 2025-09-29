@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace LicenseReleaseService.VersionManagement
 {
@@ -957,6 +958,8 @@ namespace LicenseReleaseService.VersionManagement
                 _logger.LogError(ex, "Error collecting metrics");
             }
         }
+
+        #endregion
 
         #region Strategy Factory Methods
 

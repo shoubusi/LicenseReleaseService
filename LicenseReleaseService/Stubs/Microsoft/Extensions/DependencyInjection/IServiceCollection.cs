@@ -7,6 +7,11 @@ namespace Microsoft.Extensions.DependencyInjection
     {
     }
 
+    public interface IServiceProvider
+    {
+        object GetService(Type serviceType);
+    }
+
     public interface IServiceCollection : IList<ServiceDescriptor>
     {
     }
@@ -38,6 +43,24 @@ namespace Microsoft.Extensions.DependencyInjection
         Singleton,
         Scoped,
         Transient
+    }
+
+    public static class ServiceProviderExtensions
+    {
+        public static T GetService<T>(this IServiceProvider provider)
+        {
+            return (T)provider.GetService(typeof(T));
+        }
+
+        public static T GetRequiredService<T>(this IServiceProvider provider)
+        {
+            var service = provider.GetService<T>();
+            if (service == null)
+            {
+                throw new InvalidOperationException($"Service of type {typeof(T)} not found");
+            }
+            return service;
+        }
     }
 
     public static class ServiceCollectionServiceExtensions

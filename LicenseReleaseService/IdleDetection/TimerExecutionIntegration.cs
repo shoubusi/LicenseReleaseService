@@ -79,7 +79,7 @@ namespace LicenseReleaseService.IdleDetection
             {
                 lock (_lock)
                 {
-                    return _timerRegistrations.AsReadOnly();
+                    return new System.Collections.ObjectModel.ReadOnlyDictionary<string, TimerRegistration>(_timerRegistrations);
                 }
             }
         }

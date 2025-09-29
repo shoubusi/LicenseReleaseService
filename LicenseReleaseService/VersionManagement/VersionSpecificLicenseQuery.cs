@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using LicenseReleaseService.Process;
 using LicenseReleaseService.Configuration;
 
@@ -32,7 +33,7 @@ namespace LicenseReleaseService.VersionManagement
         /// <summary>
         /// Gets the current health status of this version
         /// </summary>
-        public VersionHealthStatus HealthStatus { get; private set; }
+        public global::LicenseReleaseService.Configuration.VersionHealthStatus HealthStatus { get; private set; }
 
         /// <summary>
         /// Gets the last time this version was successfully queried
@@ -58,7 +59,7 @@ namespace LicenseReleaseService.VersionManagement
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
             _queryCache = new Dictionary<string, LicenseQueryResult>();
-            HealthStatus = VersionHealthStatus.Unknown;
+            HealthStatus = global::LicenseReleaseService.Configuration.VersionHealthStatus.Unknown;
 
             // Initialize cache cleanup timer
             _cacheCleanupTimer = new Timer(CleanupCache, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
@@ -982,18 +983,7 @@ namespace LicenseReleaseService.VersionManagement
         }
     }
 
-    /// <summary>
-    /// Health status for a version
-    /// </summary>
-    public enum VersionHealthStatus
-    {
-        Unknown,
-        Healthy,
-        Degraded,
-        Unhealthy,
-        Offline
-    }
-
+    
     /// <summary>
     /// Command structure for lmutil execution
     /// </summary>

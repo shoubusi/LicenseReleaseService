@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using LicenseReleaseService.TimerExecution;
 
 namespace LicenseReleaseService.LicenseManagement
 {
@@ -529,7 +531,7 @@ namespace LicenseReleaseService.LicenseManagement
             try
             {
                 var cutoffTime = DateTime.Now.AddHours(-1); // Keep operations for 1 hour
-                var operationsToRemove = _completedOperations.Where kvp => kvp.Value.CompletedAt < cutoffTime).ToList();
+                var operationsToRemove = _completedOperations.Where(kvp => kvp.Value.CompletedAt < cutoffTime).ToList();
 
                 foreach (var kvp in operationsToRemove)
                 {

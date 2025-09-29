@@ -104,14 +104,14 @@ namespace LicenseReleaseService.TimerExecution
         public DateTime StartTime { get; }
 
         /// <summary>
-        /// Gets the end time of the execution
+        /// Gets or sets the end time of the execution
         /// </summary>
-        public DateTime EndTime { get; }
+        public DateTime EndTime { get; set; }
 
         /// <summary>
-        /// Gets the duration of the execution
+        /// Gets or sets the duration of the execution
         /// </summary>
-        public TimeSpan Duration { get; }
+        public TimeSpan Duration { get; set; }
 
         /// <summary>
         /// Gets the attempt number for this execution

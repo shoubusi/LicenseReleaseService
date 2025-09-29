@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using LicenseReleaseService.Configuration;
 
 namespace LicenseReleaseService.VersionManagement
@@ -962,17 +963,7 @@ namespace LicenseReleaseService.VersionManagement
         Critical
     }
 
-    /// <summary>
-    /// Conflict resolution strategies
-    /// </summary>
-    public enum ConflictResolutionStrategy
-    {
-        AutoResolve,
-        WarnOnly,
-        BlockConflicts,
-        ManualIntervention
-    }
-
+  
     /// <summary>
     /// Configuration strategies
     /// </summary>

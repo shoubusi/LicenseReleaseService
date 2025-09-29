@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using LicenseReleaseService.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace LicenseReleaseService.VersionManagement
 {
@@ -497,211 +499,6 @@ namespace LicenseReleaseService.VersionManagement
         }
     }
 
-    /// <summary>
-    /// Manages resource allocations for a specific version
-    /// </summary>
-    internal class VersionResourcePool : IDisposable
-    {
-        private readonly string _version;
-        private readonly ResourceRequirements _requirements;
-        private readonly ResourceAllocationConfiguration _configuration;
-        private readonly Dictionary<string, ResourceAllocation> _activeAllocations;
-        private readonly SemaphoreSlim _poolSemaphore;
-        private readonly object _allocationsLock = new object();
-        private bool _disposed;
-
-        public string Version => _version;
-        public int TotalCapacity => _requirements.MaxConcurrentOperations;
-        public int AllocatedResources => _activeAllocations.Count;
-        public int AvailableResources => TotalCapacity - AllocatedResources;
-        public bool HasActiveAllocations => _activeAllocations.Count > 0;
-
-        public VersionResourcePool(
-            string version,
-            ResourceRequirements requirements,
-            ResourceAllocationConfiguration configuration)
-        {
-            _version = version ?? throw new ArgumentNullException(nameof(version));
-            _requirements = requirements ?? throw new ArgumentNullException(nameof(requirements));
-            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-
-            _activeAllocations = new Dictionary<string, ResourceAllocation>();
-            _poolSemaphore = new SemaphoreSlim(requirements.MaxConcurrentOperations);
-        }
-
-        public async Task<ResourceAllocation> AllocateAsync(
-            ResourceRequirements requirements,
-            CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                // Check capacity
-                if (AllocatedResources >= TotalCapacity)
-                {
-                    return new ResourceAllocation
-                    {
-                        Success = false,
-                        ErrorMessage = $"Resource pool for version {_version} is at capacity ({AllocatedResources}/{TotalCapacity})"
-                    };
-                }
-
-                // Wait for semaphore
-                var semaphoreAcquired = await _poolSemaphore.WaitAsync(_configuration.AllocationTimeout, cancellationToken);
-                if (!semaphoreAcquired)
-                {
-                    return new ResourceAllocation
-                    {
-                        Success = false,
-                        ErrorMessage = "Allocation timeout reached"
-                    };
-                }
-
-                // Create allocation
-                var allocation = new ResourceAllocation
-                {
-                    AllocationId = Guid.NewGuid().ToString(),
-                    Version = _version,
-                    Success = true,
-                    AllocatedAt = DateTime.UtcNow,
-                    ExpiresAt = DateTime.UtcNow.Add(_configuration.DefaultAllocationTimeout),
-                    MemoryLimit = requirements.MemoryLimit,
-                    CpuLimit = requirements.CpuLimit,
-                    Priority = requirements.Priority
-                };
-
-                // Store allocation
-                lock (_allocationsLock)
-                {
-                    _activeAllocations[allocation.AllocationId] = allocation;
-                }
-
-                return allocation;
-            }
-            catch (OperationCanceledException)
-            {
-                return new ResourceAllocation
-                {
-                    Success = false,
-                    ErrorMessage = "Allocation cancelled"
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResourceAllocation
-                {
-                    Success = false,
-                    ErrorMessage = $"Allocation error: {ex.Message}"
-                };
-            }
-        }
-
-        public async Task<ResourceReleaseResult> ReleaseAsync(ResourceAllocation allocation)
-        {
-            try
-            {
-                lock (_allocationsLock)
-                {
-                    if (!_activeAllocations.Remove(allocation.AllocationId))
-                    {
-                        return new ResourceReleaseResult
-                        {
-                            Success = false,
-                            ErrorMessage = "Allocation not found"
-                        };
-                    }
-                }
-
-                _poolSemaphore.Release();
-
-                return new ResourceReleaseResult
-                {
-                    Success = true,
-                    ReleasedAt = DateTime.UtcNow
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ResourceReleaseResult
-                {
-                    Success = false,
-                    ErrorMessage = $"Release error: {ex.Message}"
-                };
-            }
-        }
-
-        public async Task<VersionUtilization> GetUtilizationAsync()
-        {
-            await Task.CompletedTask; // Async for consistency
-
-            lock (_allocationsLock)
-            {
-                var activeAllocations = _activeAllocations.Values.ToList();
-                var totalMemoryUsed = activeAllocations.Sum(a => a.MemoryLimit);
-                var totalCpuUsed = activeAllocations.Sum(a => a.CpuLimit);
-
-                return new VersionUtilization
-                {
-                    Version = _version,
-                    TotalCapacity = TotalCapacity,
-                    AllocatedResources = AllocatedResources,
-                    AvailableResources = AvailableResources,
-                    UtilizationPercentage = TotalCapacity > 0 ?
-                        (double)AllocatedResources / TotalCapacity * 100 : 0,
-                    MemoryUsed = totalMemoryUsed,
-                    CpuUsed = totalCpuUsed,
-                    ActiveAllocations = activeAllocations.Select(a => a.AllocationId).ToList()
-                };
-            }
-        }
-
-        public async Task<int> CleanupExpiredAllocationsAsync()
-        {
-            var now = DateTime.UtcNow;
-            var expiredAllocations = new List<string>();
-
-            lock (_allocationsLock)
-            {
-                expiredAllocations.AddRange(
-                    _activeAllocations.Where(kvp => kvp.Value.ExpiresAt <= now)
-                    .Select(kvp => kvp.Key));
-
-                foreach (var allocationId in expiredAllocations)
-                {
-                    _activeAllocations.Remove(allocationId);
-                    _poolSemaphore.Release();
-                }
-            }
-
-            return expiredAllocations.Count;
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
-                    lock (_allocationsLock)
-                    {
-                        foreach (var allocation in _activeAllocations.Values)
-                        {
-                            _poolSemaphore.Release();
-                        }
-                        _activeAllocations.Clear();
-
-                        _poolSemaphore?.Dispose();
-                    }
-                }
-                _disposed = true;
-            }
-        }
-    }
 
     /// <summary>
     /// Configuration for resource allocation
@@ -773,15 +570,6 @@ namespace LicenseReleaseService.VersionManagement
         public AllocationPriority Priority { get; set; }
     }
 
-    /// <summary>
-    /// Resource release result
-    /// </summary>
-    public class ResourceReleaseResult
-    {
-        public bool Success { get; set; }
-        public string ErrorMessage { get; set; }
-        public DateTime ReleasedAt { get; set; }
-    }
 
     /// <summary>
     /// Allocation statistics
@@ -798,18 +586,6 @@ namespace LicenseReleaseService.VersionManagement
         public double PeakUtilization { get; set; }
     }
 
-    /// <summary>
-    /// Resource utilization summary
-    /// </summary>
-    public class ResourceUtilizationSummary
-    {
-        public List<VersionUtilization> VersionUtilization { get; set; } = new List<VersionUtilization>();
-        public int TotalPools { get; set; }
-        public long TotalCapacity { get; set; }
-        public long TotalAllocated { get; set; }
-        public long TotalAvailable { get; set; }
-        public double OverallUtilization { get; set; }
-    }
 
     /// <summary>
     /// Version-specific utilization information

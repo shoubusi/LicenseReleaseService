@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using LicenseReleaseService;
 
 namespace LicenseReleaseService.LicenseManagement
 {
@@ -127,7 +128,7 @@ namespace LicenseReleaseService.LicenseManagement
     public class AutomaticRecoveryManager : IDisposable
     {
         private readonly ILogger _logger;
-        private readonly Microsoft.Extensions.DependencyInjection.IServiceProvider _serviceProvider;
+        private readonly IServiceProvider _serviceProvider;
         private readonly ErrorClassifier _errorClassifier;
         private readonly RecoveryManager _recoveryManager;
         private readonly ConcurrentQueue<RecoveryRequest> _recoveryQueue;
@@ -153,7 +154,7 @@ namespace LicenseReleaseService.LicenseManagement
         /// <param name="recoveryManager">Recovery manager instance</param>
         public AutomaticRecoveryManager(
             ILogger logger,
-            Microsoft.Extensions.DependencyInjection.IServiceProvider serviceProvider,
+            IServiceProvider serviceProvider,
             ErrorClassifier errorClassifier,
             RecoveryManager recoveryManager)
         {
@@ -695,46 +696,5 @@ namespace LicenseReleaseService.LicenseManagement
         /// Gets or sets the timestamp of the last processed request
         /// </summary>
         public DateTime? LastProcessedAt { get; set; }
-    }
-
-    /// <summary>
-    /// Recovery queue status information
-    /// </summary>
-    public class RecoveryQueueStatus
-    {
-        /// <summary>
-        /// Gets or sets the total queue size
-        /// </summary>
-        public int QueueSize { get; set; }
-
-        /// <summary>
-        /// Gets or sets the number of active recoveries
-        /// </summary>
-        public int ActiveRecoveries { get; set; }
-
-        /// <summary>
-        /// Gets or sets the number of pending recoveries
-        /// </summary>
-        public int PendingRecoveries { get; set; }
-
-        /// <summary>
-        /// Gets or sets the number of completed recoveries
-        /// </summary>
-        public int CompletedRecoveries { get; set; }
-
-        /// <summary>
-        /// Gets or sets the highest priority pending request
-        /// </summary>
-        public RecoveryPriority HighestPriorityPending { get; set; }
-
-        /// <summary>
-        /// Gets or sets the oldest pending request timestamp
-        /// </summary>
-        public DateTime? OldestPendingRequest { get; set; }
-
-        /// <summary>
-        /// Gets or sets the recovery statistics
-        /// </summary>
-        public RecoveryManagerStatistics Statistics { get; set; }
     }
 }

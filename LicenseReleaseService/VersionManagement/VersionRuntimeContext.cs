@@ -305,7 +305,7 @@ namespace LicenseReleaseService.VersionManagement
     /// <summary>
     /// Tracks runtime metrics for a version
     /// </summary>
-    internal class VersionRuntimeMetrics
+    public class VersionRuntimeMetrics
     {
         private readonly object _metricsLock = new object();
 
@@ -599,15 +599,7 @@ namespace LicenseReleaseService.VersionManagement
         public TimeSpan Uptime { get; set; }
     }
 
-    public enum VersionHealthStatus
-    {
-        Unknown,
-        Healthy,
-        Unhealthy,
-        Error,
-        Disposed
-    }
-
+    
     public class OperationRecord
     {
         public VersionOperationType OperationType { get; set; }

@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
+using Microsoft.Extensions.Logging;
+using LicenseReleaseService.TimerExecution;
 
 namespace LicenseReleaseService.VersionManagement.Monitoring
 {
@@ -1904,14 +1906,6 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         public bool EnableAutoResolution { get; set; } = true;
     }
 
-    // Alert-related types
-    public enum AlertSeverity
-    {
-        Information,
-        Warning,
-        Error,
-        Critical
-    }
 
     public enum AlertType
     {
@@ -1923,25 +1917,5 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         Unavailable
     }
 
-    public class VersionAlert
-    {
-        public string Id { get; set; }
-        public string Version { get; set; }
-        public AlertType AlertType { get; set; }
-        public AlertSeverity Severity { get; set; }
-        public string Message { get; set; }
-        public DateTime Timestamp { get; set; }
-        public DateTime? ResolvedTimestamp { get; set; }
-        public bool IsActive { get; set; } = true;
-        public Dictionary<string, object> Metadata { get; set; }
-    }
 
-    public class VersionAlertEventArgs : EventArgs
-    {
-        public string Version { get; set; }
-        public AlertType AlertType { get; set; }
-        public AlertSeverity Severity { get; set; }
-        public string Message { get; set; }
-        public DateTime Timestamp { get; set; }
-    }
 }

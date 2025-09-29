@@ -4,6 +4,23 @@ using System.Collections.Generic;
 namespace LicenseReleaseService.TimerExecution
 {
     /// <summary>
+    /// Defines timer execution states for health monitoring
+    /// </summary>
+    public enum TimerExecutionState
+    {
+        Stopped = 0,
+        Starting = 1,
+        Running = 2,
+        Pausing = 3,
+        Paused = 4,
+        Resuming = 5,
+        Stopping = 6,
+        Error = 7,
+        Recovering = 8,
+        Maintenance = 9
+    }
+
+    /// <summary>
     /// Defines severity levels for timer execution errors
     /// </summary>
     public enum TimerErrorSeverity
@@ -73,6 +90,27 @@ namespace LicenseReleaseService.TimerExecution
         /// Unknown or uncategorized errors
         /// </summary>
         Unknown
+    }
+
+    /// <summary>
+    /// Defines states for circuit breaker functionality
+    /// </summary>
+    public enum CircuitBreakerState
+    {
+        /// <summary>
+        /// Circuit breaker is closed, allowing requests to pass through
+        /// </summary>
+        Closed,
+
+        /// <summary>
+        /// Circuit breaker is open, blocking requests
+        /// </summary>
+        Open,
+
+        /// <summary>
+        /// Circuit breaker is half-open, allowing limited requests to test service recovery
+        /// </summary>
+        HalfOpen
     }
 
     /// <summary>
@@ -365,113 +403,14 @@ namespace LicenseReleaseService.TimerExecution
     }
 
     /// <summary>
-    /// Event arguments for timer circuit breaker events
+    /// Multi-version health levels
     /// </summary>
-    public class TimerCircuitBreakerEventArgs : EventArgs
+    public enum MultiVersionHealthLevel
     {
-        /// <summary>
-        /// Gets or sets the unique identifier for the circuit breaker event
-        /// </summary>
-        public Guid EventId { get; set; }
-
-        /// <summary>
-        /// Gets or sets the circuit breaker state change
-        /// </summary>
-        public CircuitBreakerState OldState { get; set; }
-
-        /// <summary>
-        /// Gets or sets the new circuit breaker state
-        /// </summary>
-        public CircuitBreakerState NewState { get; set; }
-
-        /// <summary>
-        /// Gets or sets the timestamp of the state change
-        /// </summary>
-        public DateTime Timestamp { get; set; }
-
-        /// <summary>
-        /// Gets or sets the reason for the state change
-        /// </summary>
-        public string Reason { get; set; }
-
-        /// <summary>
-        /// Gets or sets the failure count that triggered the change
-        /// </summary>
-        public int FailureCount { get; set; }
-
-        /// <summary>
-        /// Gets or sets the failure threshold
-        /// </summary>
-        public int FailureThreshold { get; set; }
-
-        /// <summary>
-        /// Gets or sets the cooldown period
-        /// </summary>
-        public TimeSpan CooldownPeriod { get; set; }
-
-        /// <summary>
-        /// Gets or sets the estimated reset time
-        /// </summary>
-        public DateTime? EstimatedResetTime { get; set; }
-
-        /// <summary>
-        /// Initializes a new instance of the TimerCircuitBreakerEventArgs class
-        /// </summary>
-        public TimerCircuitBreakerEventArgs()
-        {
-            EventId = Guid.NewGuid();
-            Timestamp = DateTime.UtcNow;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the TimerCircuitBreakerEventArgs class with parameters
-        /// </summary>
-        /// <param name="oldState">The previous state</param>
-        /// <param name="newState">The new state</param>
-        /// <param name="reason">The reason for the change</param>
-        /// <param name="failureCount">The failure count</param>
-        /// <param name="failureThreshold">The failure threshold</param>
-        public TimerCircuitBreakerEventArgs(CircuitBreakerState oldState, CircuitBreakerState newState,
-            string reason, int failureCount, int failureThreshold)
-            : this()
-        {
-            OldState = oldState;
-            NewState = newState;
-            Reason = reason;
-            FailureCount = failureCount;
-            FailureThreshold = failureThreshold;
-        }
-
-        /// <summary>
-        /// Returns a string representation of the circuit breaker event
-        /// </summary>
-        /// <returns>String representation</returns>
-        public override string ToString()
-        {
-            return $"TimerCircuitBreakerEventArgs[EventId={EventId}, " +
-                   $"{OldState}->{NewState}, Failures={FailureCount}/{FailureThreshold}, " +
-                   $"Reason={Reason}, ResetTime={EstimatedResetTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "N/A"}]";
-        }
-    }
-
-    /// <summary>
-    /// Defines circuit breaker states
-    /// </summary>
-    public enum CircuitBreakerState
-    {
-        /// <summary>
-        /// Circuit is closed, operations are allowed
-        /// </summary>
-        Closed,
-
-        /// <summary>
-        /// Circuit is open, operations are blocked
-        /// </summary>
-        Open,
-
-        /// <summary>
-        /// Circuit is half-open, testing if operations should be allowed
-        /// </summary>
-        HalfOpen
+        Unknown,
+        Healthy,
+        Warning,
+        Critical,
+        Fatal
     }
 }

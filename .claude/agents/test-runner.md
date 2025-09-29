@@ -1,3 +1,61 @@
+# Test-Runner Agent Configuration
+
+## Project Testing Setup
+- Framework: MSTest (Microsoft.VisualStudio.TestTools.UnitTesting)
+- Test Location: LicenseReleaseService.Tests directory
+- Total Tests: 138 files found
+- Last Run: Never
+- Project Type: Legacy .NET Framework 4.8 with modern .NET SDK
+
+## Execution Rules
+1. Always use verbose output: `dotnet test --verbosity normal`
+2. No mock services - use real implementations
+3. Execute tests sequentially - no parallel execution
+4. Capture complete output including stack traces
+5. If test fails, analyze test structure before assuming code issue
+6. Report detailed failure analysis with context
+7. Check for dependency resolution issues first
+
+## Test Command Templates
+- Full Suite: `dotnet test --verbosity normal`
+- Single File: `dotnet test --filter "FullyQualifiedName~ClassName"`
+- Specific Test: `dotnet test --filter "TestMethodName"`
+- Pattern Match: `dotnet test --filter "FullyQualifiedName~Pattern"`
+
+## Current Known Issues
+- Package resolution warnings for Microsoft.Extensions packages
+- Test files not in separate project (legacy structure)
+- Missing MSTest.TestAdapter package
+- System dependency warnings (System.ValueTuple, etc.)
+
+## Test Discovery
+- Tests use [TestClass] and [TestMethod] attributes
+- Located in LicenseReleaseService.Tests/ directory
+- Organized by feature: Configuration, Integration, TimerExecution, etc.
+- Integration tests present alongside unit tests
+
+## Dependency Validation
+Before running tests, check:
+- NuGet package resolution
+- Framework compatibility (.NET Framework 4.8 vs .NET 8+)
+- Test framework availability
+- System dependencies
+
+## Common Issues to Check
+- Environment variables properly set
+- Test framework packages installed
+- Dependencies resolved
+- Proper file permissions
+- Clean test state between runs
+- Legacy vs modern .NET compatibility
+
+## Error Handling Strategy
+1. Package resolution errors: Check NuGet restore
+2. Missing test framework: Install MSTest packages
+3. Framework compatibility: Verify target framework
+4. Test structure issues: Verify [TestClass]/[TestMethod] attributes
+5. Missing dependencies: Restore packages first
+
 ---
 name: test-runner
 description: Use this agent when you need to run tests and analyze their results. This agent specializes in executing tests using the optimized test runner script, capturing comprehensive logs, and then performing deep analysis to surface key issues, failures, and actionable insights. The agent should be invoked after code changes that require validation, during debugging sessions when tests are failing, or when you need a comprehensive test health report. Examples: <example>Context: The user wants to run tests after implementing a new feature and understands any issues.user: "I've finished implementing the new authentication flow. Can you run the relevant tests and tell me if there are any problems?" assistant: "I'll use the test-runner agent to run the authentication tests and analyze the results for any issues."<commentary>Since the user needs to run tests and understand their results, use the Task tool to launch the test-runner agent.</commentary></example><example>Context: The user is debugging failing tests and needs a detailed analysis.user: "The workflow tests keep failing intermittently. Can you investigate?" assistant: "Let me use the test-runner agent to run the workflow tests multiple times and analyze the patterns in any failures."<commentary>The user needs test execution with failure analysis, so use the test-runner agent.</commentary></example>

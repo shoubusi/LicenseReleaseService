@@ -740,7 +740,7 @@ namespace LicenseReleaseService.LicenseManagement
 
         private async Task<Dictionary<string, object>> GetSystemInfoAsync()
         {
-            var process = Process.GetCurrentProcess();
+            var process = System.Diagnostics.Process.GetCurrentProcess();
             var counters = _performanceMonitor.GetSystemPerformanceCounters();
 
             return new Dictionary<string, object>

@@ -76,7 +76,10 @@ namespace LicenseReleaseService.LicenseManagement
                         var cachedStatus = await _cacheManager.GetServerStatusAsync(server, port, cancellationToken);
                         if (cachedStatus != null && !IsCacheExpired(cachedStatus.LastChecked))
                         {
-                            Interlocked.Increment(ref _metrics.CachedQueries);
+                            lock (_metricsLock)
+                            {
+                                _metrics.CachedQueries++;
+                            }
                             return cachedStatus;
                         }
                     }
@@ -179,7 +182,10 @@ namespace LicenseReleaseService.LicenseManagement
                         var cachedFeature = await _cacheManager.GetLicenseFeatureAsync(server, port, feature, cancellationToken);
                         if (cachedFeature != null && !IsCacheExpired(cachedFeature.LastUpdated))
                         {
-                            Interlocked.Increment(ref _metrics.CachedQueries);
+                            lock (_metricsLock)
+                            {
+                                _metrics.CachedQueries++;
+                            }
                             return cachedFeature;
                         }
                     }
@@ -349,14 +355,10 @@ namespace LicenseReleaseService.LicenseManagement
                         Server = server,
                         Port = port,
                         TotalLicenses = status.TotalLicenses,
-                        LicensesInUse = status.LicensesInUse,
-                        AvailableLicenses = status.AvailableLicenses,
-                        ActiveUsers = status.TotalActiveUsers,
-                        IdleUsers = status.TotalIdleUsers,
-                        BorrowedUsers = status.TotalBorrowedUsers,
-                        UtilizationPercentage = status.UtilizationPercentage,
-                        AvailabilityPercentage = status.AvailabilityPercentage,
-                        IdlePercentage = status.TotalUsers > 0 ? (status.TotalIdleUsers * 100.0 / status.TotalUsers) : 0,
+                        TotalLicensesInUse = status.LicensesInUse,
+                        TotalAvailableLicenses = status.AvailableLicenses,
+                        UniqueUsers = status.TotalActiveUsers + status.TotalIdleUsers + status.TotalBorrowedUsers,
+                        OverallUtilization = status.UtilizationPercentage,
                         Timestamp = DateTime.Now
                     };
                 },
@@ -725,15 +727,15 @@ namespace LicenseReleaseService.LicenseManagement
         {
             lock (_metricsLock)
             {
-                Interlocked.Increment(ref _metrics.TotalQueries);
+                _metrics.TotalQueries++;
 
                 if (success)
                 {
-                    Interlocked.Increment(ref _metrics.SuccessfulQueries);
+                    _metrics.SuccessfulQueries++;
                 }
                 else
                 {
-                    Interlocked.Increment(ref _metrics.FailedQueries);
+                    _metrics.FailedQueries++;
                 }
 
                 // Update timing metrics
@@ -777,15 +779,20 @@ namespace LicenseReleaseService.LicenseManagement
         /// <returns>True if the error is transient</returns>
         private bool IsTransientError(Exception exception)
         {
-            return exception switch
+            if (exception is System.IO.IOException ||
+                exception is System.Net.Sockets.SocketException ||
+                exception is System.TimeoutException ||
+                exception is System.OperationCanceledException)
             {
-                System.IO.IOException or
-                System.Net.Sockets.SocketException or
-                System.TimeoutException or
-                System.OperationCanceledException => true,
-                LicenseQueryException lex when lex.IsTransient => true,
-                _ => false
-            };
+                return true;
+            }
+
+            if (exception is LicenseQueryException lex && lex.IsTransient)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -796,15 +803,32 @@ namespace LicenseReleaseService.LicenseManagement
         /// <returns>Error code</returns>
         private LicenseQueryErrorCode DetermineErrorCode(Exception exception, string queryType)
         {
-            return exception switch
+            if (exception is System.TimeoutException)
             {
-                System.TimeoutException => LicenseQueryErrorCode.NetworkTimeout,
-                System.Net.Sockets.SocketException => LicenseQueryErrorCode.ConnectionRefused,
-                System.OperationCanceledException => LicenseQueryErrorCode.OperationCancelled,
-                System.IO.IOException => LicenseQueryErrorCode.NetworkError,
-                LicenseQueryException lex => lex.ErrorCode,
-                _ => LicenseQueryErrorCode.Unknown
-            };
+                return LicenseQueryErrorCode.NetworkTimeout;
+            }
+
+            if (exception is System.Net.Sockets.SocketException)
+            {
+                return LicenseQueryErrorCode.ConnectionRefused;
+            }
+
+            if (exception is System.OperationCanceledException)
+            {
+                return LicenseQueryErrorCode.OperationCancelled;
+            }
+
+            if (exception is System.IO.IOException)
+            {
+                return LicenseQueryErrorCode.NetworkError;
+            }
+
+            if (exception is LicenseQueryException lex)
+            {
+                return lex.ErrorCode;
+            }
+
+            return LicenseQueryErrorCode.Unknown;
         }
     }
 }

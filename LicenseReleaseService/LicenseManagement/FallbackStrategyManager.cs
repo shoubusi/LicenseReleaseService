@@ -532,8 +532,8 @@ namespace LicenseReleaseService.LicenseManagement
                     };
 
                     // Record success metrics
-                    _strategySuccessCounts.AddOrUpdate(strategy.Name, 1, (_, count) => count + 1);
-                    _lastStrategyUsage.AddOrUpdate(strategy.Name, DateTime.Now, (_, _) => DateTime.Now);
+                    _strategySuccessCounts.AddOrUpdate(strategy.Name, 1, (key, count) => count + 1);
+                    _lastStrategyUsage.AddOrUpdate(strategy.Name, DateTime.Now, (key, oldValue) => DateTime.Now);
 
                     // Invoke success callback
                     strategy.OnSuccess?.Invoke(result);
@@ -569,8 +569,8 @@ namespace LicenseReleaseService.LicenseManagement
                     };
 
                     // Record failure metrics
-                    _strategyFailureCounts.AddOrUpdate(strategy.Name, 1, (_, count) => count + 1);
-                    _lastStrategyUsage.AddOrUpdate(strategy.Name, DateTime.Now, (_, _) => DateTime.Now);
+                    _strategyFailureCounts.AddOrUpdate(strategy.Name, 1, (key, count) => count + 1);
+                    _lastStrategyUsage.AddOrUpdate(strategy.Name, DateTime.Now, (key, oldValue) => DateTime.Now);
 
                     // Invoke failure callback
                     strategy.OnFailure?.Invoke(ex);
@@ -607,7 +607,7 @@ namespace LicenseReleaseService.LicenseManagement
                 Priority = 1,
                 ExecutionOrder = FallbackExecutionOrder.Sequential,
                 Timeout = TimeSpan.FromSeconds(5),
-                ShouldUse = ex => ex is TimeoutException or SocketException,
+                ShouldUse = ex => ex is TimeoutException || ex is System.Net.Sockets.SocketException,
                 Configuration = { ["CacheTimeoutMinutes"] = 30 }
             });
 
@@ -619,7 +619,7 @@ namespace LicenseReleaseService.LicenseManagement
                 Priority = 2,
                 ExecutionOrder = FallbackExecutionOrder.Sequential,
                 Timeout = TimeSpan.FromSeconds(10),
-                ShouldUse = ex => ex is SocketException,
+                ShouldUse = ex => ex is System.Net.Sockets.SocketException,
                 Configuration = { ["BackupServer"] = "backup-server:27000" }
             });
 
@@ -634,7 +634,7 @@ namespace LicenseReleaseService.LicenseManagement
                 Timeout = TimeSpan.FromMinutes(2),
                 MaxRetries = 2,
                 RetryDelay = TimeSpan.FromSeconds(30),
-                ShouldUse = ex => ex is TimeoutException or ProcessExecutionException,
+                ShouldUse = ex => ex is TimeoutException || ex is ProcessExecutionException,
                 Configuration = { ["IncreasedTimeout"] = true }
             });
 

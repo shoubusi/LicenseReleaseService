@@ -359,7 +359,7 @@ namespace LicenseReleaseService.Configuration
                 };
 
                 // Add recent health check results
-                foreach (var result in _healthCheckHistory.TakeLast(10))
+                foreach (var result in _healthCheckHistory.Skip(Math.Max(0, _healthCheckHistory.Count - 10)))
                 {
                     report.HealthChecks[result.ComponentName] = result;
                 }
@@ -566,7 +566,7 @@ namespace LicenseReleaseService.Configuration
             lock (_lock)
             {
                 // Get recent errors from health check history
-                foreach (var result in _healthCheckHistory.TakeLast(10))
+                foreach (var result in _healthCheckHistory.Skip(Math.Max(0, _healthCheckHistory.Count - 10)))
                 {
                     if (!string.IsNullOrEmpty(result.ErrorMessage))
                     {
@@ -608,7 +608,7 @@ namespace LicenseReleaseService.Configuration
 
             lock (_lock)
             {
-                foreach (var result in _healthCheckHistory.TakeLast(5))
+                foreach (var result in _healthCheckHistory.Skip(Math.Max(0, _healthCheckHistory.Count - 5)))
                 {
                     if (!string.IsNullOrEmpty(result.ErrorMessage))
                     {

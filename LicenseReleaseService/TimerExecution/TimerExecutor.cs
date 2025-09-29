@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -460,7 +461,8 @@ namespace LicenseReleaseService.TimerExecution
 
             try
             {
-                return await _currentExecutionTask.WaitAsync(timeout);
+                var completedTask = await Task.WhenAny(_currentExecutionTask, Task.Delay(timeout));
+                return completedTask == _currentExecutionTask;
             }
             catch (OperationCanceledException)
             {

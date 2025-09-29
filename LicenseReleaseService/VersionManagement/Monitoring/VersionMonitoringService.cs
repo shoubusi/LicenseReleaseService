@@ -1564,7 +1564,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         {
             lock (_contextLock)
             {
-                return _monitoringHistory.TakeLast(maxEntries).ToList();
+                return _monitoringHistory.Skip(Math.Max(0, _monitoringHistory.Count - maxEntries)).ToList();
             }
         }
 

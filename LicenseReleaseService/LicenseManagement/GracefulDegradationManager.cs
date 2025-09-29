@@ -484,16 +484,37 @@ namespace LicenseReleaseService.LicenseManagement
 
         private DegradationLevel GetExceptionSeverity(Exception exception)
         {
-            return exception switch
+            if (exception is TimeoutException)
             {
-                TimeoutException _ => DegradationLevel.Minimal,
-                ProcessExecutionException _ when exception.Message.Contains("timeout") => DegradationLevel.Minimal,
-                ProcessExecutionException _ => DegradationLevel.Moderate,
-                SocketException _ => DegradationLevel.Severe,
-                LicenseManagerException _ => DegradationLevel.Severe,
-                OperationCanceledException _ => DegradationLevel.Full,
-                _ => DegradationLevel.Moderate
-            };
+                return DegradationLevel.Minimal;
+            }
+
+            if (exception is ProcessExecutionException pee && pee.Message.Contains("timeout"))
+            {
+                return DegradationLevel.Minimal;
+            }
+
+            if (exception is ProcessExecutionException)
+            {
+                return DegradationLevel.Moderate;
+            }
+
+            if (exception is SocketException)
+            {
+                return DegradationLevel.Severe;
+            }
+
+            if (exception is LicenseManagerException)
+            {
+                return DegradationLevel.Severe;
+            }
+
+            if (exception is OperationCanceledException)
+            {
+                return DegradationLevel.Full;
+            }
+
+            return DegradationLevel.Moderate;
         }
 
         private void UpdateGlobalDegradationState()

@@ -414,7 +414,7 @@ namespace LicenseReleaseService.VersionManagement
                 return analysis;
 
             // Calculate trends
-            var recentMetrics = metricsHistory.TakeLast(10).ToList();
+            var recentMetrics = metricsHistory.Skip(Math.Max(0, metricsHistory.Count - 10)).Take(10).ToList();
             var olderMetrics = metricsHistory.Take(metricsHistory.Count - 10).ToList();
 
             if (recentMetrics.Any() && olderMetrics.Any())
@@ -443,14 +443,14 @@ namespace LicenseReleaseService.VersionManagement
                 return analysis;
 
             // Calculate memory trends
-            var recentMemory = metricsHistory.TakeLast(10).Average(m => m.MemoryUsage);
+            var recentMemory = metricsHistory.Skip(Math.Max(0, metricsHistory.Count - 10)).Take(10).Average(m => m.MemoryUsage);
             var olderMemory = metricsHistory.Take(metricsHistory.Count - 10).Average(m => m.MemoryUsage);
 
             analysis.IsMemoryUsageIncreasing = recentMemory > olderMemory * 1.1; // 10% increase threshold
             analysis.MemoryChangePercentage = ((recentMemory - olderMemory) / olderMemory) * 100;
 
             // Calculate CPU trends
-            var recentCpu = metricsHistory.TakeLast(10).Average(m => m.CpuUsage);
+            var recentCpu = metricsHistory.Skip(Math.Max(0, metricsHistory.Count - 10)).Take(10).Average(m => m.CpuUsage);
             var olderCpu = metricsHistory.Take(metricsHistory.Count - 10).Average(m => m.CpuUsage);
 
             analysis.IsCpuUsageIncreasing = recentCpu > olderCpu * 1.1; // 10% increase threshold

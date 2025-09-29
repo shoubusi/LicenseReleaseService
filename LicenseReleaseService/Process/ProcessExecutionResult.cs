@@ -44,6 +44,11 @@ namespace LicenseReleaseService.Process
         public DateTime EndTime { get; set; }
 
         /// <summary>
+        /// Gets or sets the retry attempt number
+        /// </summary>
+        public int RetryAttempt { get; set; }
+
+        /// <summary>
         /// Gets a value indicating whether the process succeeded
         /// </summary>
         public bool Success => ExitCode == 0;

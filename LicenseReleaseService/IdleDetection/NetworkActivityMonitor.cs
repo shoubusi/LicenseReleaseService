@@ -997,7 +997,7 @@ namespace LicenseReleaseService.IdleDetection
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting SolidWorks processes");
-                return new List<Process>();
+                return new List<System.Diagnostics.Process>();
             }
         }
 

@@ -477,7 +477,11 @@ namespace LicenseReleaseService.Tests.TimerExecution
             await timer.StartAsync();
 
             // Assert
-            var result = await callbackExecuted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var result = await Task.Run(async () =>
+            {
+                var completedTask = await Task.WhenAny(callbackExecuted.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+                return completedTask == callbackExecuted.Task ? callbackExecuted.Task.Result : null;
+            });
             Assert.NotNull(result);
             Assert.NotEqual(Guid.Empty, result.ExecutionId);
             Assert.True(result.StartTime <= DateTime.UtcNow);

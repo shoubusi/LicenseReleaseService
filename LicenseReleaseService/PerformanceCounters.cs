@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,7 +10,7 @@ namespace LicenseReleaseService
     public class PerformanceCounters
     {
         private readonly object _lock = new object();
-        private readonly Dictionary<string, PerformanceCounter> _counters;
+        private readonly Dictionary<string, CustomPerformanceCounter> _counters;
         private readonly Timer _collectionTimer;
         private readonly TimeSpan _collectionInterval = TimeSpan.FromSeconds(30);
         private bool _isRunning;
@@ -18,9 +19,9 @@ namespace LicenseReleaseService
 
         public PerformanceCounters()
         {
-            _counters = new Dictionary<string, PerformanceCounter>();
+            _counters = new Dictionary<string, CustomPerformanceCounter>();
             _snapshotHistory = new Queue<PerformanceSnapshot>();
-            _collectionTimer = new Timer(CollectPerformanceData, null, Timeout.Infinite, _collectionInterval);
+            _collectionTimer = new Timer(CollectPerformanceData, null, Timeout.Infinite, (int)_collectionInterval.TotalMilliseconds);
 
             InitializeCounters();
         }
@@ -71,7 +72,7 @@ namespace LicenseReleaseService
         {
             lock (_lock)
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var snapshot = new PerformanceSnapshot
                 {
                     Timestamp = DateTime.UtcNow,
@@ -125,7 +126,7 @@ namespace LicenseReleaseService
         {
             lock (_lock)
             {
-                var counter = new PerformanceCounter
+                var counter = new CustomPerformanceCounter
                 {
                     Name = name,
                     Unit = unit,
@@ -161,10 +162,10 @@ namespace LicenseReleaseService
         {
             // System counters
             RegisterCustomCounter("cpu_usage_percent", GetCpuUsage, "%", "CPU usage percentage");
-            RegisterCustomCounter("memory_usage_mb", () => Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0), "MB", "Memory usage in MB");
-            RegisterCustomCounter("memory_private_mb", () => Process.GetCurrentProcess().PrivateMemorySize64 / (1024.0 * 1024.0), "MB", "Private memory usage in MB");
-            RegisterCustomCounter("thread_count", () => Process.GetCurrentProcess().Threads.Count, "count", "Number of threads");
-            RegisterCustomCounter("handle_count", () => Process.GetCurrentProcess().HandleCount, "count", "Number of handles");
+            RegisterCustomCounter("memory_usage_mb", () => System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0), "MB", "Memory usage in MB");
+            RegisterCustomCounter("memory_private_mb", () => System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 / (1024.0 * 1024.0), "MB", "Private memory usage in MB");
+            RegisterCustomCounter("thread_count", () => System.Diagnostics.Process.GetCurrentProcess().Threads.Count, "count", "Number of threads");
+            RegisterCustomCounter("handle_count", () => System.Diagnostics.Process.GetCurrentProcess().HandleCount, "count", "Number of handles");
 
             // Garbage collection counters
             RegisterCustomCounter("gc_gen0_collections", () => GC.CollectionCount(0), "count", "Generation 0 garbage collections");
@@ -173,7 +174,7 @@ namespace LicenseReleaseService
             RegisterCustomCounter("gc_total_memory_mb", () => GC.GetTotalMemory(false) / (1024.0 * 1024.0), "MB", "Total allocated memory");
 
             // Application counters
-            RegisterCustomCounter("uptime_seconds", () => (DateTime.UtcNow - Process.GetCurrentProcess().StartTime).TotalSeconds, "seconds", "Application uptime");
+            RegisterCustomCounter("uptime_seconds", () => (DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime).TotalSeconds, "seconds", "Application uptime");
             RegisterCustomCounter("exceptions_per_minute", GetExceptionsPerMinute, "count", "Exceptions per minute");
             RegisterCustomCounter("operations_per_second", GetOperationsPerSecond, "count", "Operations per second");
         }
@@ -186,15 +187,15 @@ namespace LicenseReleaseService
                 {
                     Timestamp = DateTime.UtcNow,
                     CpuUsage = GetCpuUsage(),
-                    MemoryUsageMB = Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0),
-                    MemoryUsageMBPrivate = Process.GetCurrentProcess().PrivateMemorySize64 / (1024.0 * 1024.0),
-                    ThreadCount = Process.GetCurrentProcess().Threads.Count,
-                    HandleCount = Process.GetCurrentProcess().HandleCount,
+                    MemoryUsageMB = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64 / (1024.0 * 1024.0),
+                    MemoryUsageMBPrivate = System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 / (1024.0 * 1024.0),
+                    ThreadCount = System.Diagnostics.Process.GetCurrentProcess().Threads.Count,
+                    HandleCount = System.Diagnostics.Process.GetCurrentProcess().HandleCount,
                     GcGeneration0 = GC.CollectionCount(0),
                     GcGeneration1 = GC.CollectionCount(1),
                     GcGeneration2 = GC.CollectionCount(2),
                     TotalMemoryAllocated = GC.GetTotalMemory(false) / (1024.0 * 1024.0),
-                    Uptime = (DateTime.UtcNow - Process.GetCurrentProcess().StartTime).TotalSeconds
+                    Uptime = (DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime).TotalSeconds
                 };
 
                 lock (_lock)
@@ -218,7 +219,7 @@ namespace LicenseReleaseService
         {
             try
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var startTime = DateTime.UtcNow;
                 var startCpuUsage = process.TotalProcessorTime;
 
@@ -297,13 +298,28 @@ namespace LicenseReleaseService
         }
     }
 
-    public class PerformanceCounter
+    public class CustomPerformanceCounter
     {
         public string Name { get; set; }
         public string Unit { get; set; }
         public string Description { get; set; }
         public Func<double> ValueFunction { get; set; }
         public DateTime LastUpdated { get; set; }
+
+        public double CurrentValue
+        {
+            get
+            {
+                try
+                {
+                    return ValueFunction?.Invoke() ?? 0;
+                }
+                catch
+                {
+                    return 0;
+                }
+            }
+        }
     }
 
     public class PerformanceSnapshot

@@ -218,8 +218,7 @@ namespace LicenseReleaseService
                     _performanceMonitor,
                     new global::LicenseReleaseService.LicenseManagement.HealthChecker(
                     new Microsoft.Extensions.Logging.LoggerFactory()
-                                                .AddDebug()
-                        .CreateLogger<global::LicenseReleaseService.LicenseManagement.HealthChecker>(),
+                                                                        .CreateLogger<global::LicenseReleaseService.LicenseManagement.HealthChecker>(),
                     _licenseManager,
                     _processMetrics,
                     _performanceMonitor),

@@ -959,7 +959,7 @@ namespace LicenseReleaseService.VersionManagement
         {
             lock (_lock)
             {
-                return _records.TakeLast(maxEntries).ToList();
+                return _records.Skip(Math.Max(0, _records.Count - maxEntries)).ToList();
             }
         }
 

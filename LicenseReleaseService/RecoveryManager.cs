@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -160,50 +161,67 @@ namespace LicenseReleaseService
 
         private RecoveryStrategy GetDefaultStrategy(Exception exception)
         {
-            return exception switch
+            if (exception is OutOfMemoryException)
             {
-                OutOfMemoryException => new RecoveryStrategy
+                return new RecoveryStrategy
                 {
                     Action = RecoveryAction.GracefulShutdown,
                     MaxAttempts = 1,
                     DelayBetweenAttempts = TimeSpan.Zero,
                     Description = "Out of memory - requiring graceful shutdown"
-                },
-                StackOverflowException => new RecoveryStrategy
+                };
+            }
+
+            if (exception is StackOverflowException)
+            {
+                return new RecoveryStrategy
                 {
                     Action = RecoveryAction.GracefulShutdown,
                     MaxAttempts = 1,
                     DelayBetweenAttempts = TimeSpan.Zero,
                     Description = "Stack overflow - requiring graceful shutdown"
-                },
-                SystemException => new RecoveryStrategy
+                };
+            }
+
+            if (exception is SystemException)
+            {
+                return new RecoveryStrategy
                 {
                     Action = RecoveryAction.RestartService,
                     MaxAttempts = 3,
                     DelayBetweenAttempts = TimeSpan.FromSeconds(30),
                     Description = "System exception - attempting service restart"
-                },
-                InvalidOperationException => new RecoveryStrategy
+                };
+            }
+
+            if (exception is InvalidOperationException)
+            {
+                return new RecoveryStrategy
                 {
                     Action = RecoveryAction.RestartComponents,
                     MaxAttempts = 2,
                     DelayBetweenAttempts = TimeSpan.FromSeconds(10),
                     Description = "Invalid operation - attempting component restart"
-                },
-                TimeoutException => new RecoveryStrategy
+                };
+            }
+
+            if (exception is TimeoutException)
+            {
+                return new RecoveryStrategy
                 {
                     Action = RecoveryAction.ClearCache,
                     MaxAttempts = 3,
                     DelayBetweenAttempts = TimeSpan.FromSeconds(5),
                     Description = "Timeout - attempting cache clear"
-                },
-                _ => new RecoveryStrategy
-                {
-                    Action = RecoveryAction.LogAndContinue,
-                    MaxAttempts = 1,
-                    DelayBetweenAttempts = TimeSpan.Zero,
-                    Description = "Unknown exception - logging and continuing"
-                }
+                };
+            }
+
+            return new RecoveryStrategy
+            {
+                Action = RecoveryAction.LogAndContinue,
+                MaxAttempts = 1,
+                DelayBetweenAttempts = TimeSpan.Zero,
+                Description = "Unknown exception - logging and continuing"
             };
         }
 

@@ -1645,7 +1645,7 @@ namespace LicenseReleaseService.VersionManagement.Deployment
         {
             lock (_contextLock)
             {
-                return _deploymentHistory.TakeLast(maxEntries).ToList();
+                return _deploymentHistory.Skip(Math.Max(0, _deploymentHistory.Count - maxEntries)).ToList();
             }
         }
 

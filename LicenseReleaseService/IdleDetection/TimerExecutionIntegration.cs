@@ -234,8 +234,8 @@ namespace LicenseReleaseService.IdleDetection
             try
             {
                 var timerName = $"IdleDetection_{config.DetectorName}";
-                var interval = config.DetectionInterval > 0 ?
-                    TimeSpan.FromSeconds(config.DetectionInterval) :
+                var interval = config.DetectionInterval > TimeSpan.Zero ?
+                    config.DetectionInterval :
                     _configurationIntegration.DetectionInterval;
 
                 // Create timer registration
@@ -270,7 +270,7 @@ namespace LicenseReleaseService.IdleDetection
                 await _timerExecutionService.StartOneTimeAsync(interval, cancellationToken);
 
                 // Raise timer started event
-                OnTimerStarted(new IdleDetectionTimerEventArgs(registration, DateTime.UtcNow));
+                OnTimerStarted(new IdleDetectionTimerEventArgs(registration.TimerId, registration.TimerName, registration.StartedAt, registration.Interval, registration.Status));
             }
             catch (Exception ex)
             {
@@ -308,7 +308,7 @@ namespace LicenseReleaseService.IdleDetection
                 if (registration != null)
                 {
                     // Raise timer stopped event
-                    OnTimerStopped(new IdleDetectionTimerEventArgs(registration, DateTime.UtcNow));
+                    OnTimerStopped(new IdleDetectionTimerEventArgs(registration.TimerId, registration.TimerName, registration.StartedAt, registration.Interval, registration.Status));
                 }
             }
             catch (Exception ex)
@@ -947,6 +947,11 @@ namespace LicenseReleaseService.IdleDetection
     public class TimerRegistration
     {
         /// <summary>
+        /// Gets or sets the timer identifier
+        /// </summary>
+        public Guid TimerId { get; set; }
+
+        /// <summary>
         /// Gets or sets the detector name
         /// </summary>
         public string DetectorName { get; set; }
@@ -955,6 +960,11 @@ namespace LicenseReleaseService.IdleDetection
         /// Gets or sets the timer name
         /// </summary>
         public string TimerName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the timer status
+        /// </summary>
+        public TimerExecution.TimerStatus Status { get; set; }
 
         /// <summary>
         /// Gets or sets the timer interval
@@ -1023,8 +1033,10 @@ namespace LicenseReleaseService.IdleDetection
         {
             return new TimerRegistration
             {
+                TimerId = TimerId,
                 DetectorName = DetectorName,
                 TimerName = TimerName,
+                Status = Status,
                 Interval = Interval,
                 Configuration = Configuration,
                 IsEnabled = IsEnabled,

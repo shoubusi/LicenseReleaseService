@@ -462,14 +462,10 @@ namespace LicenseReleaseService.Tests.LicenseManagement
             if (exception == null)
                 return false;
 
-            return exception switch
-            {
-                System.IO.IOException or
-                System.Net.Sockets.SocketException or
-                System.TimeoutException or
-                System.OperationCanceledException => true,
-                _ => false
-            };
+            return exception is System.IO.IOException ||
+                   exception is System.Net.Sockets.SocketException ||
+                   exception is System.TimeoutException ||
+                   exception is System.OperationCanceledException;
         }
 
         private static LicenseQueryException SerializeAndDeserialize(LicenseQueryException exception)

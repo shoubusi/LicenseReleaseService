@@ -344,7 +344,7 @@ namespace LicenseReleaseService.IdleDetection
                 // Try to get process name
                 try
                 {
-                    var process = Process.GetProcessById(windowInfo.ProcessId);
+                    var process = System.Diagnostics.Process.GetProcessById(windowInfo.ProcessId);
                     windowInfo.ProcessName = process.ProcessName;
                 }
                 catch
@@ -586,7 +586,7 @@ namespace LicenseReleaseService.IdleDetection
                 var idleTime = GetSystemIdleTime();
                 CurrentSystemIdleTime = idleTime;
 
-                var wasActive = idleTime < _config.TrackingInterval;
+                var wasActive = idleTime.TotalMilliseconds < _config.TrackingInterval;
 
                 if (wasActive)
                 {
@@ -743,9 +743,9 @@ namespace LicenseReleaseService.IdleDetection
 
             try
             {
-                var processes = Process.GetProcesses();
+                var processes = System.Diagnostics.Process.GetProcesses();
                 var solidWorksProcesses = processes
-                    .Where(p => p.ProcessName.Contains("SLDWORKS", StringComparison.OrdinalIgnoreCase))
+                    .Where(p => p.ProcessName.ToUpper().Contains("SLDWORKS"))
                     .ToList();
 
                 foreach (var process in solidWorksProcesses)
@@ -803,7 +803,7 @@ namespace LicenseReleaseService.IdleDetection
                 var windowInfo = GetForegroundWindowInfo();
                 if (!string.IsNullOrEmpty(windowInfo.Title))
                 {
-                    var isSolidWorksWindow = windowInfo.ProcessName?.Contains("SLDWORKS", StringComparison.OrdinalIgnoreCase) ?? false;
+                    var isSolidWorksWindow = windowInfo.ProcessName?.Contains("SLDWORKS") ?? false;
 
                     var windowEvent = new SystemActivityEvent
                     {

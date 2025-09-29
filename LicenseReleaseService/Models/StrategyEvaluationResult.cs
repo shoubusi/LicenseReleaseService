@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using LicenseReleaseService.Interfaces;
 
 namespace LicenseReleaseService.Models
@@ -364,7 +365,7 @@ namespace LicenseReleaseService.Models
         /// <summary>
         /// Gets the number of strategies that can handle the request
         /// </summary>
-        public int ViableStrategyCount => StrategyResults?.Count(r => r.IsRecommended) ?? 0;
+        public int ViableStrategyCount => StrategyResults?.Where(r => r.IsRecommended).Count() ?? 0;
 
         /// <summary>
         /// Gets the average confidence score of all viable strategies

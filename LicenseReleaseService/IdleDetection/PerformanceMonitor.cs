@@ -16,6 +16,37 @@ namespace LicenseReleaseService.IdleDetection
     /// </summary>
     public class PerformanceMonitor : IDisposable
     {
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MEMORYSTATUSEX
+        {
+            public uint dwLength;
+            public uint dwMemoryLoad;
+            public ulong ullTotalPhys;
+            public ulong ullAvailPhys;
+            public ulong ullTotalPageFile;
+            public ulong ullAvailPageFile;
+            public ulong ullTotalVirtual;
+            public ulong ullAvailVirtual;
+            public ulong ullAvailExtendedVirtual;
+
+            public MEMORYSTATUSEX(uint size)
+            {
+                dwLength = size;
+                dwMemoryLoad = 0;
+                ullTotalPhys = 0;
+                ullAvailPhys = 0;
+                ullTotalPageFile = 0;
+                ullAvailPageFile = 0;
+                ullTotalVirtual = 0;
+                ullAvailVirtual = 0;
+                ullAvailExtendedVirtual = 0;
+            }
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
         private readonly ILogger<PerformanceMonitor> _logger;
         private readonly PerformanceMonitorConfig _config;
         private readonly object _lock = new object();
@@ -123,18 +154,14 @@ namespace LicenseReleaseService.IdleDetection
                 // Clear any existing counters and histories
                 lock (_lock)
                 {
-                    foreach (var counter in _systemCounters.Values)
-                    {
-                        counter?.Dispose();
-                    }
+                    // PerformanceCounter doesn't implement IDisposable in .NET Framework 4.8
+                    // No need to dispose counters
                     _systemCounters.Clear();
 
                     foreach (var processCounters in _processCounters.Values)
                     {
-                        foreach (var counter in processCounters.Values)
-                        {
-                            counter?.Dispose();
-                        }
+                        // PerformanceCounter doesn't implement IDisposable in .NET Framework 4.8
+                        // No need to dispose counters
                     }
                     _processCounters.Clear();
                     _processHistories.Clear();
@@ -764,7 +791,7 @@ namespace LicenseReleaseService.IdleDetection
         {
             try
             {
-                var solidWorksProcesses = Process.GetProcessesByName("SLDWORKS")
+                var solidWorksProcesses = System.Diagnostics.Process.GetProcessesByName("SLDWORKS")
                     .Where(p => !p.HasExited && p.Responding)
                     .ToList();
 
@@ -1376,18 +1403,8 @@ namespace LicenseReleaseService.IdleDetection
                         _cleanupTimer?.Dispose();
                         _cancellationTokenSource?.Dispose();
 
-                        foreach (var counter in _systemCounters.Values)
-                        {
-                            counter?.Dispose();
-                        }
-
-                        foreach (var processCounters in _processCounters.Values)
-                        {
-                            foreach (var counter in processCounters.Values)
-                            {
-                                counter?.Dispose();
-                            }
-                        }
+                        // PerformanceCounter doesn't implement IDisposable in .NET Framework 4.8
+                        // No need to dispose counters
                     }
                     catch (Exception ex)
                     {

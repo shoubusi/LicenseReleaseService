@@ -794,6 +794,16 @@ namespace LicenseReleaseService.IdleDetection
         public Dictionary<string, object> CustomParameters { get; set; }
 
         /// <summary>
+        /// Gets or sets the detector name
+        /// </summary>
+        public string DetectorName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the detection interval as TimeSpan
+        /// </summary>
+        public TimeSpan DetectionInterval { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the IdleDetectorConfiguration class
         /// </summary>
         public IdleDetectorConfiguration()

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,8 +19,8 @@ namespace LicenseReleaseService.TimerExecution
         private readonly Timer _collectionTimer;
         private readonly Dictionary<string, TimerPerformanceSnapshot> _recentSnapshots;
         private readonly object _lock = new object();
-        private readonly PerformanceCounter _cpuCounter;
-        private readonly PerformanceCounter _memoryCounter;
+        private readonly System.Diagnostics.PerformanceCounter _cpuCounter;
+        private readonly System.Diagnostics.PerformanceCounter _memoryCounter;
         private DateTime _startTime;
         private bool _isDisposed;
         private bool _isCollecting;
@@ -420,7 +421,7 @@ namespace LicenseReleaseService.TimerExecution
             if (snapshots.Count < 2)
                 return TimerPerformanceTrend.Stable;
 
-            var recent = snapshots.TakeLast(5).ToList();
+            var recent = snapshots.Skip(Math.Max(0, snapshots.Count - 5)).ToList();
             var earlier = snapshots.Take(snapshots.Count - 5).ToList();
 
             if (!recent.Any() || !earlier.Any())
@@ -449,8 +450,8 @@ namespace LicenseReleaseService.TimerExecution
             _isDisposed = true;
             _isCollecting = false;
             _collectionTimer?.Dispose();
-            _cpuCounter?.Dispose();
-            _memoryCounter?.Dispose();
+            // PerformanceCounter doesn't implement IDisposable in .NET Framework 4.8
+            // No need to dispose counters
 
             GC.SuppressFinalize(this);
         }

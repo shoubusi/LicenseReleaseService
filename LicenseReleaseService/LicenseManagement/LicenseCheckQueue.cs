@@ -275,7 +275,7 @@ namespace LicenseReleaseService.LicenseManagement
         /// <returns>Collection of completed operations</returns>
         public IEnumerable<LicenseCheckOperation> GetCompletedOperations(int maxResults = 100)
         {
-            return _completedOperations.Values.TakeLast(maxResults).ToArray();
+            return _completedOperations.Values.OrderByDescending(op => op.CompletedTime).Take(maxResults).ToArray();
         }
 
         /// <summary>

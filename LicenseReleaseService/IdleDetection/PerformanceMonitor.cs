@@ -989,7 +989,7 @@ namespace LicenseReleaseService.IdleDetection
                 // In a real-world scenario, you might use NVIDIA NvAPI, AMD ADL, or Windows GPU APIs
                 // For now, we'll estimate based on memory usage and process type
 
-                if (process.ProcessName.Contains("SLDWORKS", StringComparison.OrdinalIgnoreCase))
+                if (process.ProcessName.IndexOf("SLDWORKS", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     // SolidWorks processes likely use GPU for rendering
                     var memoryUsage = await GetProcessMemoryUsageAsync(process);
@@ -1039,13 +1039,17 @@ namespace LicenseReleaseService.IdleDetection
         {
             try
             {
-                var gcMemoryInfo = GC.GetGCMemoryInfo();
-                return gcMemoryInfo.TotalAvailableMemoryBytes;
+                // Use memory status for .NET Framework 4.8
+                var memStatus = new MEMORYSTATUSEX();
+                if (GlobalMemoryStatusEx(ref memStatus))
+                {
+                    return memStatus.ullTotalPhys;
+                }
+                return 8UL * 1024 * 1024 * 1024; // 8GB fallback
             }
             catch
             {
-                // Fallback to estimated value
-                return 8UL * 1024 * 1024 * 1024; // 8GB
+                return 8UL * 1024 * 1024 * 1024; // 8GB fallback
             }
         }
 
@@ -1237,7 +1241,7 @@ namespace LicenseReleaseService.IdleDetection
                 {
                     Source = source,
                     MetricType = metricType,
-                    CurrentValue = currentValue,
+                    CurrentValue = (float)currentValue,
                     Threshold = threshold,
                     Timestamp = DateTime.UtcNow,
                     Severity = currentValue > threshold * 1.5 ? ThresholdSeverity.Critical : ThresholdSeverity.Warning,
@@ -1247,6 +1251,41 @@ namespace LicenseReleaseService.IdleDetection
                         ["MemoryUsage"] = metrics.MemoryUsage,
                         ["DiskUsage"] = metrics.DiskUsage,
                         ["NetworkUsage"] = metrics.NetworkUsage
+                    }
+                });
+
+                lock (_lock)
+                {
+                    Statistics.ThresholdExceededEvents++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error raising threshold exceeded event for {Source}:{MetricType}", source, metricType);
+            }
+        }
+
+        /// <summary>
+        /// Raises the ThresholdExceeded event with process-specific metrics
+        /// </summary>
+        private void RaiseThresholdExceededEvent(string source, string metricType, double currentValue, double threshold, ProcessPerformanceMetrics metrics)
+        {
+            try
+            {
+                PerformanceThresholdExceeded?.Invoke(this, new PerformanceThresholdEventArgs
+                {
+                    Source = source,
+                    MetricType = metricType,
+                    CurrentValue = (float)currentValue,
+                    Threshold = threshold,
+                    Timestamp = DateTime.UtcNow,
+                    Severity = currentValue > threshold * 1.5 ? ThresholdSeverity.Critical : ThresholdSeverity.Warning,
+                    AdditionalInfo = new Dictionary<string, object>
+                    {
+                        ["CpuUsage"] = metrics.CpuUsage,
+                        ["MemoryUsage"] = metrics.MemoryUsage,
+                        ["HandleCount"] = metrics.HandleCount,
+                        ["ThreadCount"] = metrics.ThreadCount
                     }
                 });
 
@@ -1582,6 +1621,29 @@ namespace LicenseReleaseService.IdleDetection
             {
                 var cutoffTime = DateTime.UtcNow - timeWindow;
                 return _recentMetrics.Where(m => m.Timestamp > cutoffTime).ToList();
+            }
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public class MEMORYSTATUSEX
+        {
+            public uint dwLength;
+            public uint dwMemoryLoad;
+            public ulong ullTotalPhys;
+            public ulong ullAvailPhys;
+            public ulong ullTotalPageFile;
+            public ulong ullAvailPageFile;
+            public ulong ullTotalVirtual;
+            public ulong ullAvailVirtual;
+            public ulong ullAvailExtendedVirtual;
+
+            public MEMORYSTATUSEX()
+            {
+                dwLength = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX));
             }
         }
     }

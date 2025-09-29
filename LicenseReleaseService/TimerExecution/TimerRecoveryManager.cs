@@ -7,51 +7,6 @@ using Microsoft.Extensions.Logging;
 
 namespace LicenseReleaseService.TimerExecution
 {
-    /// <summary>
-    /// Defines the types of recovery actions available for timer execution errors
-    /// </summary>
-    public enum TimerRecoveryActionType
-    {
-        /// <summary>
-        /// Retry the failed operation
-        /// </summary>
-        Retry = 0,
-
-        /// <summary>
-        /// Increase the timer interval to reduce resource usage
-        /// </summary>
-        IncreaseInterval = 1,
-
-        /// <summary>
-        /// Enable the circuit breaker to prevent cascading failures
-        /// </summary>
-        EnableCircuitBreaker = 2,
-
-        /// <summary>
-        /// Restart the timer service
-        /// </summary>
-        RestartService = 3,
-
-        /// <summary>
-        /// Log the error and continue
-        /// </summary>
-        LogAndContinue = 4,
-
-        /// <summary>
-        /// Skip the current operation
-        /// </summary>
-        SkipOperation = 5,
-
-        /// <summary>
-        /// Reset internal state
-        /// </summary>
-        ResetState = 6,
-
-        /// <summary>
-        /// Reset the timer
-        /// </summary>
-        ResetTimer = 7
-    }
 
     /// <summary>
     /// Represents a recovery action for timer execution errors
@@ -61,7 +16,7 @@ namespace LicenseReleaseService.TimerExecution
         /// <summary>
         /// Gets or sets the type of recovery action
         /// </summary>
-        public TimerRecoveryActionType Type { get; set; }
+        public TimerRecoveryAction Type { get; set; }
 
         /// <summary>
         /// Gets or sets the name of the action
@@ -669,7 +624,7 @@ namespace LicenseReleaseService.TimerExecution
                 {
                     new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryActionType.Retry,
+                        Type = TimerRecoveryAction.Retry,
                         Name = "RetryWithBackoff",
                         Description = "Retry operation with exponential backoff",
                         Timeout = TimeSpan.FromSeconds(30),
@@ -700,7 +655,7 @@ namespace LicenseReleaseService.TimerExecution
                 {
                     new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryActionType.Retry,
+                        Type = TimerRecoveryAction.Retry,
                         Name = "RetryWithIncreasedTimeout",
                         Description = "Retry operation with increased timeout",
                         Timeout = TimeSpan.FromMinutes(1),
@@ -735,7 +690,7 @@ namespace LicenseReleaseService.TimerExecution
                 {
                     new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryActionType.IncreaseInterval,
+                        Type = TimerRecoveryAction.IncreaseInterval,
                         Name = "IncreaseTimerInterval",
                         Description = "Increase timer interval to reduce resource usage",
                         Timeout = TimeSpan.FromSeconds(10),
@@ -776,7 +731,7 @@ namespace LicenseReleaseService.TimerExecution
                 {
                     new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryActionType.EnableCircuitBreaker,
+                        Type = TimerRecoveryAction.EnableCircuitBreaker,
                         Name = "EnableCircuitBreaker",
                         Description = "Enable circuit breaker to prevent cascading failures",
                         Timeout = TimeSpan.FromSeconds(5),
@@ -812,7 +767,7 @@ namespace LicenseReleaseService.TimerExecution
                 {
                     new TimerRecoveryActionInstance
                     {
-                        Type = TimerRecoveryActionType.RestartService,
+                        Type = TimerRecoveryAction.RestartService,
                         Name = "RestartTimerService",
                         Description = "Restart the timer service",
                         Timeout = TimeSpan.FromSeconds(30),
@@ -1006,7 +961,7 @@ namespace LicenseReleaseService.TimerExecution
         /// <summary>
         /// Gets or sets the type of recovery action
         /// </summary>
-        public TimerRecoveryActionType Type { get; set; }
+        public TimerRecoveryAction Type { get; set; }
 
         /// <summary>
         /// Gets or sets the name of the action

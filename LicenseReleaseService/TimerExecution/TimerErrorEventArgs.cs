@@ -8,29 +8,39 @@ namespace LicenseReleaseService.TimerExecution
     public class TimerErrorEventArgs : EventArgs
     {
         /// <summary>
+        /// Gets the unique identifier for the error event
+        /// </summary>
+        public Guid ErrorId { get; set; }
+
+        /// <summary>
         /// Gets the exception that caused the error
         /// </summary>
-        public Exception Error { get; }
+        public Exception Error { get; set; }
+
+        /// <summary>
+        /// Gets the exception that caused the error (alias for Error property)
+        /// </summary>
+        public Exception Exception => Error;
 
         /// <summary>
         /// Gets the timestamp when the error occurred
         /// </summary>
-        public DateTime Timestamp { get; }
+        public DateTime Timestamp { get; set; }
 
         /// <summary>
         /// Gets the timer status when the error occurred
         /// </summary>
-        public TimerStatus Status { get; }
+        public TimerStatus Status { get; set; }
 
         /// <summary>
         /// Gets the execution identifier if the error occurred during execution
         /// </summary>
-        public Guid? ExecutionId { get; }
+        public Guid? ExecutionId { get; set; }
 
         /// <summary>
         /// Gets the number of consecutive errors
         /// </summary>
-        public int ConsecutiveErrors { get; }
+        public int ConsecutiveErrors { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether the error should trigger circuit breaker
@@ -55,17 +65,37 @@ namespace LicenseReleaseService.TimerExecution
         /// <summary>
         /// Gets the recovery action taken or suggested
         /// </summary>
-        public TimerErrorRecoveryAction RecoveryAction { get; set; }
+        public TimerRecoveryAction RecoveryAction { get; set; }
+
+        /// <summary>
+        /// Gets or sets the recommended action for error recovery
+        /// </summary>
+        public TimerRecoveryAction RecommendedAction { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of recovery attempts
+        /// </summary>
+        public int RecoveryAttempts { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether the recovery was successful
+        /// </summary>
+        public bool RecoverySuccessful { get; set; }
+
+        /// <summary>
+        /// Gets or sets the handling result
+        /// </summary>
+        public string HandlingResult { get; set; }
 
         /// <summary>
         /// Gets additional error context information
         /// </summary>
-        public System.Collections.Generic.IDictionary<string, object> Context { get; }
+        public System.Collections.Generic.IDictionary<string, object> Context { get; set; }
 
         /// <summary>
         /// Gets the error message with additional context
         /// </summary>
-        public string FormattedMessage { get; }
+        public string FormattedMessage { get; set; }
 
         /// <summary>
         /// Gets the internal error code for categorization
@@ -86,21 +116,26 @@ namespace LicenseReleaseService.TimerExecution
         /// Initializes a new instance of the TimerErrorEventArgs class
         /// </summary>
         /// <param name="error">The exception that caused the error</param>
+        /// <param name="executionId">The execution identifier</param>
         /// <param name="status">The timer status when the error occurred</param>
         /// <param name="consecutiveErrors">The number of consecutive errors</param>
-        /// <param name="executionId">The execution identifier, if available</param>
-        public TimerErrorEventArgs(Exception error, TimerStatus status, int consecutiveErrors, Guid? executionId = null)
+        public TimerErrorEventArgs(Exception error, Guid? executionId, TimerStatus status, int consecutiveErrors)
         {
+            ErrorId = Guid.NewGuid();
             Error = error ?? throw new ArgumentNullException(nameof(error));
+            ExecutionId = executionId;
             Status = status;
             ConsecutiveErrors = consecutiveErrors;
-            ExecutionId = executionId;
             Timestamp = DateTime.UtcNow;
             ShouldTriggerCircuitBreaker = false;
             IsFatal = false;
             Severity = DetermineErrorSeverity(error);
             Category = DetermineErrorCategory(error);
             RecoveryAction = DetermineRecoveryAction(error, status);
+            RecommendedAction = RecoveryAction; // Initialize to same value
+            RecoveryAttempts = 0;
+            RecoverySuccessful = false;
+            HandlingResult = null;
             Context = new System.Collections.Generic.Dictionary<string, object>();
             FormattedMessage = FormatErrorMessage(error, status, consecutiveErrors);
             ErrorCode = GenerateErrorCode(error, status);
@@ -112,12 +147,12 @@ namespace LicenseReleaseService.TimerExecution
         /// Initializes a new instance of the TimerErrorEventArgs class with custom severity
         /// </summary>
         /// <param name="error">The exception that caused the error</param>
+        /// <param name="executionId">The execution identifier</param>
         /// <param name="status">The timer status when the error occurred</param>
         /// <param name="consecutiveErrors">The number of consecutive errors</param>
         /// <param name="severity">The error severity level</param>
-        /// <param name="executionId">The execution identifier, if available</param>
-        public TimerErrorEventArgs(Exception error, TimerStatus status, int consecutiveErrors, TimerErrorSeverity severity, Guid? executionId = null)
-            : this(error, status, consecutiveErrors, executionId)
+        public TimerErrorEventArgs(Exception error, Guid? executionId, TimerStatus status, int consecutiveErrors, TimerErrorSeverity severity)
+            : this(error, executionId, status, consecutiveErrors)
         {
             Severity = severity;
         }
@@ -184,24 +219,24 @@ namespace LicenseReleaseService.TimerExecution
                 return TimerErrorCategory.Timeout;
 
             if (error is System.IO.IOException || error is System.IO.FileNotFoundException)
-                return TimerErrorCategory.IO;
+                return TimerErrorCategory.Unknown; // No IO category, use Unknown
 
             if (error is System.Net.Sockets.SocketException || error is System.Net.WebException)
                 return TimerErrorCategory.Network;
 
             if (error is System.InvalidOperationException)
-                return TimerErrorCategory.Operation;
+                return TimerErrorCategory.Execution; // No Operation category, use Execution
 
             if (error is System.ArgumentException || error is System.ArgumentNullException)
-                return TimerErrorCategory.Argument;
+                return TimerErrorCategory.Configuration; // No Argument category, use Configuration
 
             if (error is System.OutOfMemoryException)
-                return TimerErrorCategory.Memory;
+                return TimerErrorCategory.Resource; // No Memory category, use Resource
 
             if (error is System.Threading.ThreadAbortException)
-                return TimerErrorCategory.Threading;
+                return TimerErrorCategory.Execution; // No Threading category, use Execution
 
-            return TimerErrorCategory.General;
+            return TimerErrorCategory.Unknown;
         }
 
         /// <summary>
@@ -210,24 +245,24 @@ namespace LicenseReleaseService.TimerExecution
         /// <param name="error">The exception that occurred</param>
         /// <param name="status">The timer status when the error occurred</param>
         /// <returns>The suggested recovery action</returns>
-        private static TimerErrorRecoveryAction DetermineRecoveryAction(Exception error, TimerStatus status)
+        private static TimerRecoveryAction DetermineRecoveryAction(Exception error, TimerStatus status)
         {
             if (error is System.TimeoutException)
-                return TimerErrorRecoveryAction.Retry;
+                return TimerRecoveryAction.Retry;
 
             if (error is System.IO.IOException || error is System.Net.Sockets.SocketException)
-                return TimerErrorRecoveryAction.WaitAndRetry;
+                return TimerRecoveryAction.Retry;
 
             if (error is System.InvalidOperationException)
-                return TimerErrorRecoveryAction.Reset;
+                return TimerRecoveryAction.ResetTimer;
 
             if (error is System.OutOfMemoryException || error is System.StackOverflowException)
-                return TimerErrorRecoveryAction.Stop;
+                return TimerRecoveryAction.DisableTimer;
 
             if (error is System.ArgumentException)
-                return TimerErrorRecoveryAction.LogError;
+                return TimerRecoveryAction.LogAndContinue;
 
-            return TimerErrorRecoveryAction.Continue;
+            return TimerRecoveryAction.LogAndContinue;
         }
 
         /// <summary>
@@ -266,6 +301,7 @@ namespace LicenseReleaseService.TimerExecution
         {
             var builder = new System.Text.StringBuilder();
             builder.AppendLine("Timer Error Event:");
+            builder.AppendLine($"  Error ID: {ErrorId}");
             builder.AppendLine($"  Timestamp: {Timestamp:yyyy-MM-dd HH:mm:ss.fff}");
             builder.AppendLine($"  Error Code: {ErrorCode}");
             builder.AppendLine($"  Error Type: {Error.GetType().Name}");
@@ -300,138 +336,5 @@ namespace LicenseReleaseService.TimerExecution
 
             return builder.ToString();
         }
-    }
-
-    /// <summary>
-    /// Defines the severity levels for timer errors
-    /// </summary>
-    public enum TimerErrorSeverity
-    {
-        /// <summary>
-        /// Low severity error, may be logged but doesn't affect operation
-        /// </summary>
-        Low = 0,
-
-        /// <summary>
-        /// Medium severity error, may affect performance but not functionality
-        /// </summary>
-        Medium = 1,
-
-        /// <summary>
-        /// High severity error, affects functionality but can be recovered
-        /// </summary>
-        High = 2,
-
-        /// <summary>
-        /// Critical severity error, requires immediate attention and may stop the timer
-        /// </summary>
-        Critical = 3
-    }
-
-    /// <summary>
-    /// Defines the categories for timer errors
-    /// </summary>
-    public enum TimerErrorCategory
-    {
-        /// <summary>
-        /// General uncategorized error
-        /// </summary>
-        General = 0,
-
-        /// <summary>
-        /// Timeout-related error
-        /// </summary>
-        Timeout = 1,
-
-        /// <summary>
-        /// Input/Output related error
-        /// </summary>
-        IO = 2,
-
-        /// <summary>
-        /// Network-related error
-        /// </summary>
-        Network = 3,
-
-        /// <summary>
-        /// Operation-related error
-        /// </summary>
-        Operation = 4,
-
-        /// <summary>
-        /// Argument-related error
-        /// </summary>
-        Argument = 5,
-
-        /// <summary>
-        /// Memory-related error
-        /// </summary>
-        Memory = 6,
-
-        /// <summary>
-        /// Threading-related error
-        /// </summary>
-        Threading = 7,
-
-        /// <summary>
-        /// Configuration-related error
-        /// </summary>
-        Configuration = 8,
-
-        /// <summary>
-        /// Execution-related error
-        /// </summary>
-        Execution = 9
-    }
-
-    /// <summary>
-    /// Defines the recovery actions for timer errors
-    /// </summary>
-    public enum TimerErrorRecoveryAction
-    {
-        /// <summary>
-        /// Continue normal operation
-        /// </summary>
-        Continue = 0,
-
-        /// <summary>
-        /// Retry the operation immediately
-        /// </summary>
-        Retry = 1,
-
-        /// <summary>
-        /// Wait and retry the operation
-        /// </summary>
-        WaitAndRetry = 2,
-
-        /// <summary>
-        /// Reset the timer state
-        /// </summary>
-        Reset = 3,
-
-        /// <summary>
-        /// Log the error and continue
-        /// </summary>
-        LogError = 4,
-
-        /// <summary>
-        /// Stop the timer
-        /// </summary>
-        Stop = 5,
-
-        /// <summary>
-        /// Restart the timer
-        /// </summary>
-        Restart = 6,
-
-        /// <summary>
-        /// Trigger circuit breaker
-        /// </summary>
-        TriggerCircuitBreaker = 7,
-
-        /// <summary>
-        /// No action required
-        /// </summary>
-        None = 8
     }
 }

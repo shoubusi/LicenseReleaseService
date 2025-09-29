@@ -15,26 +15,30 @@ namespace LicenseReleaseService.Tests.TimerExecution
     public class TimerErrorHandlerTests
     {
         private readonly Mock<ILogger<TimerErrorHandler>> _mockLogger;
-        private readonly Mock<ITimerErrorClassifier> _mockErrorClassifier;
-        private readonly Mock<ITimerRecoveryManager> _mockRecoveryManager;
-        private readonly Mock<ITimerCircuitBreaker> _mockCircuitBreaker;
-        private readonly Mock<ITimerHealthMonitor> _mockHealthMonitor;
+        private readonly Mock<ITimerExecutionService> _mockTimerService;
+        private readonly TimerExecutionOptions _testOptions;
         private readonly TimerErrorHandler _errorHandler;
 
         public TimerErrorHandlerTests()
         {
             _mockLogger = new Mock<ILogger<TimerErrorHandler>>();
-            _mockErrorClassifier = new Mock<ITimerErrorClassifier>();
-            _mockRecoveryManager = new Mock<ITimerRecoveryManager>();
-            _mockCircuitBreaker = new Mock<ITimerCircuitBreaker>();
-            _mockHealthMonitor = new Mock<ITimerHealthMonitor>();
+            _mockTimerService = new Mock<ITimerExecutionService>();
+            _testOptions = new TimerExecutionOptions();
+
+            // Create concrete instances for dependencies
+            var errorClassifier = new TimerErrorClassifier(_mockLogger.Object);
+            var circuitBreaker = new TimerCircuitBreaker(_testOptions);
+            var healthMonitor = new TimerHealthMonitor(_mockLogger.Object, _testOptions);
+            var recoveryManager = new TimerRecoveryManager(_mockLogger.Object, _testOptions, _mockTimerService.Object);
 
             _errorHandler = new TimerErrorHandler(
                 _mockLogger.Object,
-                _mockErrorClassifier.Object,
-                _mockRecoveryManager.Object,
-                _mockCircuitBreaker.Object,
-                _mockHealthMonitor.Object);
+                _testOptions,
+                _mockTimerService.Object,
+                errorClassifier,
+                circuitBreaker,
+                healthMonitor,
+                recoveryManager);
         }
 
         #region Constructor Tests
@@ -42,60 +46,96 @@ namespace LicenseReleaseService.Tests.TimerExecution
         [Fact]
         public void Constructor_WithNullLogger_ThrowsArgumentNullException()
         {
-            // Arrange, Act & Assert
+            // Arrange
+            var errorClassifier = new TimerErrorClassifier(_mockLogger.Object);
+            var circuitBreaker = new TimerCircuitBreaker(_testOptions);
+            var healthMonitor = new TimerHealthMonitor(_mockLogger.Object, _testOptions);
+            var recoveryManager = new TimerRecoveryManager(_mockLogger.Object, _testOptions, _mockTimerService.Object);
+
+            // Act & Assert
             Assert.Throws<ArgumentNullException>(() => new TimerErrorHandler(
                 null,
-                _mockErrorClassifier.Object,
-                _mockRecoveryManager.Object,
-                _mockCircuitBreaker.Object,
-                _mockHealthMonitor.Object));
+                _testOptions,
+                _mockTimerService.Object,
+                errorClassifier,
+                circuitBreaker,
+                healthMonitor,
+                recoveryManager));
         }
 
         [Fact]
         public void Constructor_WithNullErrorClassifier_ThrowsArgumentNullException()
         {
-            // Arrange, Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new TimerErrorHandler(
-                _mockLogger.Object,
-                null,
-                _mockRecoveryManager.Object,
-                _mockCircuitBreaker.Object,
-                _mockHealthMonitor.Object));
-        }
+            // Arrange
+            var circuitBreaker = new TimerCircuitBreaker(_testOptions);
+            var healthMonitor = new TimerHealthMonitor(_mockLogger.Object, _testOptions);
+            var recoveryManager = new TimerRecoveryManager(_mockLogger.Object, _testOptions, _mockTimerService.Object);
 
-        [Fact]
-        public void Constructor_WithNullRecoveryManager_ThrowsArgumentNullException()
-        {
-            // Arrange, Act & Assert
+            // Act & Assert
             Assert.Throws<ArgumentNullException>(() => new TimerErrorHandler(
                 _mockLogger.Object,
-                _mockErrorClassifier.Object,
+                _testOptions,
+                _mockTimerService.Object,
                 null,
-                _mockCircuitBreaker.Object,
-                _mockHealthMonitor.Object));
+                circuitBreaker,
+                healthMonitor,
+                recoveryManager));
         }
 
         [Fact]
         public void Constructor_WithNullCircuitBreaker_ThrowsArgumentNullException()
         {
-            // Arrange, Act & Assert
+            // Arrange
+            var errorClassifier = new TimerErrorClassifier(_mockLogger.Object);
+            var healthMonitor = new TimerHealthMonitor(_mockLogger.Object, _testOptions);
+            var recoveryManager = new TimerRecoveryManager(_mockLogger.Object, _testOptions, _mockTimerService.Object);
+
+            // Act & Assert
             Assert.Throws<ArgumentNullException>(() => new TimerErrorHandler(
                 _mockLogger.Object,
-                _mockErrorClassifier.Object,
-                _mockRecoveryManager.Object,
+                _testOptions,
+                _mockTimerService.Object,
+                errorClassifier,
                 null,
-                _mockHealthMonitor.Object));
+                healthMonitor,
+                recoveryManager));
         }
 
         [Fact]
         public void Constructor_WithNullHealthMonitor_ThrowsArgumentNullException()
         {
-            // Arrange, Act & Assert
+            // Arrange
+            var errorClassifier = new TimerErrorClassifier(_mockLogger.Object);
+            var circuitBreaker = new TimerCircuitBreaker(_testOptions);
+            var recoveryManager = new TimerRecoveryManager(_mockLogger.Object, _testOptions, _mockTimerService.Object);
+
+            // Act & Assert
             Assert.Throws<ArgumentNullException>(() => new TimerErrorHandler(
                 _mockLogger.Object,
-                _mockErrorClassifier.Object,
-                _mockRecoveryManager.Object,
-                _mockCircuitBreaker.Object,
+                _testOptions,
+                _mockTimerService.Object,
+                errorClassifier,
+                circuitBreaker,
+                null,
+                recoveryManager));
+        }
+
+        [Fact]
+        public void Constructor_WithNullRecoveryManager_ThrowsArgumentNullException()
+        {
+            // Arrange
+            var errorClassifier = new TimerErrorClassifier(_mockLogger.Object);
+            var circuitBreaker = new TimerCircuitBreaker(_testOptions);
+            var healthMonitor = new TimerHealthMonitor(_mockLogger.Object, _testOptions);
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => new TimerErrorHandler(
+                _mockLogger.Object,
+                _testOptions,
+                _mockTimerService.Object,
+                errorClassifier,
+                circuitBreaker,
+                healthMonitor,
                 null));
         }
 
@@ -103,12 +143,19 @@ namespace LicenseReleaseService.Tests.TimerExecution
         public void Constructor_WithValidDependencies_InitializesSuccessfully()
         {
             // Arrange & Act
+            var errorClassifier = new TimerErrorClassifier(_mockLogger.Object);
+            var circuitBreaker = new TimerCircuitBreaker(_testOptions);
+            var healthMonitor = new TimerHealthMonitor(_mockLogger.Object, _testOptions);
+            var recoveryManager = new TimerRecoveryManager(_mockLogger.Object, _testOptions, _mockTimerService.Object);
+
             var errorHandler = new TimerErrorHandler(
                 _mockLogger.Object,
-                _mockErrorClassifier.Object,
-                _mockRecoveryManager.Object,
-                _mockCircuitBreaker.Object,
-                _mockHealthMonitor.Object);
+                _testOptions,
+                _mockTimerService.Object,
+                errorClassifier,
+                circuitBreaker,
+                healthMonitor,
+                recoveryManager);
 
             // Assert
             Assert.NotNull(errorHandler);
@@ -147,10 +194,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
@@ -258,10 +303,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
@@ -295,10 +338,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), context, It.IsAny<CancellationToken>()))
@@ -365,10 +406,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
@@ -423,10 +462,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
@@ -465,10 +502,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
@@ -508,10 +543,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
@@ -620,10 +653,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
@@ -669,10 +700,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
@@ -717,10 +746,8 @@ namespace LicenseReleaseService.Tests.TimerExecution
             var recoveryResult = new TimerRecoveryResult
             {
                 RecoveryId = Guid.NewGuid(),
-                WasSuccessful = true,
-                Status = TimerRecoveryStatus.Success,
-                ActionTaken = TimerRecoveryAction.Retry,
-                Timestamp = DateTime.UtcNow
+                Success = true,
+                                                Timestamp = DateTime.UtcNow
             };
 
             _mockRecoveryManager.Setup(r => r.RecoverAsync(It.IsAny<TimerErrorEventArgs>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))

@@ -37,6 +37,7 @@ namespace LicenseReleaseService
         private PerformanceMonitor _performanceMonitor;
         private Microsoft.Extensions.Logging.ILogger<LmutilLicenseManager> _licenseManagerLogger;
         private Microsoft.Extensions.Logging.ILogger<ProcessExecutor> _processExecutorLogger;
+        private Microsoft.Extensions.Logging.ILogger<MonitoredLicenseManager> _monitoredLicenseManagerLogger;
         private ILicenseManager _licenseManager;
         private MonitoredLicenseManager _monitoredLicenseManager;
         private bool _licenseManagementInitialized;
@@ -53,9 +54,9 @@ namespace LicenseReleaseService
         public LicenseReleaseService()
         {
             InitializeComponent();
-            _logger = new EventLogLogger();
             _serviceState = new ServiceState();
             _healthChecker = new HealthChecker();
+            _logger = new EventLogLogger();
             _configurationManager = ConfigurationManager.Instance;
             _recoveryManager = new RecoveryManager(_serviceState, _logger);
             _performanceCounters = new PerformanceCounters();
@@ -194,28 +195,47 @@ namespace LicenseReleaseService
                     .AddDebug()
                     .CreateLogger<ProcessExecutor>();
 
+                _monitoredLicenseManagerLogger = new Microsoft.Extensions.Logging.LoggerFactory()
+                    .AddConsole()
+                    .AddDebug()
+                    .CreateLogger<MonitoredLicenseManager>();
+
                 // Initialize process executor
                 _processExecutor = new ProcessExecutor(_processExecutorLogger, _processOptions);
 
                 // Initialize process metrics
-                _processMetrics = new ProcessMetrics(_licenseManagerLogger, 1000);
+                _processMetrics = new ProcessMetrics(new Microsoft.Extensions.Logging.LoggerFactory()
+                    .AddConsole()
+                    .AddDebug()
+                    .CreateLogger<ProcessMetrics>(), 1000);
 
                 // Initialize performance monitor
-                _performanceMonitor = new PerformanceMonitor(_processMetrics, _licenseManagerLogger);
+                _performanceMonitor = new LicenseManagement.PerformanceMonitor(new Microsoft.Extensions.Logging.LoggerFactory()
+                    .AddConsole()
+                    .AddDebug()
+                    .CreateLogger<LicenseManagement.PerformanceMonitor>(), _processMetrics);
 
                 // Initialize license manager
                 _licenseManager = new LmutilLicenseManager(
-                    _serviceSettings,
                     _processExecutor,
-                    _licenseManagerLogger);
+                    _licenseManagerLogger,
+                    _serviceSettings,
+                    _processOptions);
 
                 // Initialize monitored license manager
                 _monitoredLicenseManager = new MonitoredLicenseManager(
                     _licenseManager,
-                    _licenseManagerLogger,
+                    _monitoredLicenseManagerLogger,
                     _processMetrics,
                     _performanceMonitor,
-                    _healthChecker,
+                    new global::LicenseReleaseService.LicenseManagement.HealthChecker(
+                    new Microsoft.Extensions.Logging.LoggerFactory()
+                        .AddConsole()
+                        .AddDebug()
+                        .CreateLogger<global::LicenseReleaseService.LicenseManagement.HealthChecker>(),
+                    _licenseManager,
+                    _processMetrics,
+                    _performanceMonitor),
                     _serviceSettings);
 
                 _licenseManagementInitialized = true;
@@ -1222,7 +1242,7 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
 
         public async Task<HealthReport> GetHealthReportAsync() => await _healthChecker.GetHealthReportAsync();
 
-        public PerformanceMetrics GetPerformanceMetrics() => _performanceCounters.GetCurrentMetrics();
+        public PerformanceMetrics GetPerformanceMetrics() => _performanceCounters?.GetCurrentMetrics() ?? new PerformanceMetrics();
 
         // Public methods for console mode
         public void StartConsoleMode(string[] args)
@@ -1242,6 +1262,15 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         private readonly HealthChecker _healthChecker;
         private readonly PerformanceMonitor _performanceCounters;
         private readonly RecoveryManager _recoveryManager;
+
+        public EventLogLogger()
+        {
+            // Simple constructor for basic logging
+            _serviceState = null;
+            _healthChecker = null;
+            _performanceCounters = null;
+            _recoveryManager = null;
+        }
 
         public EventLogLogger(ServiceState serviceState, HealthChecker healthChecker, PerformanceMonitor performanceCounters, RecoveryManager recoveryManager)
         {
@@ -1292,12 +1321,32 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         // Enhanced methods for interactive console mode
         public string GetServiceStatus()
         {
+            if (_serviceState == null)
+                return "Service status unavailable - ServiceState not initialized";
+
             var state = _serviceState.Status;
-            var health = _healthChecker.OverallStatus;
+            global::LicenseReleaseService.LicenseManagement.HealthStatus health;
+            if (_healthChecker != null)
+            {
+                // Need to convert between different HealthStatus enums
+                var sourceStatus = _healthChecker.OverallStatus;
+                health = sourceStatus switch
+                {
+                    HealthStatus.Healthy => global::LicenseReleaseService.LicenseManagement.HealthStatus.Healthy,
+                    HealthStatus.Degraded => global::LicenseReleaseService.LicenseManagement.HealthStatus.Warning,
+                    HealthStatus.Unhealthy => global::LicenseReleaseService.LicenseManagement.HealthStatus.Unhealthy,
+                    HealthStatus.Unknown => global::LicenseReleaseService.LicenseManagement.HealthStatus.Critical,
+                    _ => global::LicenseReleaseService.LicenseManagement.HealthStatus.Healthy
+                };
+            }
+            else
+            {
+                health = global::LicenseReleaseService.LicenseManagement.HealthStatus.Healthy;
+            }
             var metrics = _serviceState.GetMetrics();
 
             return $"Service Status: {state.ToFriendlyString()}\n" +
-                   $"Health Status: {health.ToFriendlyString()}\n" +
+                   $"Health Status: {health}\n" +
                    $"Uptime: {metrics.TotalRunTime:hh\\:mm\\:ss}\n" +
                    $"Current State Duration: {metrics.CurrentStateDuration:hh\\:mm\\:ss}\n" +
                    $"Error Count: {metrics.ErrorCount}";
@@ -1307,6 +1356,9 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         {
             try
             {
+                if (_healthChecker == null)
+                    return "Health report unavailable - HealthChecker not initialized";
+
                 var report = await _healthChecker.GetHealthReportAsync();
                 var details = $"Overall Health: {report.OverallStatus.ToFriendlyString()}\n" +
                              $"Last Health Check: {report.LastHealthCheck:yyyy-MM-dd HH:mm:ss}\n" +
@@ -1335,18 +1387,19 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         {
             try
             {
-                var metrics = _performanceCounters.GetCurrentMetrics();
-                var current = metrics.Current;
+                var metrics = _performanceCounters.GetSystemPerformanceCounters();
+                var current = metrics;
 
                 return $"Performance Summary:\n" +
                        $"  CPU Usage: {current.CpuUsage:F1}%\n" +
-                       $"  Memory Usage: {current.MemoryUsageMB:F1} MB\n" +
-                       $"  Private Memory: {current.MemoryUsageMBPrivate:F1} MB\n" +
-                       $"  Thread Count: {current.ThreadCount}\n" +
+                       $"  Memory Usage: {current.MemoryUsage:F1}%\n" +
+                       $"  Available Memory: {(current.AvailableMemory / 1024 / 1024):F1} MB\n" +
+                       $"  Total Memory: {(current.TotalMemory / 1024 / 1024):F1} MB\n" +
+                       $"  Active Processes: {current.ActiveProcesses}\n" +
+                       $"  Active Threads: {current.ActiveThreads}\n" +
                        $"  Handle Count: {current.HandleCount}\n" +
-                       $"  Uptime: {current.Uptime:F0} seconds\n" +
-                       $"  GC Collections (Gen0/1/2): {current.GcGeneration0}/{current.GcGeneration1}/{current.GcGeneration2}\n" +
-                       $"  Sample Count: {metrics.SampleCount}";
+                       $"  Disk Usage: {current.DiskUsage:F1}%\n" +
+                       $"  Network I/O: {(current.NetworkBytes / 1024):F1} KB";
             }
             catch (Exception ex)
             {
@@ -1358,6 +1411,9 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
         {
             try
             {
+                if (_recoveryManager == null)
+                    return "Recovery status unavailable - RecoveryManager not initialized";
+
                 var inProgress = _recoveryManager.RecoveryInProgress;
                 var consecutiveErrors = _recoveryManager.ConsecutiveErrors;
                 var history = _recoveryManager.GetRecoveryHistory(5);

@@ -3,6 +3,10 @@ using System.Collections.Generic;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
+    public interface ILoggingBuilder
+    {
+    }
+
     public interface IServiceCollection : IList<ServiceDescriptor>
     {
     }
@@ -38,6 +42,12 @@ namespace Microsoft.Extensions.DependencyInjection
 
     public static class ServiceCollectionServiceExtensions
     {
+        public static IServiceCollection AddLogging(this IServiceCollection services, Action<ILoggingBuilder> configure)
+        {
+            // Stub implementation - logging configuration would be handled here
+            return services;
+        }
+
         public static IServiceCollection AddSingleton<TService>(this IServiceCollection services)
         {
             return services.AddSingleton(typeof(TService), typeof(TService));
@@ -46,6 +56,12 @@ namespace Microsoft.Extensions.DependencyInjection
         public static IServiceCollection AddSingleton<TService>(this IServiceCollection services, TService implementationInstance)
         {
             return services.AddSingleton(typeof(TService), implementationInstance);
+        }
+
+        public static IServiceCollection AddSingleton<TService>(this IServiceCollection services, Func<IServiceProvider, TService> implementationFactory)
+        {
+            // Stub implementation - factory would be stored and used to create instances
+            return services.AddSingleton(typeof(TService), typeof(TService));
         }
 
         public static IServiceCollection AddSingleton<TService, TImplementation>(this IServiceCollection services)

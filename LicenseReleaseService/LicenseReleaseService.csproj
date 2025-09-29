@@ -233,7 +233,8 @@
     <Compile Include="TimerExecution\TimerCircuitBreaker.cs" />
     <Compile Include="TimerExecution\TimerState.cs" />
     <Compile Include="TimerExecution\TimerStatus.cs" />
-        <Compile Include="TimerExecution\TimerErrorEvents.cs" />
+    <Compile Include="TimerExecution\TimerErrorEventArgs.cs" />
+    <Compile Include="TimerExecution\TimerErrorEvents.cs" />
     <Compile Include="TimerExecution\TimerErrorClassifier.cs" />
     <Compile Include="TimerExecution\TimerErrorHandler.cs" />
     <Compile Include="TimerExecution\TimerHealthMonitor.cs" />
@@ -313,6 +314,7 @@
     <Compile Include="ServiceHealth.cs" />
     <Compile Include="RecoveryManager.cs" />
     <Compile Include="ServiceState.cs" />
+    <Compile Include="HealthEndpoints.cs" />
     <Compile Include="ProjectInstaller.cs" />
   </ItemGroup>
   <ItemGroup>

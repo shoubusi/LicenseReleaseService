@@ -583,6 +583,20 @@ namespace LicenseReleaseService
             }, "count", "Available configuration backups count");
         }
 
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _healthCheckTimer?.Dispose();
+            }
+        }
+
         [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);

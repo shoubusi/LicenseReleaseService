@@ -550,7 +550,7 @@ namespace LicenseReleaseService.IdleDetection
                 directories.Add(Path.Combine(myDocuments, "SOLIDWORKS"));
 
                 // Look for SolidWorks processes and get their working directories
-                var solidWorksProcesses = Process.GetProcessesByName("SLDWORKS");
+                var solidWorksProcesses = System.Diagnostics.Process.GetProcessesByName("SLDWORKS");
                 foreach (var process in solidWorksProcesses)
                 {
                     try
@@ -791,7 +791,7 @@ namespace LicenseReleaseService.IdleDetection
         {
             try
             {
-                var solidWorksProcesses = Process.GetProcessesByName("SLDWORKS")
+                var solidWorksProcesses = System.Diagnostics.Process.GetProcessesByName("SLDWORKS")
                     .Where(p => !p.HasExited && p.Responding)
                     .ToList();
 
@@ -1132,7 +1132,7 @@ namespace LicenseReleaseService.IdleDetection
             {
                 // This is a simplified approach - in a real implementation, you might need
                 // more advanced Windows API calls to get the actual working directory
-                using var process = Process.GetProcessById(processId);
+                using var process = System.Diagnostics.Process.GetProcessById(processId);
                 var processPath = process.MainModule?.FileName;
 
                 if (!string.IsNullOrEmpty(processPath))
@@ -1158,7 +1158,7 @@ namespace LicenseReleaseService.IdleDetection
             {
                 // This is a simplified approach - in a real implementation, you might need
                 // Windows Management Instrumentation (WMI) or other APIs
-                using var process = Process.GetProcessById(processId);
+                using var process = System.Diagnostics.Process.GetProcessById(processId);
                 return process.StartInfo?.Arguments;
             }
             catch (Exception ex)
@@ -1238,7 +1238,7 @@ namespace LicenseReleaseService.IdleDetection
                 }
 
                 // Find associated SolidWorks processes
-                var solidWorksProcesses = Process.GetProcessesByName("SLDWORKS")
+                var solidWorksProcesses = System.Diagnostics.Process.GetProcessesByName("SLDWORKS")
                     .Where(p => !p.HasExited && p.Responding)
                     .ToList();
 
@@ -1283,7 +1283,7 @@ namespace LicenseReleaseService.IdleDetection
                 }
 
                 // Find associated SolidWorks processes
-                var solidWorksProcesses = Process.GetProcessesByName("SLDWORKS")
+                var solidWorksProcesses = System.Diagnostics.Process.GetProcessesByName("SLDWORKS")
                     .Where(p => !p.HasExited && p.Responding)
                     .ToList();
 
@@ -1314,7 +1314,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Handles file system watcher error events
         /// </summary>
-        private void OnWatcherError(object sender, ErrorEventArgs e)
+        private async void OnWatcherError(object sender, ErrorEventArgs e)
         {
             try
             {
@@ -1378,7 +1378,7 @@ namespace LicenseReleaseService.IdleDetection
                 if (!string.IsNullOrEmpty(process.MainWindowTitle))
                 {
                     var fileName = Path.GetFileName(filePath);
-                    return process.MainWindowTitle.Contains(fileName, StringComparison.OrdinalIgnoreCase);
+                    return process.MainWindowTitle.IndexOf(fileName, StringComparison.OrdinalIgnoreCase) >= 0;
                 }
 
                 return false;

@@ -23,7 +23,7 @@ namespace LicenseReleaseService.Process
         /// <summary>
         /// Gets the exit code of the process
         /// </summary>
-        public int? ExitCode { get; }
+        public int? ExitCode { get; set; }
 
         /// <summary>
         /// Gets the process ID
@@ -43,17 +43,17 @@ namespace LicenseReleaseService.Process
         /// <summary>
         /// Gets a value indicating whether the process timed out
         /// </summary>
-        public bool TimedOut { get; }
+        public bool TimedOut { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether the process was cancelled
         /// </summary>
-        public bool Cancelled { get; }
+        public bool Cancelled { get; set; }
 
         /// <summary>
         /// Gets the execution time of the process
         /// </summary>
-        public TimeSpan? ExecutionTime { get; }
+        public TimeSpan? ExecutionTime { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the ProcessExecutionException class

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime;
 using System.Timers;
 using System.Threading;
@@ -191,7 +192,7 @@ namespace LicenseReleaseService.TimerExecution
         {
             lock (_lock)
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var memoryMetrics = new TimerMemoryMetrics
                 {
                     Uptime = _uptimeStopwatch.Elapsed,
@@ -434,7 +435,7 @@ namespace LicenseReleaseService.TimerExecution
         {
             try
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var currentMemoryMB = process.WorkingSet64 / (1024 * 1024);
                 var pressureLevel = DetermineMemoryPressureLevel(process);
 
@@ -464,7 +465,7 @@ namespace LicenseReleaseService.TimerExecution
         private TimerMemoryPressureLevel DetermineMemoryPressureLevel(System.Diagnostics.Process process)
         {
             var memoryMB = process.WorkingSet64 / (1024 * 1024);
-            var totalMemoryMB = _memoryOptions.SystemMemoryMB ?? 8192; // Default 8GB
+            var totalMemoryMB = _memoryOptions.SystemMemoryMB != 0 ? _memoryOptions.SystemMemoryMB : 8192; // Default 8GB
             var memoryUsagePercent = (memoryMB * 100.0) / totalMemoryMB;
 
             if (memoryUsagePercent >= _memoryOptions.CriticalPressureThreshold)
@@ -627,13 +628,13 @@ namespace LicenseReleaseService.TimerExecution
         {
             try
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var currentMemoryMB = process.WorkingSet64 / (1024 * 1024);
 
                 // Simple memory leak detection - check if memory keeps growing
                 if (_pressureHistory.Count > 5)
                 {
-                    var recentEvents = _pressureHistory.TakeLast(5).ToArray();
+                    var recentEvents = _pressureHistory.Skip(Math.Max(0, _pressureHistory.Count - 5)).ToArray();
                     var isMemoryGrowing = recentEvents.All(e => e.MemoryMB > recentEvents[0].MemoryMB * 1.1);
 
                     if (isMemoryGrowing && currentMemoryMB > _memoryOptions.MemoryLeakThresholdMB)
@@ -662,13 +663,13 @@ namespace LicenseReleaseService.TimerExecution
         {
             try
             {
-                if (GC.WaitForFullGCApproach(100))
+                if (GC.WaitForFullGCApproach(100) == GCNotificationStatus.Succeeded)
                 {
                     _logger.LogWarning("Full GC approaching");
                     // Pre-emptive optimization could be applied here
                 }
 
-                if (GC.WaitForFullGCComplete(100))
+                if (GC.WaitForFullGCComplete(100) == GCNotificationStatus.Succeeded)
                 {
                     _logger.LogInformation("Full GC completed");
                     // Post-GC optimization could be applied here
@@ -711,7 +712,7 @@ namespace LicenseReleaseService.TimerExecution
         private double CalculateMemoryPressurePercent(System.Diagnostics.Process process)
         {
             var memoryMB = process.WorkingSet64 / (1024 * 1024);
-            var totalMemoryMB = _memoryOptions.SystemMemoryMB ?? 8192;
+            var totalMemoryMB = _memoryOptions.SystemMemoryMB != 0 ? _memoryOptions.SystemMemoryMB : 8192;
             return (memoryMB * 100.0) / totalMemoryMB;
         }
 

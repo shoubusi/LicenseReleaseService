@@ -6,9 +6,16 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Configuration.Install;
 using System.IO;
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using LicenseReleaseService.Configuration;
 using LicenseReleaseService.Models;
+using LicenseReleaseService.LicenseManagement;
+using LicenseReleaseService.Process;
+using LicenseReleaseService.LicenseManagement.Caching;
+using LicenseReleaseService.IdleDetection;
+using HealthChecker = LicenseReleaseService.LicenseManagement.HealthChecker;
+using PerformanceMonitor = LicenseReleaseService.LicenseManagement.PerformanceMonitor;
 using Microsoft.Extensions.Logging;
 
 namespace LicenseReleaseService
@@ -18,7 +25,12 @@ namespace LicenseReleaseService
 		private const string ServiceName = "LicenseReleaseService";
 		private const string ServiceDisplayName = "License Release Service";
 		private const string ServiceDescription = "Manages software license releases and monitoring";
-		private static readonly ILogger _logger = new EventLogLogger();
+		private static readonly ILogger _logger;
+
+        static Program()
+        {
+            _logger = new EventLogLogger();
+        }
 		private static Microsoft.Extensions.DependencyInjection.IServiceProvider _serviceProvider;
 
 		/// <summary>
@@ -138,8 +150,8 @@ namespace LicenseReleaseService
 				}
 
 				// Start health endpoints if configured
-				var licenseConfig = _serviceProvider?.GetService<LicenseReleaseConfiguration>();
-				if (licenseConfig?.HealthMonitoring.Enabled == true)
+				var healthLicenseConfig = _serviceProvider?.GetService<LicenseReleaseConfiguration>();
+				if (healthLicenseConfig?.HealthMonitoring.Enabled == true)
 				{
 					try
 					{

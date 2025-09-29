@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace LicenseReleaseService.IdleDetection
 {
@@ -33,11 +34,37 @@ namespace LicenseReleaseService.IdleDetection
         public bool IsUpperThreshold { get; set; }
 
         /// <summary>
+        /// Gets the source of the performance metric
+        /// </summary>
+        public string Source { get; set; }
+
+        /// <summary>
+        /// Gets the metric type
+        /// </summary>
+        public string MetricType { get; set; }
+
+        /// <summary>
+        /// Gets the threshold value (alias for ThresholdValue)
+        /// </summary>
+        public double Threshold { get; set; }
+
+        /// <summary>
+        /// Gets the severity of the threshold breach
+        /// </summary>
+        public ThresholdSeverity Severity { get; set; }
+
+        /// <summary>
+        /// Gets additional information about the threshold event
+        /// </summary>
+        public Dictionary<string, object> AdditionalInfo { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the PerformanceThresholdEventArgs class
         /// </summary>
         public PerformanceThresholdEventArgs()
         {
             Timestamp = DateTime.UtcNow;
+            AdditionalInfo = new Dictionary<string, object>();
         }
 
         /// <summary>
@@ -52,8 +79,10 @@ namespace LicenseReleaseService.IdleDetection
             CounterName = counterName ?? throw new ArgumentNullException(nameof(counterName));
             CurrentValue = currentValue;
             ThresholdValue = thresholdValue;
+            Threshold = thresholdValue;
             IsUpperThreshold = isUpperThreshold;
             Timestamp = DateTime.UtcNow;
+            AdditionalInfo = new Dictionary<string, object>();
         }
     }
 }

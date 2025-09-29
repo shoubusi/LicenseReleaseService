@@ -243,7 +243,8 @@ namespace LicenseReleaseService.TimerExecution
                 result.Classification = classification;
 
                 // Create error event args
-                var errorEventArgs = new TimerErrorEventArgs(exception, executionId, _timerService.State, 0)
+                var timerStatus = MapTimerStateToStatus(_timerService.State);
+                var errorEventArgs = new TimerErrorEventArgs(exception, executionId, timerStatus, 0)
                 {
                     Severity = classification.Severity,
                     Category = classification.Category,
@@ -847,6 +848,27 @@ namespace LicenseReleaseService.TimerExecution
         private void OnStateChanged(TimerErrorHandlerStateEventArgs args)
         {
             StateChanged?.Invoke(this, args);
+        }
+
+        /// <summary>
+        /// Maps TimerState to TimerStatus for compatibility
+        /// </summary>
+        /// <param name="state">The TimerState to map</param>
+        /// <returns>Equivalent TimerStatus</returns>
+        private static TimerStatus MapTimerStateToStatus(TimerState state)
+        {
+            return state switch
+            {
+                TimerState.Stopped => TimerStatus.Stopped,
+                TimerState.Running => TimerStatus.Running,
+                TimerState.Paused => TimerStatus.Paused,
+                TimerState.Executing => TimerStatus.Executing,
+                TimerState.Error => TimerStatus.Error,
+                TimerState.CircuitBreaker => TimerStatus.CircuitBreaker,
+                TimerState.Stopping => TimerStatus.Stopping,
+                TimerState.Disposed => TimerStatus.Disposed,
+                _ => TimerStatus.Error
+            };
         }
 
         #endregion

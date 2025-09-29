@@ -923,7 +923,7 @@ namespace LicenseReleaseService.IdleDetection
             try
             {
                 // Try to access the process using Windows API
-                using var process = Process.GetProcessById(processId);
+                using var process = System.Diagnostics.Process.GetProcessById(processId);
 
                 // Check basic process properties
                 _ = process.ProcessName;

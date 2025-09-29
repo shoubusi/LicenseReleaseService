@@ -230,7 +230,7 @@ namespace LicenseReleaseService.TimerExecution
         /// </summary>
         public async Task ForceTuningCycleAsync()
         {
-            await TuningCycleAsync(null);
+            await Task.Run(() => TuningCycleAsync(null));
         }
 
         private async void TuningCycleAsync(object? state)

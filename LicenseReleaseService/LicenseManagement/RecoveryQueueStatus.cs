@@ -18,6 +18,16 @@ namespace LicenseReleaseService.LicenseManagement
         public int ActiveRecoveries { get; set; }
 
         /// <summary>
+        /// Gets or sets the number of pending recovery operations
+        /// </summary>
+        public int PendingRecoveries { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of completed recovery operations
+        /// </summary>
+        public int CompletedRecoveries { get; set; }
+
+        /// <summary>
         /// Gets or sets the maximum queue size
         /// </summary>
         public int MaxQueueSize { get; set; }

@@ -53,7 +53,7 @@ namespace LicenseReleaseService.IdleDetection
         private readonly ConcurrentDictionary<int, ProcessPerformanceHistory> _processHistories = new ConcurrentDictionary<int, ProcessPerformanceHistory>();
         private readonly Dictionary<string, PerformanceCounter> _systemCounters = new Dictionary<string, PerformanceCounter>();
         private readonly ConcurrentDictionary<int, Dictionary<string, PerformanceCounter>> _processCounters = new ConcurrentDictionary<int, Dictionary<string, PerformanceCounter>>();
-        private readonly Timer _cleanupTimer;
+        private readonly System.Threading.Timer _cleanupTimer;
         private CancellationTokenSource _cancellationTokenSource;
         private Task _monitoringTask;
         private bool _isDisposed;
@@ -238,7 +238,12 @@ namespace LicenseReleaseService.IdleDetection
                 // Wait for monitoring task to complete
                 if (_monitoringTask != null)
                 {
-                    await Task.WhenAny(_monitoringTask, Task.Delay(TimeSpan.FromSeconds(5)));
+                    // Wait for monitoring task to complete with timeout
+                    if (_monitoringTask != null)
+                    {
+                        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        await _monitoringTask.WaitAsync(timeoutCts.Token);
+                    }
                 }
 
                 _logger.LogInformation("PerformanceMonitor stopped successfully");

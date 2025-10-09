@@ -392,9 +392,9 @@ namespace LicenseReleaseService.Configuration
                     }
 
                     var fileInfo = new FileInfo(_configFilePath);
-                    var args = new ConfigurationFileChangedEventArgs(FileChangeType.Changed, _configFilePath, DateTime.UtcNow, fileInfo.Length, true);
+                    var changeArgs = new ConfigurationFileChangedEventArgs(FileChangeType.Changed, _configFilePath, DateTime.UtcNow, fileInfo.Length, true);
 
-                    OnFileChanged(args);
+                    OnFileChanged(changeArgs);
 
                     _lastSuccessfulRead = DateTime.UtcNow;
                     _currentRetryAttempts = 0;
@@ -712,6 +712,7 @@ namespace LicenseReleaseService.Configuration
         Healthy,
         Warning,
         Error,
+        Degraded,
         Stopped,
         Disposed,
         FileNotFound

@@ -259,17 +259,17 @@ namespace LicenseReleaseService.LicenseManagement
                     }
 
                     // Validate user data
-                    foreach (var user in feature.Users)
+                    foreach (var userUsage in feature.Users.Values)
                     {
-                        if (string.IsNullOrWhiteSpace(user.Username))
+                        if (string.IsNullOrWhiteSpace(userUsage.UserName))
                         {
                             _logger.LogWarning("Validation warning: Feature {Feature} has user with empty username", feature.FeatureName);
                             continue;
                         }
 
-                        if (string.IsNullOrWhiteSpace(user.Hostname))
+                        if (string.IsNullOrWhiteSpace(userUsage.HostName))
                         {
-                            _logger.LogWarning("Validation warning: Feature {Feature} user {User} has empty hostname", feature.FeatureName, user.Username);
+                            _logger.LogWarning("Validation warning: Feature {Feature} user {User} has empty hostname", feature.FeatureName, userUsage.UserName);
                         }
                     }
                 }
@@ -331,7 +331,17 @@ namespace LicenseReleaseService.LicenseManagement
                     // Parse feature status from the same or next few lines
                     ParseFeatureStatus(lines, ref i, currentFeature);
 
-                    status.Features[currentFeature.FeatureName] = currentFeature;
+                    status.Features[currentFeature.FeatureName] = new LicenseFeatureStatus
+                    {
+                        FeatureName = currentFeature.FeatureName,
+                        TotalLicenses = currentFeature.TotalLicenses,
+                        LicensesInUse = currentFeature.LicensesInUse,
+                        AvailableLicenses = currentFeature.AvailableLicenses,
+                        Status = currentFeature.Status,
+                        Description = currentFeature.Description,
+                        Version = currentFeature.Version,
+                        ExpirationDate = currentFeature.ExpirationDate
+                    };
                     continue;
                 }
 

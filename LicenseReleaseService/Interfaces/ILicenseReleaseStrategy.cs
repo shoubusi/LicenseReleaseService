@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using LicenseReleaseService.Models;
@@ -76,10 +77,15 @@ namespace LicenseReleaseService.Interfaces
         public string Details { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the list of validation errors
+        /// </summary>
+        public List<string> Errors { get; set; }
+
+        /// <summary>
         /// Creates a successful validation result
         /// </summary>
         /// <returns>Successful validation result</returns>
-        public static StrategyValidationResult Success() => new StrategyValidationResult { IsValid = true };
+        public static StrategyValidationResult Success() => new StrategyValidationResult { IsValid = true, Errors = new List<string>() };
 
         /// <summary>
         /// Creates a failed validation result
@@ -93,7 +99,8 @@ namespace LicenseReleaseService.Interfaces
             {
                 IsValid = false,
                 ErrorMessage = errorMessage,
-                Details = details
+                Details = details,
+                Errors = new List<string> { errorMessage }
             };
         }
     }

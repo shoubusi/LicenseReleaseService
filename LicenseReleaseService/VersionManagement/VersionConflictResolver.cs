@@ -983,6 +983,7 @@ namespace LicenseReleaseService.VersionManagement
         public string ConflictId { get; set; }
         public VersionConflictType ConflictType { get; set; }
         public ConflictSeverity Severity { get; set; }
+        public ConflictSeverity severity { get; set; }
         public string Description { get; set; }
         public List<string> AffectedVersions { get; set; } = new List<string>();
         public DateTime DetectedAt { get; set; }

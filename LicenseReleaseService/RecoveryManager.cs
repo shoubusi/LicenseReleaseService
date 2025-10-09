@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -26,7 +27,7 @@ namespace LicenseReleaseService
         private readonly Dictionary<Type, RecoveryStrategy> _recoveryStrategies;
         private readonly Queue<RecoveryEvent> _recoveryHistory;
         private readonly int _maxHistorySize = 100;
-        private readonly Timer _recoveryTimer;
+        private readonly System.Threading.Timer _recoveryTimer;
         private bool _recoveryInProgress;
         private int _consecutiveErrors;
         private DateTime _lastErrorTime;

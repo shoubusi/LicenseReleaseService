@@ -29,6 +29,11 @@ namespace LicenseReleaseService.TimerExecution
         public string LicenseServer { get; }
 
         /// <summary>
+        /// Gets the license server address (alias for LicenseServer)
+        /// </summary>
+        public string Server => LicenseServer;
+
+        /// <summary>
         /// Gets the license server port
         /// </summary>
         public int Port { get; }
@@ -69,6 +74,16 @@ namespace LicenseReleaseService.TimerExecution
         public IReadOnlyDictionary<string, object> AdditionalData { get; }
 
         /// <summary>
+        /// Gets the error message (available for error events)
+        /// </summary>
+        public string ErrorMessage { get; }
+
+        /// <summary>
+        /// Gets the exception (available for error events)
+        /// </summary>
+        public Exception Exception { get; }
+
+        /// <summary>
         /// Initializes a new instance of the LicenseCheckEventArgs class
         /// </summary>
         /// <param name="operationId">The operation ID</param>
@@ -88,7 +103,7 @@ namespace LicenseReleaseService.TimerExecution
             LicenseCheckEventType eventType,
             string initiatingUser = null,
             string computerName = null)
-            : this(operationId, operationType, targetVersion, licenseServer, port, eventType, null, null, initiatingUser, computerName)
+            : this(operationId, operationType, targetVersion, licenseServer, port, eventType, null, null, null, null, initiatingUser, computerName)
         {
         }
 
@@ -114,6 +129,8 @@ namespace LicenseReleaseService.TimerExecution
             LicenseCheckEventType eventType,
             LicenseCheckResult result = null,
             IDictionary<string, object> additionalData = null,
+            string errorMessage = null,
+            Exception exception = null,
             string initiatingUser = null,
             string computerName = null)
         {
@@ -126,6 +143,8 @@ namespace LicenseReleaseService.TimerExecution
             Timestamp = DateTime.UtcNow;
             Result = result;
             Duration = result?.Duration;
+            ErrorMessage = errorMessage;
+            Exception = exception;
             InitiatingUser = initiatingUser ?? "system";
             ComputerName = computerName ?? Environment.MachineName;
             AdditionalData = additionalData != null ? new Dictionary<string, object>(additionalData).AsReadOnly() : new Dictionary<string, object>().AsReadOnly();
@@ -230,6 +249,22 @@ namespace LicenseReleaseService.TimerExecution
             CanRetry = canRetry;
             RecommendedRetryDelay = recommendedRetryDelay;
             ErrorCategory = errorCategory ?? "General";
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the LicenseCheckErrorEventArgs class with minimal parameters
+        /// </summary>
+        /// <param name="errorMessage">The error message</param>
+        /// <param name="exception">The exception</param>
+        /// <param name="timestamp">The timestamp</param>
+        public LicenseCheckErrorEventArgs(string errorMessage, Exception exception, DateTime timestamp)
+            : base("unknown", LicenseCheckOperationType.Check, "unknown", "unknown", 0, LicenseCheckEventType.Error, null, null, errorMessage, exception)
+        {
+            Error = LicenseCheckErrorInfo.FromException(exception ?? new Exception(errorMessage));
+            Severity = LicenseCheckErrorSeverity.Error;
+            CanRetry = true;
+            RecommendedRetryDelay = null;
+            ErrorCategory = "General";
         }
 
         /// <summary>

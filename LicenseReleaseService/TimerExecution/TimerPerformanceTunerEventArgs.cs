@@ -539,6 +539,56 @@ namespace LicenseReleaseService.TimerExecution
         public DateTime? LastOptimizationTime { get; set; }
 
         /// <summary>
+        /// Gets or sets whether the memory manager is running
+        /// </summary>
+        public bool IsRunning { get; set; }
+
+        /// <summary>
+        /// Gets or sets the current pressure level
+        /// </summary>
+        public TimerMemoryPressureLevel CurrentPressureLevel { get; set; }
+
+        /// <summary>
+        /// Gets or sets the total memory optimized
+        /// </summary>
+        public long TotalMemoryOptimized { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of GC collections forced
+        /// </summary>
+        public long GcCollectionsForced { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of memory leaks detected
+        /// </summary>
+        public long MemoryLeaksDetected { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of memory pools created
+        /// </summary>
+        public long MemoryPoolsCreated { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of memory pools released
+        /// </summary>
+        public long MemoryPoolsReleased { get; set; }
+
+        /// <summary>
+        /// Gets or sets the current memory usage
+        /// </summary>
+        public long CurrentMemoryUsage { get; set; }
+
+        /// <summary>
+        /// Gets or sets the uptime
+        /// </summary>
+        public TimeSpan Uptime { get; set; }
+
+        /// <summary>
+        /// Gets or sets when the statistics were generated
+        /// </summary>
+        public DateTime GeneratedAt { get; set; }
+
+        /// <summary>
         /// Gets or sets the average memory usage over time
         /// </summary>
         public double AverageMemoryUsage { get; set; }

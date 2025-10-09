@@ -160,7 +160,8 @@ namespace LicenseReleaseService.TimerExecution
                         {
                             if (line.Contains("TotalPhysicalMemory"))
                             {
-                                var value = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+                                var parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                                var value = parts.Length > 0 ? parts[parts.Length - 1] : null;
                                 if (long.TryParse(value, out var bytes))
                                 {
                                     _systemMemoryMB = (int)(bytes / (1024 * 1024));

@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using LicenseReleaseService.TimerExecution;
+using LicenseReleaseService.LicenseManagement.Models;
 
 namespace LicenseReleaseService.LicenseManagement
 {
@@ -53,6 +56,16 @@ namespace LicenseReleaseService.LicenseManagement
         public DateTime Timestamp { get; set; } = DateTime.Now;
 
         /// <summary>
+        /// Gets or sets the released feature name
+        /// </summary>
+        public string ReleasedFeature { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the released user name
+        /// </summary>
+        public string ReleasedUser { get; set; } = string.Empty;
+
+        /// <summary>
         /// Gets or sets the operation result code
         /// </summary>
         public LicenseReleaseResultCode ResultCode { get; set; }
@@ -98,6 +111,46 @@ namespace LicenseReleaseService.LicenseManagement
         public object Metadata { get; set; }
 
         /// <summary>
+        /// Gets or sets the exception that occurred during the operation
+        /// </summary>
+        public Exception Exception { get; set; }
+
+        /// <summary>
+        /// Gets or sets the list of released licenses
+        /// </summary>
+        public List<ReleasedLicenseInfo> ReleasedLicenses { get; set; }
+
+        /// <summary>
+        /// Gets or sets the list of failed releases
+        /// </summary>
+        public List<FailedLicenseRelease> FailedReleases { get; set; }
+
+        /// <summary>
+        /// Gets or sets the list of skipped releases
+        /// </summary>
+        public List<SkippedLicenseRelease> SkippedReleases { get; set; }
+
+        /// <summary>
+        /// Gets or sets the total number of candidates considered
+        /// </summary>
+        public int TotalCandidates { get; set; }
+
+        /// <summary>
+        /// Gets or sets the total number of released licenses
+        /// </summary>
+        public int TotalReleased { get; set; }
+
+        /// <summary>
+        /// Gets or sets the total number of failed releases
+        /// </summary>
+        public int TotalFailed { get; set; }
+
+        /// <summary>
+        /// Gets or sets the total number of skipped releases
+        /// </summary>
+        public int TotalSkipped { get; set; }
+
+        /// <summary>
         /// Gets a value indicating whether the operation timed out
         /// </summary>
         public bool TimedOut { get; set; }
@@ -111,6 +164,16 @@ namespace LicenseReleaseService.LicenseManagement
         /// Gets a value indicating whether the operation was retried
         /// </summary>
         public bool WasRetried => RetryAttempt > 0;
+
+        /// <summary>
+        /// Initializes a new instance of the LicenseReleaseResult class
+        /// </summary>
+        public LicenseReleaseResult()
+        {
+            ReleasedLicenses = new List<ReleasedLicenseInfo>();
+            FailedReleases = new List<FailedLicenseRelease>();
+            SkippedReleases = new List<SkippedLicenseRelease>();
+        }
 
         /// <summary>
         /// Returns a string representation of the license release result
@@ -373,6 +436,16 @@ namespace LicenseReleaseService.LicenseManagement
         public int Reservations { get; set; }
 
         /// <summary>
+        /// Gets or sets the number of reserved licenses
+        /// </summary>
+        public int ReservedLicenses { get; set; }
+
+        /// <summary>
+        /// Gets or sets the list of users using this feature
+        /// </summary>
+        public List<LicenseUserInfo> Users { get; set; } = new List<LicenseUserInfo>();
+
+        /// <summary>
         /// Gets a value indicating whether the feature is available
         /// </summary>
         public bool IsAvailable => Status.Equals("ACTIVE", StringComparison.OrdinalIgnoreCase) &&
@@ -462,6 +535,21 @@ namespace LicenseReleaseService.LicenseManagement
         public double AverageUsage24h { get; set; }
 
         /// <summary>
+        /// Gets or sets the number of active users
+        /// </summary>
+        public int ActiveUsers { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of idle users
+        /// </summary>
+        public int IdleUsers { get; set; }
+
+        /// <summary>
+        /// Gets or sets the number of borrowed users
+        /// </summary>
+        public int BorrowedUsers { get; set; }
+
+        /// <summary>
         /// Returns a string representation of the license usage statistics
         /// </summary>
         /// <returns>String representation</returns>
@@ -470,6 +558,154 @@ namespace LicenseReleaseService.LicenseManagement
             return $"LicenseUsageStatistics[Server={Server}:{Port}, Total={TotalLicenses}, " +
                    $"InUse={TotalLicensesInUse}, Available={TotalAvailableLicenses}, " +
                    $"Users={UniqueUsers}, Features={ActiveFeatures}, Utilization={OverallUtilization:F1}%]";
+        }
+    }
+
+    /// <summary>
+    /// Represents a failed license release
+    /// </summary>
+    public class FailedLicenseRelease
+    {
+        /// <summary>
+        /// Gets or sets the license identifier
+        /// </summary>
+        public string LicenseId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the error message
+        /// </summary>
+        public string ErrorMessage { get; set; }
+
+        /// <summary>
+        /// Gets or sets the timestamp of the failure
+        /// </summary>
+        public DateTime Timestamp { get; set; }
+
+        /// <summary>
+        /// Gets or sets the user name
+        /// </summary>
+        public string UserName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the computer name
+        /// </summary>
+        public string ComputerName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the feature name
+        /// </summary>
+        public string Feature { get; set; }
+
+        /// <summary>
+        /// Gets or sets the license release candidate that failed
+        /// </summary>
+        public LicenseReleaseCandidate Candidate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the exception that caused the failure
+        /// </summary>
+        public Exception Exception { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the FailedLicenseRelease class
+        /// </summary>
+        public FailedLicenseRelease()
+        {
+            Timestamp = DateTime.UtcNow;
+            LicenseId = string.Empty;
+            ErrorMessage = string.Empty;
+            UserName = string.Empty;
+            ComputerName = string.Empty;
+            Feature = string.Empty;
+            Candidate = null;
+            Exception = null;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the FailedLicenseRelease class
+        /// </summary>
+        /// <param name="licenseId">License identifier</param>
+        /// <param name="errorMessage">Error message</param>
+        /// <param name="userName">User name</param>
+        /// <param name="computerName">Computer name</param>
+        /// <param name="feature">Feature name</param>
+        public FailedLicenseRelease(string licenseId, string errorMessage, string userName, string computerName, string feature)
+        {
+            LicenseId = licenseId ?? string.Empty;
+            ErrorMessage = errorMessage ?? string.Empty;
+            UserName = userName ?? string.Empty;
+            ComputerName = computerName ?? string.Empty;
+            Feature = feature ?? string.Empty;
+            Timestamp = DateTime.UtcNow;
+            Candidate = null;
+            Exception = null;
+        }
+    }
+
+    /// <summary>
+    /// Represents a skipped license release
+    /// </summary>
+    public class SkippedLicenseRelease
+    {
+        /// <summary>
+        /// Gets or sets the license identifier
+        /// </summary>
+        public string LicenseId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the reason for skipping
+        /// </summary>
+        public string Reason { get; set; }
+
+        /// <summary>
+        /// Gets or sets the timestamp of the skip
+        /// </summary>
+        public DateTime Timestamp { get; set; }
+
+        /// <summary>
+        /// Gets or sets the user name
+        /// </summary>
+        public string UserName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the computer name
+        /// </summary>
+        public string ComputerName { get; set; }
+
+        /// <summary>
+        /// Gets or sets the feature name
+        /// </summary>
+        public string Feature { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the SkippedLicenseRelease class
+        /// </summary>
+        public SkippedLicenseRelease()
+        {
+            Timestamp = DateTime.UtcNow;
+            LicenseId = string.Empty;
+            Reason = string.Empty;
+            UserName = string.Empty;
+            ComputerName = string.Empty;
+            Feature = string.Empty;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the SkippedLicenseRelease class
+        /// </summary>
+        /// <param name="licenseId">License identifier</param>
+        /// <param name="reason">Reason for skipping</param>
+        /// <param name="userName">User name</param>
+        /// <param name="computerName">Computer name</param>
+        /// <param name="feature">Feature name</param>
+        public SkippedLicenseRelease(string licenseId, string reason, string userName, string computerName, string feature)
+        {
+            LicenseId = licenseId ?? string.Empty;
+            Reason = reason ?? string.Empty;
+            UserName = userName ?? string.Empty;
+            ComputerName = computerName ?? string.Empty;
+            Feature = feature ?? string.Empty;
+            Timestamp = DateTime.UtcNow;
         }
     }
 }

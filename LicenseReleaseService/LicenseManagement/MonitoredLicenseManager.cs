@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using LicenseReleaseService.Process;
 using LicenseReleaseService.Configuration;
 
 namespace LicenseReleaseService.LicenseManagement
@@ -290,7 +289,7 @@ namespace LicenseReleaseService.LicenseManagement
         {
             try
             {
-                var currentProcess = Process.GetCurrentProcess();
+                var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
                 var metrics = new ProcessExecutionMetrics
                 {
                     OperationType = operationType,
@@ -300,7 +299,6 @@ namespace LicenseReleaseService.LicenseManagement
                     EndTime = DateTime.Now,
                     ExecutionDuration = executionDuration,
                     ExitCode = exitCode,
-                    Success = success,
                     PeakMemoryUsage = currentProcess.WorkingSet64,
                     RetryCount = 0, // This would be populated if we had retry info
                     ConfiguredTimeout = TimeSpan.FromSeconds(_serviceSettings.LicenseManagerTimeout),

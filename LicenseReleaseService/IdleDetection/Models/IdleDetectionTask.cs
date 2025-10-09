@@ -20,11 +20,22 @@ namespace LicenseReleaseService.IdleDetection.Models
         public object Result { get; set; }
         public TaskPriority Priority { get; set; }
 
+        // Missing properties
+        public string DetectorName { get; set; }
+        public string SessionId { get; set; }
+        public Func<CancellationToken, Task> TaskFunc { get; set; }
+        public DateTime? ScheduledTime { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public TimeSpan? Timeout { get; set; }
+
         public IdleDetectionTask()
         {
             TaskId = Guid.NewGuid();
             TaskName = string.Empty;
+            DetectorName = string.Empty;
+            SessionId = string.Empty;
             CreatedTime = DateTime.UtcNow;
+            CreatedAt = CreatedTime;
             Priority = TaskPriority.Normal;
         }
 
@@ -34,7 +45,11 @@ namespace LicenseReleaseService.IdleDetection.Models
             TaskName = taskName ?? throw new ArgumentNullException(nameof(taskName));
             TaskType = taskType;
             ExecuteAsync = executeAsync ?? throw new ArgumentNullException(nameof(executeAsync));
+            TaskFunc = executeAsync; // Initialize TaskFunc with same function
+            DetectorName = string.Empty;
+            SessionId = string.Empty;
             CreatedTime = DateTime.UtcNow;
+            CreatedAt = CreatedTime;
             Priority = priority;
         }
     }
@@ -49,14 +64,16 @@ namespace LicenseReleaseService.IdleDetection.Models
         LicenseRelease,
         SystemActivityCheck,
         HealthCheck,
-        CustomTask
+        CustomTask,
+        PeriodicDetection,
+        DetectorSpecific
     }
 
     public enum TaskPriority
     {
-        Low,
-        Normal,
-        High,
-        Critical
+        Low = 1,
+        Normal = 5,
+        High = 8,
+        Critical = 10
     }
 }

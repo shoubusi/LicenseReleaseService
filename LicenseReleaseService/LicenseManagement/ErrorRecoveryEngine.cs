@@ -29,6 +29,11 @@ namespace LicenseReleaseService.LicenseManagement
         Paused,
 
         /// <summary>
+        /// Engine is running in degraded mode
+        /// </summary>
+        Degraded,
+
+        /// <summary>
         /// Engine is shutting down
         /// </summary>
         ShuttingDown,
@@ -333,7 +338,9 @@ namespace LicenseReleaseService.LicenseManagement
         /// <summary>
         /// Gets the current engine statistics
         /// </summary>
-        public RecoveryEngineStatistics Statistics { get; private set; }
+        public RecoveryEngineStatistics Statistics => _statistics;
+
+        private RecoveryEngineStatistics _statistics;
 
         /// <summary>
         /// Initializes a new instance of the ErrorRecoveryEngine class
@@ -376,7 +383,7 @@ namespace LicenseReleaseService.LicenseManagement
             _startTime = DateTime.Now;
 
             // Initialize statistics
-            Statistics = new RecoveryEngineStatistics
+            _statistics = new RecoveryEngineStatistics
             {
                 State = RecoveryEngineState.Initializing,
                 Uptime = TimeSpan.Zero
@@ -449,7 +456,7 @@ namespace LicenseReleaseService.LicenseManagement
             }
 
             _recoveryQueue.Enqueue(request);
-            Interlocked.Increment(ref Statistics.TotalRequests);
+            _statistics.TotalRequests++;
 
             // Notify listeners
             OnErrorRecoveryRequested(request);
@@ -738,7 +745,7 @@ namespace LicenseReleaseService.LicenseManagement
                 request.Result = result;
 
                 // Update failure statistics
-                Interlocked.Increment(ref Statistics.FailedRecoveries);
+                _statistics.FailedRecoveries++;
 
                 // Invoke callback even on failure
                 request.Callback?.Invoke(result);
@@ -798,7 +805,7 @@ namespace LicenseReleaseService.LicenseManagement
             {
                 try
                 {
-                    var fallbackResult = await _fallbackStrategyManager.ExecuteWithFallbackAsync(
+                    var fallbackResult = await _fallbackStrategyManager.ExecuteWithFallbackAsync<object>(
                         request.OperationName,
                         async () => { throw request.Exception; },
                         _shutdownCts.Token).ConfigureAwait(false);
@@ -850,7 +857,7 @@ namespace LicenseReleaseService.LicenseManagement
                 {
                     var previousState = _state;
                     _state = newState;
-                    Statistics.State = newState;
+                    _statistics.State = newState;
 
                     _logger.LogInformation("Recovery engine state changed from {Previous} to {Current}",
                         previousState, newState);
@@ -862,33 +869,33 @@ namespace LicenseReleaseService.LicenseManagement
 
         private void UpdateStatistics(object state)
         {
-            Statistics.Uptime = DateTime.Now - _startTime;
-            Statistics.CurrentQueueSize = _recoveryQueue.Count;
-            Statistics.ActiveRecoveries = _activeRecoveries.Count;
-            Statistics.LastRecoveryTime = _completedRecoveries.Values.Any() ?
+            _statistics.Uptime = DateTime.Now - _startTime;
+            _statistics.CurrentQueueSize = _recoveryQueue.Count;
+            _statistics.ActiveRecoveries = _activeRecoveries.Count;
+            _statistics.LastRecoveryTime = _completedRecoveries.Values.Any() ?
                 _completedRecoveries.Values.Max() : (DateTime?)null;
 
             // Calculate recovery rate
             var recentRecoveries = _completedRecoveries.Values.Count(v => DateTime.Now - v < TimeSpan.FromMinutes(1));
-            Statistics.RecoveryRatePerMinute = recentRecoveries;
+            _statistics.RecoveryRatePerMinute = recentRecoveries;
         }
 
         private void UpdateRecoveryStatistics(RecoveryResult result, TimeSpan processingTime)
         {
             if (result.Success)
             {
-                Interlocked.Increment(ref Statistics.SuccessfulRecoveries);
+                _statistics.SuccessfulRecoveries++;
             }
             else
             {
-                Interlocked.Increment(ref Statistics.FailedRecoveries);
+                _statistics.FailedRecoveries++;
             }
 
             // Update average recovery time
-            var currentTime = Statistics.AverageRecoveryTime.TotalMilliseconds;
-            var currentCount = Statistics.SuccessfulRecoveries + Statistics.FailedRecoveries;
+            var currentTime = _statistics.AverageRecoveryTime.TotalMilliseconds;
+            var currentCount = _statistics.SuccessfulRecoveries + _statistics.FailedRecoveries;
             var newAverage = (currentTime * (currentCount - 1) + processingTime.TotalMilliseconds) / currentCount;
-            Statistics.AverageRecoveryTime = TimeSpan.FromMilliseconds(newAverage);
+            _statistics.AverageRecoveryTime = TimeSpan.FromMilliseconds(newAverage);
         }
 
         private void SubscribeToComponentEvents()

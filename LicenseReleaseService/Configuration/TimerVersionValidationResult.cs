@@ -12,17 +12,17 @@ namespace LicenseReleaseService.Configuration
         /// <summary>
         /// Gets the list of validation errors
         /// </summary>
-        public List<string> Errors { get; }
+        public List<string> Errors { get; private set; }
 
         /// <summary>
         /// Gets the list of validation warnings
         /// </summary>
-        public List<string> Warnings { get; }
+        public List<string> Warnings { get; private set; }
 
         /// <summary>
         /// Gets the list of informational messages
         /// </summary>
-        public List<string> Information { get; }
+        public List<string> Information { get; private set; }
 
         /// <summary>
         /// Gets the validation timestamp

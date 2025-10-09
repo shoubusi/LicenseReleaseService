@@ -38,6 +38,23 @@ namespace LicenseReleaseService.TimerExecution
         public TimerOptimizationMetrics Metrics { get; private set; }
 
         /// <summary>
+        /// Gets the current optimization status
+        /// </summary>
+        /// <returns>Current optimization status</returns>
+        public TimerOptimizationStatus GetOptimizationStatus()
+        {
+            return new TimerOptimizationStatus
+            {
+                IsRunning = _isRunning,
+                IsOptimized = Metrics != null && Metrics.OptimizationLevel > 0,
+                OptimizationLevel = Metrics?.OptimizationLevel ?? 0,
+                LastOptimizationTime = Metrics?.LastOptimizationTime,
+                Uptime = _uptimeStopwatch.Elapsed,
+                Metrics = Metrics
+            };
+        }
+
+        /// <summary>
         /// Event raised when optimization cycle starts
         /// </summary>
         public event EventHandler<TimerOptimizationEventArgs> OptimizationStarted;
@@ -67,6 +84,16 @@ namespace LicenseReleaseService.TimerExecution
             TimerExecutionOptions options,
             TimerMemoryManager memoryManager,
             TimerThreadPoolManager threadPoolManager,
+            TimerCacheManager cacheManager)
+            : this(logger, options, memoryManager, threadPoolManager, cacheManager, null, null)
+        {
+        }
+
+        public TimerPerformanceOptimizer(
+            ILogger<TimerPerformanceOptimizer> logger,
+            TimerExecutionOptions options,
+            TimerMemoryManager memoryManager,
+            TimerThreadPoolManager threadPoolManager,
             TimerCacheManager cacheManager,
             TimerMetricsCollector metricsCollector,
             TimerPerformanceTuner performanceTuner)
@@ -76,8 +103,8 @@ namespace LicenseReleaseService.TimerExecution
             _memoryManager = memoryManager ?? throw new ArgumentNullException(nameof(memoryManager));
             _threadPoolManager = threadPoolManager ?? throw new ArgumentNullException(nameof(threadPoolManager));
             _cacheManager = cacheManager ?? throw new ArgumentNullException(nameof(cacheManager));
-            _metricsCollector = metricsCollector ?? throw new ArgumentNullException(nameof(metricsCollector));
-            _performanceTuner = performanceTuner ?? throw new ArgumentNullException(nameof(performanceTuner));
+            _metricsCollector = metricsCollector;
+            _performanceTuner = performanceTuner;
 
             _cancellationTokenSource = new CancellationTokenSource();
             _uptimeStopwatch = new Stopwatch();
@@ -87,8 +114,14 @@ namespace LicenseReleaseService.TimerExecution
             _memoryManager.MemoryPressureDetected += OnMemoryPressureDetected;
             _threadPoolManager.ThreadPoolAdjusted += OnThreadPoolAdjusted;
             _cacheManager.CacheOptimized += OnCacheOptimized;
-            _metricsCollector.MetricsCollected += OnMetricsCollected;
-            _performanceTuner.TuningApplied += OnTuningApplied;
+            if (_metricsCollector != null)
+            {
+                _metricsCollector.MetricsCollected += OnMetricsCollected;
+            }
+            if (_performanceTuner != null)
+            {
+                _performanceTuner.TuningApplied += OnTuningApplied;
+            }
         }
 
         /// <summary>
@@ -119,11 +152,11 @@ namespace LicenseReleaseService.TimerExecution
             try
             {
                 // Start all components
-                await _memoryManager.StartAsync(_cancellationTokenSource.Token);
+                await _memoryManager.StartAsync();
                 await _threadPoolManager.StartAsync(_cancellationTokenSource.Token);
-                await _cacheManager.StartAsync(_cancellationTokenSource.Token);
-                await _metricsCollector.StartAsync(_cancellationTokenSource.Token);
-                await _performanceTuner.StartAsync(_cancellationTokenSource.Token);
+                await _cacheManager.StartAsync();
+                await _metricsCollector.StartAsync();
+                await _performanceTuner.StartAsync();
 
                 // Start the optimization loop
                 _optimizationTask = Task.Run(() => OptimizationLoopAsync(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
@@ -165,7 +198,9 @@ namespace LicenseReleaseService.TimerExecution
                 {
                     try
                     {
-                        await Task.WhenAny(_optimizationTask, Task.Delay(TimeSpan.FromSeconds(5)));
+                        // Wait for optimization task with timeout using WaitAsync
+                        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        await _optimizationTask.WaitAsync(timeoutCts.Token);
                     }
                     catch (Exception ex)
                     {
@@ -209,6 +244,24 @@ namespace LicenseReleaseService.TimerExecution
         }
 
         /// <summary>
+        /// Updates the optimization interval
+        /// </summary>
+        /// <param name="intervalMs">The new optimization interval in milliseconds</param>
+        public async Task UpdateOptimizationIntervalAsync(int intervalMs)
+        {
+            if (intervalMs < 100)
+                throw new ArgumentOutOfRangeException(nameof(intervalMs), "Interval must be at least 100ms");
+
+            await Task.Run(() =>
+            {
+                // Update the optimization interval in the options
+                _options.OptimizationIntervalMs = intervalMs;
+
+                _logger.LogInformation("Optimization interval updated to {Interval}ms", intervalMs);
+            });
+        }
+
+        /// <summary>
         /// Gets current performance optimization status
         /// </summary>
         /// <returns>Optimization status</returns>
@@ -243,7 +296,20 @@ namespace LicenseReleaseService.TimerExecution
                 ThreadPoolMetrics = _threadPoolManager.GetMetrics(),
                 CacheMetrics = _cacheManager.GetMetrics(),
                 SystemMetrics = _metricsCollector.GetSystemMetrics(),
-                TuningMetrics = _performanceTuner.GetMetrics()
+                TuningMetrics = ConvertTunerMetricsToTuningMetrics(_performanceTuner.GetMetrics())
+            };
+        }
+
+        private TimerTuningMetrics ConvertTunerMetricsToTuningMetrics(TimerTunerMetrics tunerMetrics)
+        {
+            return new TimerTuningMetrics
+            {
+                TuningCycles = tunerMetrics.TuningCyclesCompleted,
+                SuccessfulTunings = tunerMetrics.OptimizationsApplied,
+                FailedTunings = 0, // Not available in TimerTunerMetrics
+                AveragePerformanceImprovement = tunerMetrics.PerformanceImprovement,
+                LastTuningTime = tunerMetrics.LastTuningTime,
+                Uptime = DateTime.UtcNow - tunerMetrics.Timestamp.Date
             };
         }
 
@@ -410,15 +476,72 @@ namespace LicenseReleaseService.TimerExecution
             _logger.LogDebug("Cache optimized: {CacheName}, Hit rate: {HitRate:P2}", e.CacheName, e.HitRate);
         }
 
-        private void OnMetricsCollected(object sender, TimerSystemMetricsEventArgs e)
+        private void OnMetricsCollected(object sender, TimerMetricsCollectedEventArgs e)
         {
-            Metrics.LastSystemMetrics = e.Metrics;
+            // Convert TimerPerformanceSnapshot to TimerSystemMetrics
+            Metrics.LastSystemMetrics = ConvertSnapshotToSystemMetrics(e.Snapshot);
         }
 
-        private void OnTuningApplied(object sender, TimerPerformanceTuningEventArgs e)
+        private TimerSystemMetrics ConvertSnapshotToSystemMetrics(TimerPerformanceSnapshot snapshot)
+        {
+            return new TimerSystemMetrics
+            {
+                CpuUsagePercent = snapshot.CpuUsagePercent,
+                MemoryUsagePercent = snapshot.MemoryUsagePercent,
+                AvailableMemoryMB = snapshot.AvailableMemoryMB,
+                ActiveThreads = snapshot.ThreadCount,
+                ActiveTimerExecutions = snapshot.ActiveTimerExecutions,
+                Timestamp = snapshot.Timestamp,
+                ProcessId = System.Diagnostics.Process.GetCurrentProcess().Id,
+                WorkingSetMB = snapshot.WorkingSetMB,
+                PrivateMemoryMB = snapshot.PrivateMemoryMB,
+                HandleCount = snapshot.HandleCount
+            };
+        }
+
+        private void OnTuningApplied(object sender, TimerTuningAppliedEventArgs e)
         {
             Metrics.PerformanceTunings++;
-            PerformanceTuningApplied?.Invoke(this, e);
+            // Convert TimerTuningAppliedEventArgs to TimerPerformanceTuningEventArgs
+            var performanceArgs = ConvertToPerformanceTuningEventArgs(e);
+            PerformanceTuningApplied?.Invoke(this, performanceArgs);
+        }
+
+        private TimerPerformanceTuningEventArgs ConvertToPerformanceTuningEventArgs(TimerTuningAppliedEventArgs e)
+        {
+            // Convert the tuning action to the appropriate optimization type and priority
+            var tuningType = ConvertTuningActionToOptimizationType(e.TuningAction.Action);
+            var priority = ConvertPriority(e.TuningAction);
+
+            return new TimerPerformanceTuningEventArgs(tuningType, priority, e.TuningAction.Reason)
+            {
+                PerformanceImprovement = e.TuningAction.PerformanceImprovement
+            };
+        }
+
+        private TimerOptimizationType ConvertTuningActionToOptimizationType(TimerTuningActionType actionType)
+        {
+            switch (actionType)
+            {
+                case TimerTuningActionType.IncreaseThreadPool:
+                case TimerTuningActionType.DecreaseThreadPool:
+                    return TimerOptimizationType.ThreadPool;
+                case TimerTuningActionType.AdjustCacheSize:
+                    return TimerOptimizationType.Cache;
+                case TimerTuningActionType.ForceGarbageCollection:
+                case TimerTuningActionType.AdjustMemoryPressure:
+                    return TimerOptimizationType.Memory;
+                case TimerTuningActionType.ConfigurationUpdate:
+                    return TimerOptimizationType.PerformanceTuning;
+                default:
+                    return TimerOptimizationType.PerformanceTuning;
+            }
+        }
+
+        private TimerOptimizationPriority ConvertPriority(TimerTuningAction action)
+        {
+            // This would ideally be determined from the recommendation, but we'll use a default
+            return TimerOptimizationPriority.Medium;
         }
 
         #endregion

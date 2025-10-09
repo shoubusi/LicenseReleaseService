@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace LicenseReleaseService.TimerExecution
 {
@@ -252,6 +253,16 @@ namespace LicenseReleaseService.TimerExecution
         /// Gets the CPU usage percentage
         /// </summary>
         public double CPUUsagePercent { get; set; }
+
+        /// <summary>
+        /// Gets whether the thread pool manager is running
+        /// </summary>
+        public bool IsRunning { get; set; }
+
+        /// <summary>
+        /// Gets the timestamp when these metrics were generated
+        /// </summary>
+        public DateTime GeneratedAt { get; set; }
 
         /// <summary>
         /// Gets the adjustment success rate as a percentage

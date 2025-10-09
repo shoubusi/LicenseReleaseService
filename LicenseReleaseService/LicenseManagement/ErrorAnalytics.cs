@@ -320,10 +320,12 @@ namespace LicenseReleaseService.LicenseManagement
                 ErrorsBySeverity = new Dictionary<ErrorSeverity, int>(),
                 ErrorsByType = new Dictionary<string, int>(),
                 ErrorsByOperation = new Dictionary<string, int>(),
-                RecoveryStats = new RecoveryStatistics(),
+                RecoveryStats = new RecoveryStatistics
+                {
+                    SuccessByCategory = new Dictionary<ErrorCategory, double>()
+                },
                 TopErrorCodes = new List<ErrorCodeCount>(),
-                RetryStats = new RetryStatistics(),
-                SuccessByCategory = new Dictionary<ErrorCategory, double>()
+                RetryStats = new RetryStatistics()
             };
 
             _analyticsTask = Task.Run(ProcessAnalyticsAsync);

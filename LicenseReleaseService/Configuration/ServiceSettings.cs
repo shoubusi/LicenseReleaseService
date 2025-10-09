@@ -206,6 +206,15 @@ namespace LicenseReleaseService.Configuration
 
         #endregion
 
+        #region Safety Validation Settings (via Configuration Section)
+
+        /// <summary>
+        /// Gets the safety validation configuration
+        /// </summary>
+        public Models.SafetyValidationConfiguration SafetyValidation => _configurationManager.CurrentConfiguration?.SafetyValidation?.ToSafetyValidationConfiguration() ?? new Models.SafetyValidationConfiguration();
+
+        #endregion
+
         #region Logging Settings (via Configuration Section)
 
         /// <summary>

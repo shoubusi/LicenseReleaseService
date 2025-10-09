@@ -28,6 +28,7 @@ namespace LicenseReleaseService.Services
         private readonly Dictionary<string, Func<ValidationContext, Task<SafetyCheckResult>>> _customValidationRules;
         private readonly SafetyValidationStatistics _statistics;
         private readonly object _lock = new object();
+        private bool _isDisposed;
 
         // Windows API for user activity detection
         [DllImport("user32.dll")]
@@ -215,7 +216,7 @@ namespace LicenseReleaseService.Services
                 }
 
                 // Check if process is currently running
-                var processes = Process.GetProcessesByName(processName);
+                var processes = System.Diagnostics.Process.GetProcessesByName(processName);
                 if (processes.Length == 0)
                 {
                     result.AddValidationCheck("ProcessRunningCheck", false, $"Process {processName} is not running", null);
@@ -702,7 +703,7 @@ namespace LicenseReleaseService.Services
                 // Get running processes for the user
                 try
                 {
-                    var processes = Process.GetProcesses();
+                    var processes = System.Diagnostics.Process.GetProcesses();
                     var userProcesses = processes.Where(p =>
                     {
                         try
@@ -1070,10 +1071,16 @@ namespace LicenseReleaseService.Services
                     var connectTask = tcpClient.ConnectAsync(server, port);
                     var timeoutTask = Task.Delay(Configuration.NetworkConnectivityTimeoutSeconds * 1000, cancellationToken);
 
-                    var completedTask = await Task.WhenAny(connectTask, timeoutTask);
-
-                    if (completedTask == timeoutTask)
+                    // Wait for connection with timeout using WaitAsync
+                    try
                     {
+                        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        timeoutCts.CancelAfter(Configuration.NetworkConnectivityTimeoutSeconds * 1000);
+                        await connectTask.WaitAsync(timeoutCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Timeout occurred
                         return new PortConnectivityResult
                         {
                             Success = false,

@@ -16,7 +16,7 @@ namespace LicenseReleaseService.TimerExecution
     {
         private readonly ILogger _logger;
         private readonly TimerMetricsOptions _options;
-        private readonly Timer _collectionTimer;
+        private readonly System.Threading.Timer _collectionTimer;
         private readonly Dictionary<string, TimerPerformanceSnapshot> _recentSnapshots;
         private readonly object _lock = new object();
         private readonly System.Diagnostics.PerformanceCounter _cpuCounter;
@@ -59,7 +59,7 @@ namespace LicenseReleaseService.TimerExecution
             _recentSnapshots = new Dictionary<string, TimerPerformanceSnapshot>();
             CurrentSnapshot = CreateSnapshot();
 
-            _collectionTimer = new Timer(CollectMetricsAsync, null, _options.CollectionIntervalMs, _options.CollectionIntervalMs);
+            _collectionTimer = new Timer(state => CollectMetricsAsync(), null, _options.CollectionIntervalMs, _options.CollectionIntervalMs);
 
             try
             {
@@ -85,7 +85,7 @@ namespace LicenseReleaseService.TimerExecution
             _isCollecting = true;
             _startTime = DateTime.UtcNow;
 
-            await CollectMetricsAsync(null);
+            await CollectMetricsAsync(default);
             _logger.LogInformation("Metrics collector started with interval {Interval}ms", _options.CollectionIntervalMs);
         }
 
@@ -100,7 +100,7 @@ namespace LicenseReleaseService.TimerExecution
             _isCollecting = false;
             _collectionTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
-            await CollectMetricsAsync(null);
+            await CollectMetricsAsync(default);
             _logger.LogInformation("Metrics collector stopped after {Uptime}", Uptime);
         }
 
@@ -171,7 +171,7 @@ namespace LicenseReleaseService.TimerExecution
         /// </summary>
         public async Task ForceCollectionAsync()
         {
-            await CollectMetricsAsync(null);
+            await CollectMetricsAsync(default);
         }
 
         /// <summary>
@@ -180,7 +180,7 @@ namespace LicenseReleaseService.TimerExecution
         /// <returns>System metrics</returns>
         public TimerSystemMetrics GetSystemMetrics()
         {
-            var process = Process.GetCurrentProcess();
+            var process = System.Diagnostics.Process.GetCurrentProcess();
             var cpuUsage = GetCpuUsage();
             var memoryUsage = GetMemoryUsage();
 
@@ -203,10 +203,10 @@ namespace LicenseReleaseService.TimerExecution
             };
         }
 
-        private async void CollectMetricsAsync(object? state)
+        public async Task<TimerMetrics> CollectMetricsAsync(CancellationToken cancellationToken = default)
         {
             if (!_isCollecting)
-                return;
+                return CreateEmptyMetrics();
 
             try
             {
@@ -233,16 +233,19 @@ namespace LicenseReleaseService.TimerExecution
 
                 _logger.LogDebug("Metrics collected: CPU {CPU}%, Memory {Memory}%, Threads {Threads}",
                     snapshot.CpuUsagePercent, snapshot.MemoryUsagePercent, snapshot.ThreadCount);
+
+                return ConvertSnapshotToMetrics(snapshot);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error collecting metrics");
+                return CreateEmptyMetrics();
             }
         }
 
         private TimerPerformanceSnapshot CreateSnapshot()
         {
-            var process = Process.GetCurrentProcess();
+            var process = System.Diagnostics.Process.GetCurrentProcess();
             var snapshot = new TimerPerformanceSnapshot
             {
                 SnapshotId = Guid.NewGuid().ToString("N")[..8],
@@ -282,7 +285,7 @@ namespace LicenseReleaseService.TimerExecution
             }
 
             // Fallback: calculate CPU usage from process
-            var process = Process.GetCurrentProcess();
+            var process = System.Diagnostics.Process.GetCurrentProcess();
             var cpuTime = process.TotalProcessorTime.TotalMilliseconds;
             var totalTime = (DateTime.UtcNow - process.StartTime).TotalMilliseconds;
 
@@ -291,7 +294,7 @@ namespace LicenseReleaseService.TimerExecution
 
         private double GetMemoryUsage()
         {
-            var process = Process.GetCurrentProcess();
+            var process = System.Diagnostics.Process.GetCurrentProcess();
             var totalMemory = GetTotalMemoryMB();
 
             return totalMemory > 0 ? (process.WorkingSet64 / (1024.0 * 1024.0) / totalMemory) * 100 : 0;
@@ -440,6 +443,51 @@ namespace LicenseReleaseService.TimerExecution
             if (cpuChange < -10 || memoryChange < -10)
                 return TimerPerformanceTrend.Improving;
             return TimerPerformanceTrend.Stable;
+        }
+
+        private TimerMetrics ConvertSnapshotToMetrics(TimerPerformanceSnapshot snapshot)
+        {
+            return new TimerMetrics
+            {
+                CpuUsagePercent = snapshot.CpuUsagePercent,
+                MemoryUsagePercent = snapshot.MemoryUsagePercent,
+                ThreadCount = snapshot.ThreadCount,
+                WorkingSetMB = snapshot.WorkingSetMB,
+                PrivateMemoryMB = snapshot.PrivateMemoryMB,
+                HandleCount = snapshot.HandleCount,
+                Timestamp = snapshot.Timestamp,
+                SnapshotId = snapshot.SnapshotId
+            };
+        }
+
+        private TimerMetrics CreateEmptyMetrics()
+        {
+            return new TimerMetrics
+            {
+                CpuUsagePercent = 0,
+                MemoryUsagePercent = 0,
+                ThreadCount = 0,
+                WorkingSetMB = 0,
+                PrivateMemoryMB = 0,
+                HandleCount = 0,
+                Timestamp = DateTime.UtcNow,
+                SnapshotId = Guid.NewGuid().ToString("N")[..8]
+            };
+        }
+
+        /// <summary>
+        /// Resets all collected statistics
+        /// </summary>
+        public void ResetStatistics()
+        {
+            lock (_lock)
+            {
+                _recentSnapshots.Clear();
+                _startTime = DateTime.UtcNow;
+                CurrentSnapshot = CreateSnapshot();
+
+                _logger.LogDebug("Timer metrics collector statistics reset");
+            }
         }
 
         public void Dispose()

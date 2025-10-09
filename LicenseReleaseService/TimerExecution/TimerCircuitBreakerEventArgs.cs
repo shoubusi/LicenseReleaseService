@@ -58,6 +58,26 @@ namespace LicenseReleaseService.TimerExecution
         public System.Collections.Generic.IDictionary<string, object> Context { get; set; }
 
         /// <summary>
+        /// Gets the failure threshold that triggered the state change
+        /// </summary>
+        public int FailureThreshold { get; set; }
+
+        /// <summary>
+        /// Gets the cooldown period for the circuit breaker
+        /// </summary>
+        public TimeSpan CooldownPeriod { get; set; }
+
+        /// <summary>
+        /// Gets the estimated reset time for the circuit breaker
+        /// </summary>
+        public DateTime? EstimatedResetTime { get; set; }
+
+        /// <summary>
+        /// Gets the old state of the circuit breaker (alias for PreviousState)
+        /// </summary>
+        public CircuitBreakerState OldState => PreviousState;
+
+        /// <summary>
         /// Initializes a new instance of the TimerCircuitBreakerEventArgs class
         /// </summary>
         public TimerCircuitBreakerEventArgs()
@@ -79,6 +99,24 @@ namespace LicenseReleaseService.TimerExecution
             PreviousState = previousState;
             NewState = newState;
             Reason = reason;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the TimerCircuitBreakerEventArgs class with full parameters
+        /// </summary>
+        /// <param name="previousState">The previous circuit breaker state</param>
+        /// <param name="newState">The new circuit breaker state</param>
+        /// <param name="reason">The reason for the state change</param>
+        /// <param name="failureCount">The number of failures that triggered the state change</param>
+        /// <param name="failureThreshold">The failure threshold</param>
+        public TimerCircuitBreakerEventArgs(CircuitBreakerState previousState, CircuitBreakerState newState, string reason, int failureCount, int failureThreshold)
+            : this()
+        {
+            PreviousState = previousState;
+            NewState = newState;
+            Reason = reason;
+            FailureCount = failureCount;
+            FailureThreshold = failureThreshold;
         }
     }
 }

@@ -2,6 +2,18 @@ using System;
 
 namespace LicenseReleaseService.LicenseManagement.Models
 {
+    public class ReleasedLicenseInfo
+    {
+        public int SessionId { get; set; }
+        public string UserName { get; set; }
+        public string Feature { get; set; }
+        public string Server { get; set; }
+        public int Port { get; set; }
+        public DateTime ReleasedAt { get; set; }
+        public TimeSpan IdleTime { get; set; }
+        public string Reason { get; set; }
+    }
+
     public class LicenseReleaseOperationResult
     {
         public bool Success { get; set; }
@@ -13,6 +25,8 @@ namespace LicenseReleaseService.LicenseManagement.Models
         public string UserName { get; set; }
         public string ComputerName { get; set; }
         public Exception Exception { get; set; }
+        public ReleasedLicenseInfo ReleasedLicense { get; set; }
+        public string ErrorMessage { get; set; }
 
         public LicenseReleaseOperationResult()
         {

@@ -399,26 +399,28 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         {
             try
             {
-                var healthResult = await _healthMonitor.GetHealthStatusAsync();
+                var healthStatuses = _healthMonitor.CurrentHealthStatus;
+                var healthStats = _healthMonitor.GetHealthStatistics();
                 var result = new VersionHealthStatusResult();
 
-                foreach (var versionHealth in healthResult.VersionHealth)
+                foreach (var versionHealth in healthStatuses)
                 {
-                    result.VersionHealthStatuses[versionHealth.Version] = new VersionHealthSummary
+                    result.VersionHealthStatuses[versionHealth.Key] = new VersionHealthSummary
                     {
-                        Version = versionHealth.Version,
-                        Health = versionHealth.Health,
-                        IsHealthy = versionHealth.IsHealthy,
-                        IsAvailable = versionHealth.IsAvailable,
-                        LastCheck = versionHealth.LastCheck,
-                        UptimePercentage = versionHealth.UptimePercentage,
-                        HasIssues = versionHealth.HasIssues
+                        Version = versionHealth.Key,
+                        Health = versionHealth.Value.Health,
+                        IsHealthy = versionHealth.Value.IsHealthy,
+                        IsAvailable = versionHealth.Value.IsAvailable,
+                        LastCheck = versionHealth.Value.LastCheck,
+                        UptimePercentage = versionHealth.Value.UptimePercentage,
+                        HasIssues = versionHealth.Value.HasIssues
                     };
                 }
 
-                result.OverallHealth = healthResult.OverallHealth;
-                result.HealthyVersionCount = healthResult.HealthyVersionCount;
-                result.TotalVersionCount = healthResult.TotalVersionCount;
+                // Calculate overall health based on statistics
+                result.OverallHealth = DetermineOverallHealthLevel(healthStats);
+                result.HealthyVersionCount = healthStats.HealthyVersions;
+                result.TotalVersionCount = healthStats.TotalVersions;
 
                 return result;
             }
@@ -443,18 +445,27 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
                 var metricsResult = await _metricsCollector.GetMetricsAsync();
                 var result = new VersionMetricsResult();
 
-                foreach (var versionMetrics in metricsResult.VersionMetrics)
+                if (metricsResult.VersionMetrics != null)
                 {
-                    result.VersionMetrics[versionMetrics.Key] = new VersionMetricSummary
+                    foreach (var versionMetrics in metricsResult.VersionMetrics)
                     {
-                        Version = versionMetrics.Key,
-                        Metrics = versionMetrics.Value,
-                        Timestamp = DateTime.UtcNow,
-                        Summary = GenerateMetricsSummary(versionMetrics.Value)
-                    };
+                        result.VersionMetrics[versionMetrics.Key] = new VersionMetricSummary
+                        {
+                            Version = versionMetrics.Key,
+                            Metrics = ConvertToDictionary(versionMetrics.Value),
+                            Timestamp = DateTime.UtcNow,
+                            Summary = GenerateMetricsSummary(ConvertToDictionary(versionMetrics.Value))
+                        };
+                    }
                 }
 
-                result.SystemMetrics = metricsResult.SystemMetrics;
+                if (metricsResult.SystemMetrics != null)
+                {
+                    foreach (var kvp in metricsResult.SystemMetrics)
+                    {
+                        result.SystemMetrics[kvp.Key] = kvp.Value;
+                    }
+                }
                 result.Timestamp = DateTime.UtcNow;
 
                 return result;
@@ -477,22 +488,26 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         {
             try
             {
-                var alertsResult = await _alertManager.GetAlertsAsync();
+                var alertsResult = _alertManager.GetAlerts();
                 var result = new VersionAlertsResult();
 
-                foreach (var versionAlerts in alertsResult.VersionAlerts)
+                // Group alerts by version
+                var versionGroups = alertsResult.Alerts.GroupBy(a => a.Version);
+                foreach (var versionGroup in versionGroups)
                 {
-                    result.VersionAlerts[versionAlerts.Key] = new VersionAlertSummary
+                    result.VersionAlerts[versionGroup.Key] = new VersionAlertSummary
                     {
-                        Version = versionAlerts.Key,
-                        Alerts = versionAlerts.Value,
+                        Version = versionGroup.Key,
+                        Alerts = versionGroup.ToList(),
                         Timestamp = DateTime.UtcNow,
-                        ActiveAlertCount = versionAlerts.Value.Count(a => a.IsActive),
-                        CriticalAlertCount = versionAlerts.Value.Count(a => a.Severity == AlertSeverity.Critical)
+                        ActiveAlertCount = versionGroup.Count(a => a.Status == AlertStatus.Active),
+                        CriticalAlertCount = versionGroup.Count(a => a.Severity == AlertSeverity.Critical)
                     };
                 }
 
-                result.SystemAlerts = alertsResult.SystemAlerts;
+                // Add system alerts (alerts without a specific version)
+                var systemAlerts = alertsResult.Alerts.Where(a => string.IsNullOrEmpty(a.Version)).ToList();
+                result.SystemAlerts.AddRange(systemAlerts);
                 result.Timestamp = DateTime.UtcNow;
 
                 return result;
@@ -712,7 +727,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
 
                 if (healthResult.HasIssues)
                 {
-                    result.Issues.AddRange(healthResult.Issues);
+                    result.GetIssues().AddRange(healthResult.Issues);
                 }
 
                 if (healthResult.IsCritical)
@@ -731,7 +746,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error monitoring health for version {Version}", version.Version);
-                result.Issues.Add($"Health monitoring error: {ex.Message}");
+                result.GetIssues().Add($"Health monitoring error: {ex.Message}");
             }
         }
 
@@ -745,13 +760,14 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         {
             try
             {
-                var metrics = await _metricsCollector.CollectVersionMetricsAsync(version.Version);
+                var metricsCollectResult = await _metricsCollector.CollectVersionMetricsAsync(version.Version);
 
-                result.Metrics = metrics;
-                result.PerformanceScore = CalculatePerformanceScore(metrics);
+                var metricsDict = ConvertMetricsCollectResultToDictionary(metricsCollectResult);
+                result.SetMetrics(metricsDict);
+                result.PerformanceScore = CalculatePerformanceScore(metricsDict);
 
                 // Check performance thresholds
-                await CheckPerformanceThresholdsAsync(version, metrics, result);
+                await CheckPerformanceThresholdsAsync(version, metricsDict, result);
 
                 // Update context metrics
                 context.Status.MetricsCollectedCount++;
@@ -760,7 +776,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error collecting metrics for version {Version}", version.Version);
-                result.Issues.Add($"Metrics collection error: {ex.Message}");
+                result.GetIssues().Add($"Metrics collection error: {ex.Message}");
             }
         }
 
@@ -774,14 +790,15 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         {
             try
             {
-                var alerts = await _alertManager.GetVersionAlertsAsync(version.Version);
+                var activeAlertsResult = _alertManager.GetActiveAlerts(version.Version);
+                var alerts = activeAlertsResult.Success ? activeAlertsResult.Alerts : new List<VersionAlert>();
 
-                result.HasAlerts = alerts.Any(a => a.IsActive);
-                result.AlertCount = alerts.Count(a => a.IsActive);
+                result.HasAlerts = alerts.Any(a => !a.IsResolved);
+                result.AlertCount = alerts.Count(a => !a.IsResolved);
 
                 if (result.HasAlerts)
                 {
-                    var criticalAlerts = alerts.Where(a => a.IsActive && a.Severity == AlertSeverity.Critical).ToList();
+                    var criticalAlerts = alerts.Where(a => !a.IsResolved && a.Severity == AlertSeverity.Critical).ToList();
                     if (criticalAlerts.Any())
                     {
                         result.AlertLevel = AlertSeverity.Critical;
@@ -800,7 +817,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error checking alerts for version {Version}", version.Version);
-                result.Issues.Add($"Alert checking error: {ex.Message}");
+                result.GetIssues().Add($"Alert checking error: {ex.Message}");
             }
         }
 
@@ -821,7 +838,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
                 {
                     if (cpuUsage > _configuration.CpuUsageThresholdPercentage)
                     {
-                        result.Issues.Add($"High CPU usage: {cpuUsage:F1}%");
+                        result.GetIssues().Add($"High CPU usage: {cpuUsage:F1}%");
                         thresholdExceeded = true;
                     }
                 }
@@ -831,7 +848,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
                 {
                     if (memoryUsage > _configuration.MemoryUsageThresholdMB)
                     {
-                        result.Issues.Add($"High memory usage: {memoryUsage:F1}MB");
+                        result.GetIssues().Add($"High memory usage: {memoryUsage:F1}MB");
                         thresholdExceeded = true;
                     }
                 }
@@ -841,7 +858,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
                 {
                     if (diskUsage > _configuration.DiskUsageThresholdPercentage)
                     {
-                        result.Issues.Add($"High disk usage: {diskUsage:F1}%");
+                        result.GetIssues().Add($"High disk usage: {diskUsage:F1}%");
                         thresholdExceeded = true;
                     }
                 }
@@ -913,8 +930,8 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
                             Health = result.Health,
                             PerformanceScore = result.PerformanceScore,
                             AlertLevel = result.AlertLevel,
-                            Issues = result.Issues.ToList(),
-                            Metrics = result.Metrics
+                            Issues = result.GetIssues().ToList(),
+                            Metrics = result.GetMetrics()
                         };
 
                         context.AddMonitoringHistory(historyRecord);
@@ -1079,19 +1096,19 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
                 // Apply health monitoring configuration
                 if (config.HealthMonitoringConfig != null)
                 {
-                    await _healthMonitor.ConfigureVersionMonitoringAsync(version, config.HealthMonitoringConfig);
+                    _healthMonitor.ConfigureVersionMonitoring(version, config.HealthMonitoringConfig);
                 }
 
                 // Apply metrics collection configuration
                 if (config.MetricsCollectionConfig != null)
                 {
-                    await _metricsCollector.ConfigureVersionMetricsAsync(version, config.MetricsCollectionConfig);
+                    _metricsCollector.ConfigureVersionMetrics(version, config.MetricsCollectionConfig);
                 }
 
                 // Apply alert management configuration
                 if (config.AlertManagementConfig != null)
                 {
-                    await _alertManager.ConfigureVersionAlertsAsync(version, config.AlertManagementConfig);
+                    _alertManager.ConfigureVersionAlerts(version, config.AlertManagementConfig);
                 }
             }
             catch (Exception ex)
@@ -1140,6 +1157,78 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
             {
                 return 50.0; // Neutral score on error
             }
+        }
+
+        /// <summary>
+        /// Converts VersionMetricsCollectResult to Dictionary<string, object>
+        /// </summary>
+        /// <param name="metricsCollectResult">VersionMetricsCollectResult to convert</param>
+        /// <returns>Converted dictionary</returns>
+        private Dictionary<string, object> ConvertMetricsCollectResultToDictionary(VersionMetricsCollectResult metricsCollectResult)
+        {
+            var result = new Dictionary<string, object>();
+
+            if (metricsCollectResult == null)
+                return result;
+
+            result["Version"] = metricsCollectResult.Version;
+            result["Timestamp"] = metricsCollectResult.Timestamp;
+            result["Success"] = metricsCollectResult.Success;
+            result["Metrics"] = metricsCollectResult.Metrics;
+
+            if (metricsCollectResult.Error != null)
+            {
+                result["Error"] = metricsCollectResult.Error;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Converts VersionMetrics to Dictionary<string, object>
+        /// </summary>
+        /// <param name="metrics">VersionMetrics to convert</param>
+        /// <returns>Converted dictionary</returns>
+        private Dictionary<string, object> ConvertToDictionary(VersionMetrics metrics)
+        {
+            var result = new Dictionary<string, object>();
+
+            if (metrics == null)
+                return result;
+
+            result["Version"] = metrics.Version;
+            result["Timestamp"] = metrics.Timestamp;
+            result["ActiveLicenses"] = metrics.ActiveLicenses;
+            result["TotalLicenses"] = metrics.TotalLicenses;
+            result["LicenseUtilization"] = metrics.LicenseUtilization;
+            result["ErrorCount"] = metrics.ErrorCount;
+            result["WarningCount"] = metrics.WarningCount;
+
+            // Add performance metrics
+            foreach (var kvp in metrics.PerformanceMetrics)
+            {
+                result[$"Performance_{kvp.Key}"] = kvp.Value;
+            }
+
+            // Add resource metrics
+            foreach (var kvp in metrics.ResourceMetrics)
+            {
+                result[$"Resource_{kvp.Key}"] = kvp.Value;
+            }
+
+            // Add health metrics
+            foreach (var kvp in metrics.HealthMetrics)
+            {
+                result[$"Health_{kvp.Key}"] = kvp.Value;
+            }
+
+            // Add operation counts
+            foreach (var kvp in metrics.OperationCounts)
+            {
+                result[$"Operation_{kvp.Key}"] = kvp.Value;
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -1227,15 +1316,15 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         {
             try
             {
-                UpdateMonitoringStatus(e.Version, MapAlertToMonitoringState(e));
+                UpdateMonitoringStatus(e.Alert.Version, MapAlertToMonitoringState(e));
 
                 var eventArgs = new VersionAvailabilityEventArgs
                 {
-                    Version = e.Version,
-                    IsAvailable = e.AlertType != AlertType.Unavailable,
-                    Timestamp = e.Timestamp,
-                    Reason = e.Message,
-                    Severity = e.Severity
+                    Version = e.Alert.Version,
+                    IsAvailable = true, // Default to available unless specified otherwise
+                    Timestamp = e.Alert.Timestamp,
+                    Reason = e.Alert.Description,
+                    Severity = e.Alert.Severity
                 };
 
                 AvailabilityChanged?.Invoke(this, eventArgs);
@@ -1280,13 +1369,42 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
             };
         }
 
+        /// <summary>
+        /// Determines overall health level from statistics
+        /// </summary>
+        /// <param name="stats">Health statistics</param>
+        /// <returns>Overall health level</returns>
+        private MultiVersionHealthLevel DetermineOverallHealthLevel(VersionHealthStatistics stats)
+        {
+            if (stats.TotalVersions == 0)
+                return MultiVersionHealthLevel.Unknown;
+
+            var healthyPercentage = (double)stats.HealthyVersions / stats.TotalVersions * 100;
+            var degradedPercentage = (double)stats.DegradedVersions / stats.TotalVersions * 100;
+            var unhealthyPercentage = (double)stats.UnhealthyVersions / stats.TotalVersions * 100;
+
+            if (unhealthyPercentage >= 50)
+                return MultiVersionHealthLevel.Critical;
+            else if (unhealthyPercentage >= 25)
+                return MultiVersionHealthLevel.Warning;
+            else if (degradedPercentage >= 50)
+                return MultiVersionHealthLevel.Warning;
+            else if (healthyPercentage >= 90)
+                return MultiVersionHealthLevel.Healthy;
+            else if (healthyPercentage >= 75)
+                return MultiVersionHealthLevel.Good;
+            else
+                return MultiVersionHealthLevel.Warning;
+        }
+
         private MonitoringState MapAlertToMonitoringState(VersionAlertEventArgs alertArgs)
         {
-            return alertArgs.AlertType switch
+            return alertArgs.Alert.Category switch
             {
-                AlertType.Unavailable => MonitoringState.Unavailable,
-                AlertType.Performance => MonitoringState.PerformanceIssues,
-                AlertType.Security => MonitoringState.SecurityIssue,
+                AlertCategory.Health => MonitoringState.IssuesDetected,
+                AlertCategory.Performance => MonitoringState.PerformanceIssues,
+                AlertCategory.Security => MonitoringState.SecurityIssue,
+                AlertCategory.Deployment => MonitoringState.IssuesDetected,
                 _ => MonitoringState.IssuesDetected
             };
         }
@@ -1300,7 +1418,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         /// <summary>
         /// Gets or sets the health monitoring configuration
         /// </summary>
-        public VersionHealthMonitoringConfig HealthMonitoringConfig { get; set; }
+        public global::LicenseReleaseService.VersionManagement.VersionHealthMonitoringConfig HealthMonitoringConfig { get; set; }
 
         /// <summary>
         /// Gets or sets the metrics collection configuration
@@ -1763,8 +1881,27 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         public double PerformanceScore { get; set; }
         public AlertSeverity? AlertLevel { get; set; }
         public int AlertCount { get; set; }
-        public List<string> Issues { get; } = new List<string>();
-        public Dictionary<string, object> Metrics { get; } = new Dictionary<string, object>();
+        private List<string> _issues = new List<string>();
+        private List<string> _errors = new List<string>();
+        private Dictionary<string, object> _metrics = new Dictionary<string, object>();
+
+        public List<string> Issues => _issues;
+        public List<string> Errors => _errors;
+        public Dictionary<string, object> Metrics => _metrics;
+
+        public List<string> GetIssues() => _issues;
+        public Dictionary<string, object> GetMetrics() => _metrics;
+        public void SetMetrics(Dictionary<string, object> metrics)
+        {
+            _metrics.Clear();
+            if (metrics != null)
+            {
+                foreach (var kvp in metrics)
+                {
+                    _metrics[kvp.Key] = kvp.Value;
+                }
+            }
+        }
     }
 
     public class VersionMonitoringConfigurationResult
@@ -1881,31 +2018,9 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
     }
 
     // Configuration classes for individual monitoring components
-    public class VersionHealthMonitoringConfig
-    {
-        public TimeSpan HealthCheckInterval { get; set; } = TimeSpan.FromMinutes(5);
-        public bool EnableFileSystemChecks { get; set; } = true;
-        public bool EnableRegistryChecks { get; set; } = true;
-        public bool EnablePerformanceChecks { get; set; } = true;
-    }
+    // Note: VersionHealthMonitoringConfig is defined in VersionManagement namespace to avoid duplication
 
-    public class VersionMetricsCollectionConfig
-    {
-        public TimeSpan MetricsCollectionInterval { get; set; } = TimeSpan.FromMinutes(1);
-        public bool EnableCpuMetrics { get; set; } = true;
-        public bool EnableMemoryMetrics { get; set; } = true;
-        public bool EnableDiskMetrics { get; set; } = true;
-        public bool EnableNetworkMetrics { get; set; } = true;
-    }
-
-    public class VersionAlertManagementConfig
-    {
-        public bool EnableAlerts { get; set; } = true;
-        public AlertSeverity MinimumAlertSeverity { get; set; } = AlertSeverity.Warning;
-        public TimeSpan AlertSuppressionDuration { get; set; } = TimeSpan.FromMinutes(5);
-        public bool EnableAutoResolution { get; set; } = true;
-    }
-
+    
 
     public enum AlertType
     {
@@ -1917,5 +2032,35 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         Unavailable
     }
 
+    /// <summary>
+    /// Represents health levels for multiple versions
+    /// </summary>
+    public enum MultiVersionHealthLevel
+    {
+        /// <summary>
+        /// Health status is unknown
+        /// </summary>
+        Unknown = 0,
+
+        /// <summary>
+        /// All versions are healthy
+        /// </summary>
+        Healthy = 1,
+
+        /// <summary>
+        /// Most versions are healthy, some minor issues
+        /// </summary>
+        Good = 2,
+
+        /// <summary>
+        /// Some versions have issues but are functional
+        /// </summary>
+        Warning = 3,
+
+        /// <summary>
+        /// Critical issues affecting many versions
+        /// </summary>
+        Critical = 4
+    }
 
 }

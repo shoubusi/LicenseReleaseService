@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using LicenseReleaseService.Process;
-using LicenseReleaseService.Configuration;
+using LicenseReleaseServiceConfiguration = LicenseReleaseService.Configuration;
 
 namespace LicenseReleaseService.VersionManagement
 {
@@ -33,7 +33,7 @@ namespace LicenseReleaseService.VersionManagement
         /// <summary>
         /// Gets the current health status of this version
         /// </summary>
-        public global::LicenseReleaseService.Configuration.VersionHealthStatus HealthStatus { get; private set; }
+        public LicenseReleaseServiceConfiguration.VersionHealthStatus HealthStatus { get; private set; }
 
         /// <summary>
         /// Gets the last time this version was successfully queried
@@ -59,7 +59,7 @@ namespace LicenseReleaseService.VersionManagement
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
             _queryCache = new Dictionary<string, LicenseQueryResult>();
-            HealthStatus = global::LicenseReleaseService.Configuration.VersionHealthStatus.Unknown;
+            HealthStatus = LicenseReleaseServiceConfiguration.VersionHealthStatus.Unknown;
 
             // Initialize cache cleanup timer
             _cacheCleanupTimer = new Timer(CleanupCache, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
@@ -72,7 +72,7 @@ namespace LicenseReleaseService.VersionManagement
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Version-specific query result</returns>
         public async Task<VersionSpecificQueryResult> QueryLicensesAsync(
-            LicenseQueryOptions queryOptions,
+            LicenseReleaseServiceConfiguration.LicenseQueryOptions queryOptions,
             CancellationToken cancellationToken = default)
         {
             if (queryOptions == null)
@@ -144,7 +144,7 @@ namespace LicenseReleaseService.VersionManagement
                 result.Success = true;
 
                 // Update health status and last query time
-                HealthStatus = VersionHealthStatus.Healthy;
+                HealthStatus = LicenseReleaseServiceConfiguration.VersionHealthStatus.Healthy;
                 LastSuccessfulQuery = DateTime.UtcNow;
 
                 // Cache the result if enabled
@@ -189,7 +189,7 @@ namespace LicenseReleaseService.VersionManagement
                     request.FeatureName, _versionInfo.Version);
 
                 // Query current license status
-                var queryOptions = new LicenseQueryOptions
+                var queryOptions = new LicenseReleaseServiceConfiguration.LicenseQueryOptions
                 {
                     QueryTimeout = _configuration.QueryTimeout,
                     EnableCaching = false // Get fresh data for allocation
@@ -205,12 +205,8 @@ namespace LicenseReleaseService.VersionManagement
                     };
                 }
 
-                // Check if feature exists and has available licenses
-                var featureLicenses = queryResult.AvailableLicenses
-                    .Where(l => l.FeatureName.Equals(request.FeatureName, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                if (featureLicenses.Count == 0)
+                // Check if there are enough available licenses
+                if (queryResult.AvailableLicenses < request.RequiredLicenses)
                 {
                     return new VersionAllocationResult
                     {
@@ -219,13 +215,12 @@ namespace LicenseReleaseService.VersionManagement
                     };
                 }
 
-                var availableCount = featureLicenses.Sum(l => l.AvailableLicenses);
-                if (availableCount < request.RequiredLicenses)
+                if (queryResult.AvailableLicenses < request.RequiredLicenses)
                 {
                     return new VersionAllocationResult
                     {
                         Success = false,
-                        ErrorMessage = $"Insufficient licenses for {request.FeatureName}: {availableCount} available, {request.RequiredLicenses} required"
+                        ErrorMessage = $"Insufficient licenses for {request.FeatureName}: {queryResult.AvailableLicenses} available, {request.RequiredLicenses} required"
                     };
                 }
 
@@ -442,7 +437,7 @@ namespace LicenseReleaseService.VersionManagement
         /// </summary>
         /// <param name="queryOptions">Query options</param>
         /// <returns>Cache key</returns>
-        private string GenerateCacheKey(LicenseQueryOptions queryOptions)
+        private string GenerateCacheKey(LicenseReleaseServiceConfiguration.LicenseQueryOptions queryOptions)
         {
             return $"{_versionInfo.Version}_{queryOptions.QueryTimeout.TotalMilliseconds}_{DateTime.UtcNow:yyyyMMddHHmm}";
         }
@@ -542,7 +537,7 @@ namespace LicenseReleaseService.VersionManagement
         /// </summary>
         /// <param name="queryOptions">Query options</param>
         /// <returns>Lmutil command</returns>
-        private LmutilCommand BuildLmutilCommand(LicenseQueryOptions queryOptions)
+        private LmutilCommand BuildLmutilCommand(LicenseReleaseServiceConfiguration.LicenseQueryOptions queryOptions)
         {
             var command = new LmutilCommand
             {
@@ -678,7 +673,7 @@ namespace LicenseReleaseService.VersionManagement
                             Display = userMatch.Groups[3].Value,
                             Version = userMatch.Groups[5].Success ? userMatch.Groups[5].Value : "unknown",
                             CheckoutTime = DateTime.UtcNow, // Would need to parse from display field
-                            Feature = GetLastFeature(result.Licenses) // Last processed feature
+                            Feature = GetLastFeature(result.Licenses)?.FeatureName // Last processed feature
                         };
                         result.Users.Add(user);
                     }
@@ -692,7 +687,7 @@ namespace LicenseReleaseService.VersionManagement
                             Username = borrowMatch.Groups[1].Value,
                             Host = borrowMatch.Groups[2].Value,
                             BorrowDate = DateTime.ParseExact(borrowMatch.Groups[3].Value, "yyyy/MM/dd", null),
-                            Feature = GetLastFeature(result.Licenses)
+                            Feature = GetLastFeature(result.Licenses)?.FeatureName
                         };
                         result.BorrowedLicenses.Add(borrowedLicense);
                     }
@@ -894,13 +889,15 @@ namespace LicenseReleaseService.VersionManagement
                 result.Errors.Add("User is required");
             }
 
-            if (request.LicenseCount <= 0)
+            // Calculate total license count from version resource IDs
+            var totalLicenseCount = request.VersionResourceIds?.Values.Sum(list => list.Count) ?? 0;
+            if (totalLicenseCount <= 0)
             {
                 result.Errors.Add("License count must be greater than 0");
             }
 
             // Query current status to validate release
-            var queryOptions = new LicenseQueryOptions
+            var queryOptions = new LicenseReleaseServiceConfiguration.LicenseQueryOptions
             {
                 QueryTimeout = _configuration.QueryTimeout,
                 EnableCaching = false
@@ -945,7 +942,7 @@ namespace LicenseReleaseService.VersionManagement
                     {
                         FeatureName = request.FeatureName,
                         User = request.User,
-                        ReleasedCount = request.LicenseCount,
+                        ReleasedCount = request.VersionResourceIds?.Values.Sum(list => list.Count) ?? 0,
                         ReleasedAt = DateTime.UtcNow
                     }
                 }
@@ -1005,6 +1002,7 @@ namespace LicenseReleaseService.VersionManagement
         public int ExitCode { get; set; }
         public TimeSpan ExecutionTime { get; set; }
         public List<string> Errors { get; set; } = new List<string>();
+        public List<string> Warnings { get; set; } = new List<string>();
     }
 
     /// <summary>

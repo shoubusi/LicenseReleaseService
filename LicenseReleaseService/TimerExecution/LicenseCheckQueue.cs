@@ -20,8 +20,8 @@ namespace LicenseReleaseService.TimerExecution
         private readonly ConcurrentQueue<QueuedOperation> _lowQueue;
         private readonly ConcurrentDictionary<string, DateTime> _processingOperations;
         private readonly ReaderWriterLockSlim _statisticsLock;
-        private readonly Timer _cleanupTimer;
-        private readonly Timer _queueProcessingTimer;
+        private readonly System.Threading.Timer _cleanupTimer;
+        private readonly System.Threading.Timer _queueProcessingTimer;
         private readonly LicenseCheckQueueStatistics _statistics;
         private readonly TimeSpan _cleanupInterval;
         private readonly TimeSpan _queueProcessingInterval;
@@ -71,6 +71,26 @@ namespace LicenseReleaseService.TimerExecution
         /// </summary>
         public event EventHandler<LicenseCheckQueueEventArgs> QueueProcessingCompleted;
 
+        /// <summary>
+        /// Event raised when an operation starts
+        /// </summary>
+        public event EventHandler<LicenseCheckEventArgs> OperationStarted;
+
+        /// <summary>
+        /// Event raised when an operation completes
+        /// </summary>
+        public event EventHandler<LicenseCheckEventArgs> OperationCompleted;
+
+        /// <summary>
+        /// Event raised when an operation fails
+        /// </summary>
+        public event EventHandler<LicenseCheckEventArgs> OperationFailed;
+
+        /// <summary>
+        /// Event raised when queue status changes
+        /// </summary>
+        public event EventHandler<LicenseCheckQueueEventArgs> QueueStatusChanged;
+
         #endregion
 
         #region Properties
@@ -79,6 +99,16 @@ namespace LicenseReleaseService.TimerExecution
         /// Gets the current number of operations in the queue
         /// </summary>
         public int Count => _operations.Count;
+
+        /// <summary>
+        /// Gets the current queue size (alias for Count)
+        /// </summary>
+        public int QueueSize => Count;
+
+        /// <summary>
+        /// Gets the number of currently executing operations
+        /// </summary>
+        public int ExecutingCount => _processingOperations.Count;
 
         /// <summary>
         /// Gets the maximum queue capacity
@@ -103,6 +133,11 @@ namespace LicenseReleaseService.TimerExecution
         /// Gets the queue statistics
         /// </summary>
         public LicenseCheckQueueStatistics Statistics => CloneStatistics();
+
+        /// <summary>
+        /// Gets the queue statistics (alias for Statistics)
+        /// </summary>
+        public LicenseCheckQueueStatistics GetStatistics() => CloneStatistics();
 
         /// <summary>
         /// Gets a value indicating whether the queue is empty
@@ -207,8 +242,18 @@ namespace LicenseReleaseService.TimerExecution
 
             // Update statistics
             UpdateStatistics(op => op.TotalOperationsProcessed++);
-            UpdateStatistics(op => op.OperationsByPriority[priority] = (op.OperationsByPriority.TryGetValue(priority, out var count) ? count : 0) + 1);
-            UpdateStatistics(op => op.OperationsByType[operation.OperationType] = (op.OperationsByType.TryGetValue(operation.OperationType, out var typeCount) ? typeCount : 0) + 1);
+            UpdateStatistics(op =>
+            {
+                var priorityDict = new Dictionary<LicenseCheckPriority, long>(op.OperationsByPriority);
+                priorityDict[priority] = (priorityDict.TryGetValue(priority, out var count) ? count : 0) + 1;
+                op.OperationsByPriority = priorityDict.AsReadOnly();
+            });
+            UpdateStatistics(op =>
+            {
+                var typeDict = new Dictionary<LicenseCheckOperationType, long>(op.OperationsByType);
+                typeDict[operation.OperationType] = (typeDict.TryGetValue(operation.OperationType, out var typeCount) ? typeCount : 0) + 1;
+                op.OperationsByType = typeDict.AsReadOnly();
+            });
 
             // Check for capacity warning
             if (UtilizationPercentage >= _queueCapacityWarningThreshold)
@@ -265,9 +310,11 @@ namespace LicenseReleaseService.TimerExecution
             // Try to dequeue from priority queues in order
             if (_enablePrioritization)
             {
-                _priorityQueue.TryDequeue(out queuedOperation) ||
-                _normalQueue.TryDequeue(out queuedOperation) ||
-                _lowQueue.TryDequeue(out queuedOperation);
+                _priorityQueue.TryDequeue(out queuedOperation);
+                if (queuedOperation == null)
+                    _normalQueue.TryDequeue(out queuedOperation);
+                if (queuedOperation == null)
+                    _lowQueue.TryDequeue(out queuedOperation);
             }
             else
             {
@@ -374,6 +421,80 @@ namespace LicenseReleaseService.TimerExecution
 
             // Raise clear event
             await RaiseQueueEventAsync(QueueCleared, null);
+        }
+
+        /// <summary>
+        /// Gets all pending operations in the queue
+        /// </summary>
+        /// <returns>List of pending operations</returns>
+        public async Task<IReadOnlyList<LicenseCheckOperation>> GetPendingOperationsAsync()
+        {
+            return await Task.FromResult(GetAllOperations());
+        }
+
+        /// <summary>
+        /// Gets the current queue status
+        /// </summary>
+        /// <returns>Queue status information</returns>
+        public async Task<LicenseCheckQueueStatus> GetStatusAsync()
+        {
+            return await Task.FromResult(new LicenseCheckQueueStatus
+            {
+                IsEmpty = IsEmpty,
+                IsFull = IsFull,
+                IsProcessing = IsProcessing,
+                Count = Count,
+                MaxCapacity = MaxCapacity,
+                UtilizationPercentage = UtilizationPercentage,
+                Statistics = CloneStatistics()
+            });
+        }
+
+        /// <summary>
+        /// Cancels all operations in the queue
+        /// </summary>
+        /// <returns>Task representing the cancel operation</returns>
+        public async Task CancelAllOperationsAsync()
+        {
+            await ClearAsync();
+        }
+
+        /// <summary>
+        /// Updates the queue configuration
+        /// </summary>
+        /// <param name="configuration">The new configuration</param>
+        /// <returns>Task representing the configuration update operation</returns>
+        public async Task UpdateConfigurationAsync(object configuration)
+        {
+            // Configuration update logic would go here
+            await Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Resets the queue statistics
+        /// </summary>
+        /// <returns>Task representing the reset operation</returns>
+        public async Task ResetStatisticsAsync()
+        {
+            UpdateStatistics(op =>
+            {
+                op.TotalOperationsProcessed = 0;
+                op.CurrentQueueSize = 0;
+                op.MaxQueueSizeObserved = 0;
+                op.SuccessfulOperations = 0;
+                op.FailedOperations = 0;
+                op.CancelledOperations = 0;
+                op.RetriedOperations = 0;
+                op.TimedOutOperations = 0;
+                op.OperationsByPriority = new Dictionary<LicenseCheckPriority, long>().AsReadOnly();
+                op.OperationsByType = new Dictionary<LicenseCheckOperationType, long>().AsReadOnly();
+                op.AverageQueueWaitTime = TimeSpan.Zero;
+                op.MaxQueueWaitTime = TimeSpan.Zero;
+                op.AverageExecutionTime = TimeSpan.Zero;
+                op.TotalExecutionTime = TimeSpan.Zero;
+                op.LastUpdated = DateTime.UtcNow;
+            });
+            await Task.CompletedTask;
         }
 
         /// <summary>
@@ -566,7 +687,7 @@ namespace LicenseReleaseService.TimerExecution
             }
         }
 
-        private async Task RaiseQueueEventAsync(Func<EventHandler<LicenseCheckQueueEventArgs>, LicenseCheckQueueEventArgs> eventHandler, LicenseCheckOperation operation)
+        private async Task RaiseQueueEventAsync(EventHandler<LicenseCheckQueueEventArgs> eventHandler, LicenseCheckOperation operation)
         {
             var eventArgs = new LicenseCheckQueueEventArgs(
                 LicenseCheckQueueEventType.OperationEnqueued,

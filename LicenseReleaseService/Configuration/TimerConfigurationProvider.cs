@@ -377,8 +377,7 @@ namespace LicenseReleaseService.Configuration
         {
             try
             {
-                var appDomain = AppDomain.CurrentDomain;
-                var configPath = appDomain.SetupInformation.ConfigurationFile;
+                var configPath = System.Configuration.ConfigurationManager.AppSettings["configPath"] ?? "App.config";
                 return !string.IsNullOrEmpty(configPath) ? configPath : "App.config";
             }
             catch
@@ -614,11 +613,15 @@ namespace LicenseReleaseService.Configuration
             detectedVersions.AddRange(DetectVersionsFromInstallationPaths());
 
             // Filter by supported versions if specified
-            if (config.SupportedVersions.Count > 0)
+            if (!string.IsNullOrEmpty(config.SupportedVersions))
             {
-                detectedVersions = detectedVersions
-                    .Where(v => config.SupportedVersions.Contains(v))
-                    .ToList();
+                var supportedVersionList = config.SupportedVersions.Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries);
+                if (supportedVersionList.Length > 0)
+                {
+                    detectedVersions = detectedVersions
+                        .Where(v => supportedVersionList.Contains(v))
+                        .ToList();
+                }
             }
 
             // Remove duplicates and return sorted
@@ -713,7 +716,21 @@ namespace LicenseReleaseService.Configuration
                 // For now, create version-specific config by modifying base config
                 // In a real implementation, this could load from separate config files
                 var baseConfig = CurrentConfiguration;
-                var versionConfig = (TimerConfigurationElement)baseConfig.Clone();
+                var versionConfig = new TimerConfigurationElement
+                {
+                    Enabled = baseConfig.Enabled,
+                    Interval = baseConfig.Interval,
+                    Timeout = baseConfig.Timeout,
+                    MaxRetries = baseConfig.MaxRetries,
+                    SupportedVersions = baseConfig.SupportedVersions,
+                    LicenseServer = baseConfig.LicenseServer,
+                    Port = baseConfig.Port,
+                    LmutilPath = baseConfig.LmutilPath,
+                    EnableHealthMonitoring = baseConfig.EnableHealthMonitoring,
+                    HealthCheckInterval = baseConfig.HealthCheckInterval,
+                    EnableLicenseRecovery = baseConfig.EnableLicenseRecovery,
+                    RecoveryCheckInterval = baseConfig.RecoveryCheckInterval
+                };
 
                 // Apply version-specific overrides
                 ApplyVersionSpecificOverrides(versionConfig, version);

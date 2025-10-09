@@ -36,6 +36,9 @@ namespace LicenseReleaseService.IdleDetection
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern int GetWindowTextLength(IntPtr hWnd);
+
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool QueryFullProcessImageName(IntPtr hProcess, uint dwFlags,
             System.Text.StringBuilder lpExeName, ref uint lpdwSize);
@@ -217,7 +220,9 @@ namespace LicenseReleaseService.IdleDetection
                 // Wait for monitoring task to complete
                 if (_monitoringTask != null)
                 {
-                    await Task.WhenAny(_monitoringTask, Task.Delay(TimeSpan.FromSeconds(5)));
+                    // Wait for monitoring task with timeout using WaitAsync
+                    using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await _monitoringTask.WaitAsync(timeoutCts.Token);
                 }
 
                 _logger.LogInformation("DocumentActivityMonitor stopped successfully");
@@ -434,7 +439,28 @@ namespace LicenseReleaseService.IdleDetection
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting SolidWorks processes");
-                return new List<Process>();
+                return new List<System.Diagnostics.Process>();
+            }
+        }
+
+        /// <summary>
+        /// Gets the window title for a window handle
+        /// </summary>
+        private string GetWindowTitle(IntPtr hWnd)
+        {
+            try
+            {
+                var length = GetWindowTextLength(hWnd);
+                if (length == 0)
+                    return null;
+
+                var builder = new System.Text.StringBuilder(length + 1);
+                return GetWindowText(hWnd, builder, builder.Length) > 0 ? builder.ToString() : null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting window title");
+                return null;
             }
         }
 
@@ -578,7 +604,7 @@ namespace LicenseReleaseService.IdleDetection
             {
                 // This is a simplified approach - in a real implementation, you might need
                 // more advanced Windows API calls to get the actual working directory
-                using var process = Process.GetProcessById(processId);
+                using var process = System.Diagnostics.Process.GetProcessById(processId);
                 var processPath = process.MainModule?.FileName;
 
                 if (!string.IsNullOrEmpty(processPath))

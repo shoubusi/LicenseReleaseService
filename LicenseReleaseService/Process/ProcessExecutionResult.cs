@@ -24,6 +24,24 @@ namespace LicenseReleaseService.Process
         public string Error { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the standard output of the process (alias for Output)
+        /// </summary>
+        public string StandardOutput
+        {
+            get => Output;
+            set => Output = value;
+        }
+
+        /// <summary>
+        /// Gets or sets the standard error output of the process (alias for Error)
+        /// </summary>
+        public string StandardError
+        {
+            get => Error;
+            set => Error = value;
+        }
+
+        /// <summary>
         /// Gets or sets the time taken to execute the process
         /// </summary>
         public TimeSpan ExecutionTime { get; set; }

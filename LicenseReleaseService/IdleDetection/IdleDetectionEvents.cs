@@ -108,7 +108,7 @@ namespace LicenseReleaseService.IdleDetection
         public override string ToString()
         {
             return $"IdleDetection: Session={SessionId}, Process={ProcessId}, User={UserName}, " +
-                   $"Computer={ComputerName}, Confidence={confidence:F2}, IdleTime={IdleTime.TotalMinutes:F1}m, " +
+                   $"Computer={ComputerName}, Confidence={Confidence:F2}, IdleTime={IdleTime.TotalMinutes:F1}m, " +
                    $"Method={DetectionMethod}, Reason={Reason}";
         }
     }

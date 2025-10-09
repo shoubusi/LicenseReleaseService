@@ -99,10 +99,28 @@ namespace LicenseReleaseService.TimerExecution
         }
 
         /// <summary>
+        /// Gets or sets the CPU usage threshold for tuning
+        /// </summary>
+        public double CpuUsageThreshold { get; set; }
+
+        /// <summary>
+        /// Gets or sets the memory usage threshold for tuning
+        /// </summary>
+        public double MemoryUsageThreshold { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum thread count for tuning
+        /// </summary>
+        public int MaxThreadCount { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the TimerPerformanceTunerOptions class
         /// </summary>
         public TimerPerformanceTunerOptions()
         {
+            CpuUsageThreshold = 80.0;
+            MemoryUsageThreshold = 85.0;
+            MaxThreadCount = 32;
         }
 
         /// <summary>
@@ -119,7 +137,10 @@ namespace LicenseReleaseService.TimerExecution
                 MinimumConfidenceThreshold = MinimumConfidenceThreshold,
                 EnableAutoTuning = EnableAutoTuning,
                 EnableTuningHistory = EnableTuningHistory,
-                EnableRecommendationLogging = EnableRecommendationLogging
+                EnableRecommendationLogging = EnableRecommendationLogging,
+                CpuUsageThreshold = CpuUsageThreshold,
+                MemoryUsageThreshold = MemoryUsageThreshold,
+                MaxThreadCount = MaxThreadCount
             };
         }
 

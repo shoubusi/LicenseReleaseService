@@ -13,9 +13,9 @@ namespace LicenseReleaseService.Configuration
     public class ConfigurationHealthMonitor : IDisposable
     {
         private readonly object _lock = new object();
-        private readonly Timer _healthCheckTimer;
-        private readonly Timer _metricsCollectionTimer;
-        private readonly Timer _diagnosticTimer;
+        private readonly System.Threading.Timer _healthCheckTimer;
+        private readonly System.Threading.Timer _metricsCollectionTimer;
+        private readonly System.Threading.Timer _diagnosticTimer;
         private readonly List<ConfigurationHealthRule> _healthRules;
         private readonly Dictionary<string, ConfigurationMetric> _metrics;
         private readonly Queue<HealthCheckResult> _healthCheckHistory;

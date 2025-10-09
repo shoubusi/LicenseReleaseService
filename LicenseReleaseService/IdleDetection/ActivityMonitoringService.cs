@@ -66,7 +66,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Event raised when system activity is tracked
         /// </summary>
-        public event EventHandler<SystemActivityEventArgs> SystemActivityTracked;
+        public event EventHandler<SystemActivityEvent> SystemActivityTracked;
 
         /// <summary>
         /// Event raised when comprehensive activity analysis is completed
@@ -136,7 +136,7 @@ namespace LicenseReleaseService.IdleDetection
                 // Initialize all monitors
                 await _fileSystemMonitor.InitializeAsync(configuration, cancellationToken);
                 await _performanceMonitor.InitializeAsync(configuration, cancellationToken);
-                await _systemActivityTracker.InitializeAsync(configuration, cancellationToken);
+                await _systemActivityTracker.InitializeAsync();
 
                 // Update status
                 UpdateStatus(DetectorStatus.Initialized, "Initialization completed");
@@ -219,7 +219,9 @@ namespace LicenseReleaseService.IdleDetection
                 // Wait for monitoring task to complete
                 if (_monitoringTask != null)
                 {
-                    await Task.WhenAny(_monitoringTask, Task.Delay(TimeSpan.FromSeconds(5)));
+                    // Wait for monitoring task with timeout using WaitAsync
+                    using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await _monitoringTask.WaitAsync(timeoutCts.Token);
                 }
 
                 _logger.LogInformation("ActivityMonitoringService stopped successfully");
@@ -501,7 +503,19 @@ namespace LicenseReleaseService.IdleDetection
                 // Update all monitors
                 await _fileSystemMonitor.UpdateConfigurationAsync(configuration, cancellationToken);
                 await _performanceMonitor.UpdateConfigurationAsync(configuration, cancellationToken);
-                await _systemActivityTracker.UpdateConfigurationAsync(configuration, cancellationToken);
+                // For SystemActivityTracker, create a specific config from the general configuration
+                var trackerConfig = new SystemActivityTrackerConfig
+                {
+                    EnableKeyboardTracking = true,
+                    EnableMouseTracking = true,
+                    EnableMousePositionTracking = false,
+                    EnableSystemResourceTracking = true,
+                    EnableProcessMonitoring = true,
+                    EnableWindowTracking = false,
+                    EnableInputTracking = true,
+                    TrackingInterval = (int)configuration.DetectionInterval.TotalMilliseconds
+                };
+                await _systemActivityTracker.UpdateConfigurationAsync(trackerConfig);
 
                 _logger.LogInformation("ActivityMonitoringService configuration updated successfully");
             }
@@ -597,16 +611,26 @@ namespace LicenseReleaseService.IdleDetection
                 return new DetectorStatistics
                 {
                     DetectorName = Name,
-                    TotalDetections = fileSystemStats.TotalActivitiesMonitored + performanceStats.TotalMetricsCollected + systemActivityStats.TotalActivitiesTracked,
-                    SuccessfulDetections = fileSystemStats.SuccessfulDetections + performanceStats.SuccessfulCollections + systemActivityStats.SuccessfulTracks,
-                    FailedDetections = fileSystemStats.FailedDetections + performanceStats.FailedCollections + systemActivityStats.FailedTracks,
+                    TotalDetections = GetDynamicPropertyValue<long>(fileSystemStats, "TotalActivitiesMonitored") +
+                                   GetDynamicPropertyValue<long>(performanceStats, "TotalMetricsCollected") +
+                                   GetDynamicPropertyValue<long>(systemActivityStats, "TotalActivitiesTracked"),
+                    SuccessfulDetections = GetDynamicPropertyValue<long>(fileSystemStats, "SuccessfulDetections") +
+                                         GetDynamicPropertyValue<long>(performanceStats, "SuccessfulCollections") +
+                                         GetDynamicPropertyValue<long>(systemActivityStats, "SuccessfulTracks"),
+                    FailedDetections = GetDynamicPropertyValue<long>(fileSystemStats, "FailedDetections") +
+                                       GetDynamicPropertyValue<long>(performanceStats, "FailedCollections") +
+                                       GetDynamicPropertyValue<long>(systemActivityStats, "FailedTracks"),
                     IdleStatesDetected = _processHistories.Values.Count(h => h.GetTimeSinceLastActivity() >= TimeSpan.FromSeconds(_config.IdleThresholdSeconds)),
                     ActiveStatesDetected = _processHistories.Values.Count(h => h.GetTimeSinceLastActivity() < TimeSpan.FromSeconds(_config.IdleThresholdSeconds)),
-                    AverageDetectionTimeMs = (fileSystemStats.AverageDetectionTimeMs + performanceStats.AverageCollectionTimeMs + systemActivityStats.AverageTrackingTimeMs) / 3,
-                    Uptime = DateTime.UtcNow - (fileSystemStats.StartTime ?? DateTime.UtcNow),
+                    AverageDetectionTimeMs = (GetDynamicPropertyValue<double>(fileSystemStats, "AverageDetectionTimeMs") +
+                                         GetDynamicPropertyValue<double>(performanceStats, "AverageCollectionTimeMs") +
+                                         GetDynamicPropertyValue<double>(systemActivityStats, "AverageTrackingTimeMs")) / 3,
+                    Uptime = DateTime.UtcNow - GetDynamicPropertyValue<DateTime>(fileSystemStats, "StartTime"),
                     LastDetectionTimestamp = _processHistories.Values.Max(h => h.LastActivityTime),
-                    ErrorCount = fileSystemStats.ErrorCount + performanceStats.ErrorCount + systemActivityStats.ErrorCount,
-                    StatisticsStartTime = fileSystemStats.StartTime ?? DateTime.UtcNow
+                    ErrorCount = GetDynamicPropertyValue<int>(fileSystemStats, "ErrorCount") +
+                               GetDynamicPropertyValue<int>(performanceStats, "ErrorCount") +
+                               GetDynamicPropertyValue<int>(systemActivityStats, "ErrorCount"),
+                    StatisticsStartTime = GetDynamicPropertyValue<DateTime>(fileSystemStats, "StartTime")
                 };
             }
             catch (Exception ex)
@@ -627,7 +651,7 @@ namespace LicenseReleaseService.IdleDetection
             {
                 await _fileSystemMonitor.ResetStatisticsAsync(cancellationToken);
                 await _performanceMonitor.ResetStatisticsAsync(cancellationToken);
-                await _systemActivityTracker.ResetStatisticsAsync(cancellationToken);
+                await _systemActivityTracker.ResetStatisticsAsync();
 
                 lock (_lock)
                 {
@@ -722,6 +746,54 @@ namespace LicenseReleaseService.IdleDetection
             }
 
             return result;
+        }
+
+        #endregion
+
+        #region Private Helper Methods
+
+        /// <summary>
+        /// Gets a dynamic property value from an object using reflection
+        /// </summary>
+        private static T GetDynamicPropertyValue<T>(object obj, string propertyName)
+        {
+            if (obj == null)
+            {
+                return default(T);
+            }
+
+            try
+            {
+                var property = obj.GetType().GetProperty(propertyName);
+                if (property != null)
+                {
+                    var value = property.GetValue(obj);
+                    if (value is T result)
+                    {
+                        return result;
+                    }
+
+                    // Try to convert the value to the expected type
+                    if (value != null && typeof(T) == typeof(long) && value is int intValue)
+                    {
+                        return (T)(object)(long)intValue;
+                    }
+                    if (value != null && typeof(T) == typeof(int) && value is long longValue)
+                    {
+                        return (T)(object)(int)longValue;
+                    }
+                    if (value != null && typeof(T) == typeof(double) && value is float floatValue)
+                    {
+                        return (T)(object)(double)floatValue;
+                    }
+                }
+
+                return default(T);
+            }
+            catch
+            {
+                return default(T);
+            }
         }
 
         #endregion
@@ -1177,7 +1249,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Handles system activity tracking events
         /// </summary>
-        private void OnSystemActivityTracked(object sender, SystemActivityEventArgs e)
+        private void OnSystemActivityTracked(object sender, SystemActivityEvent e)
         {
             try
             {
@@ -1199,7 +1271,7 @@ namespace LicenseReleaseService.IdleDetection
                     }
                 };
 
-                if (_processHistories.TryGetValue(e.ProcessId, out var history))
+                if (e.ProcessId.HasValue && _processHistories.TryGetValue(e.ProcessId.Value, out var history))
                 {
                     history.RecordActivity(activity);
                 }
@@ -1397,6 +1469,24 @@ namespace LicenseReleaseService.IdleDetection
         public Dictionary<string, object> Details { get; set; }
 
         /// <summary>
+        /// Gets or sets the activity type (wrapper property for backward compatibility)
+        /// </summary>
+        public ActivityType ActivityType
+        {
+            get => Type;
+            set => Type = value;
+        }
+
+        /// <summary>
+        /// Gets or sets activity metadata (wrapper property for backward compatibility)
+        /// </summary>
+        public Dictionary<string, object> Metadata
+        {
+            get => Details;
+            set => Details = value;
+        }
+
+        /// <summary>
         /// Initializes a new instance of the ActivityData class
         /// </summary>
         public ActivityData()
@@ -1445,7 +1535,27 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Window activity
         /// </summary>
-        Window
+        Window,
+
+        /// <summary>
+        /// SolidWorks application activity
+        /// </summary>
+        SolidWorks,
+
+        /// <summary>
+        /// Keyboard input activity
+        /// </summary>
+        Keyboard,
+
+        /// <summary>
+        /// Mouse input activity
+        /// </summary>
+        Mouse,
+
+        /// <summary>
+        /// Window focus activity
+        /// </summary>
+        WindowFocus
     }
 
     /// <summary>

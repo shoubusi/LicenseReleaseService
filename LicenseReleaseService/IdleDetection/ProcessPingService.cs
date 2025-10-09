@@ -18,7 +18,7 @@ namespace LicenseReleaseService.IdleDetection
         private readonly PingBasedDetectionConfig _config;
         private readonly object _lock = new object();
         private readonly Dictionary<int, ProcessPingHistory> _pingHistories = new Dictionary<int, ProcessPingHistory>();
-        private readonly SemaphoreSlim _pingSemaphore;
+        private SemaphoreSlim _pingSemaphore;
         private CancellationTokenSource _cancellationTokenSource;
         private bool _isDisposed;
 
@@ -380,22 +380,22 @@ namespace LicenseReleaseService.IdleDetection
             try
             {
                 // Method 1: Basic process accessibility check
-                using var process = GetProcessHandle(processId);
-                if (process == IntPtr.Zero)
+                var processHandle = GetProcessHandle(processId);
+                if (processHandle == IntPtr.Zero)
                 {
                     result.Error = "Process not found or access denied";
                     return result;
                 }
 
                 // Method 2: Check if process is still running
-                if (!IsProcessRunning(process))
+                if (!IsProcessRunning(processHandle))
                 {
                     result.Error = "Process has exited";
                     return result;
                 }
 
                 // Method 3: Query process memory information
-                if (!GetProcessMemoryInfo(process))
+                if (!GetProcessMemoryInfo(processHandle))
                 {
                     result.Error = "Unable to query process memory info";
                     return result;
@@ -405,7 +405,7 @@ namespace LicenseReleaseService.IdleDetection
                 var hasWindows = await FindProcessWindowsAsync(processId, cancellationToken);
 
                 // Method 5: Query full process image name
-                var imagePath = GetProcessImagePath(process);
+                var imagePath = GetProcessImagePath(processHandle);
 
                 // If we reach here, the process is responsive
                 var responseTime = (int)(DateTime.UtcNow - startTime).TotalMilliseconds;
@@ -434,7 +434,7 @@ namespace LicenseReleaseService.IdleDetection
         {
             try
             {
-                var process = Process.GetProcessById(processId);
+                var process = System.Diagnostics.Process.GetProcessById(processId);
                 return process.Handle;
             }
             catch (ArgumentException)
@@ -543,6 +543,12 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         /// <summary>
+        /// Gets the window text
+        /// </summary>
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
+        /// <summary>
         /// Gets the length of window text
         /// </summary>
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
@@ -555,8 +561,8 @@ namespace LicenseReleaseService.IdleDetection
         {
             try
             {
-                var bufferSize = 1024;
-                var builder = new System.Text.StringBuilder(bufferSize);
+                var bufferSize = 1024u;
+                var builder = new System.Text.StringBuilder((int)bufferSize);
                 var result = QueryFullProcessImageName(processHandle, 0, builder, ref bufferSize);
                 return result ? builder.ToString() : null;
             }

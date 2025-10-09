@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using LicenseReleaseService.TimerExecution;
 
@@ -108,6 +109,7 @@ namespace LicenseReleaseService.VersionManagement
             if (_isDisposed)
                 throw new ObjectDisposedException(nameof(VersionScheduler));
 
+            bool needMaintenanceTimer;
             lock (_lock)
             {
                 if (Status != VersionSchedulerStatus.Stopped)
@@ -128,14 +130,7 @@ namespace LicenseReleaseService.VersionManagement
                     // Start the operation queue processor
                     StartQueueProcessor();
 
-                    // Start global timer for maintenance operations
-                    if (_options.EnableMaintenanceOperations)
-                    {
-                        await StartMaintenanceTimerAsync();
-                    }
-
-                    ChangeStatus(VersionSchedulerStatus.Running, "Scheduler started successfully");
-                    _logger.LogInformation("Version scheduler started successfully");
+                    needMaintenanceTimer = _options.EnableMaintenanceOperations;
                 }
                 catch (Exception ex)
                 {
@@ -143,6 +138,18 @@ namespace LicenseReleaseService.VersionManagement
                     _logger.LogError(ex, "Failed to start version scheduler");
                     throw;
                 }
+            }
+
+            // Start global timer for maintenance operations (outside lock)
+            if (needMaintenanceTimer)
+            {
+                await StartMaintenanceTimerAsync();
+            }
+
+            lock (_lock)
+            {
+                ChangeStatus(VersionSchedulerStatus.Running, "Scheduler started successfully");
+                _logger.LogInformation("Version scheduler started successfully");
             }
         }
 
@@ -152,25 +159,29 @@ namespace LicenseReleaseService.VersionManagement
             if (_isDisposed)
                 return;
 
+            VersionSchedulerStatus currentStatus;
             lock (_lock)
             {
                 if (Status == VersionSchedulerStatus.Stopped || Status == VersionSchedulerStatus.Disposed)
                     return;
 
-                var previousStatus = Status;
+                currentStatus = Status;
                 ChangeStatus(VersionSchedulerStatus.Stopping, "Scheduler stopping");
 
-                try
+                // Cancel global operations
+                _globalCancellationTokenSource.Cancel();
+            }
+
+            try
+            {
+                // Stop all version-specific timers (outside lock)
+                await StopAllVersionTimersAsync();
+
+                // Stop global timer (outside lock)
+                await _timerExecutionService.StopAsync();
+
+                lock (_lock)
                 {
-                    // Cancel global operations
-                    _globalCancellationTokenSource.Cancel();
-
-                    // Stop all version-specific timers
-                    await StopAllVersionTimersAsync();
-
-                    // Stop global timer
-                    await _timerExecutionService.StopAsync();
-
                     // Stop queue processor
                     StopQueueProcessor();
 
@@ -184,12 +195,15 @@ namespace LicenseReleaseService.VersionManagement
                     ChangeStatus(VersionSchedulerStatus.Stopped, "Scheduler stopped successfully");
                     _logger.LogInformation("Version scheduler stopped successfully");
                 }
-                catch (Exception ex)
+            }
+            catch (Exception ex)
+            {
+                lock (_lock)
                 {
                     ChangeStatus(VersionSchedulerStatus.Error, $"Failed to stop scheduler: {ex.Message}");
-                    _logger.LogError(ex, "Failed to stop version scheduler");
-                    throw;
                 }
+                _logger.LogError(ex, "Failed to stop version scheduler");
+                throw;
             }
         }
 
@@ -326,6 +340,8 @@ namespace LicenseReleaseService.VersionManagement
             if (string.IsNullOrWhiteSpace(operationId))
                 throw new ArgumentException("Operation ID cannot be null or whitespace", nameof(operationId));
 
+            ITimerExecutionService timerService = null;
+
             lock (_lock)
             {
                 if (!_scheduledOperations.TryGetValue(operationId, out var operation))
@@ -344,9 +360,8 @@ namespace LicenseReleaseService.VersionManagement
                 try
                 {
                     // Stop the version timer
-                    if (_versionTimers.TryGetValue(operation.Version, out var timerService))
+                    if (_versionTimers.TryGetValue(operation.Version, out timerService))
                     {
-                        await timerService.StopAsync();
                         _versionTimers.Remove(operation.Version);
                     }
 
@@ -362,6 +377,12 @@ namespace LicenseReleaseService.VersionManagement
                     _logger.LogError(ex, "Failed to cancel operation {OperationId}", operationId);
                     return false;
                 }
+            }
+
+            // Stop the timer service outside the lock
+            if (timerService != null)
+            {
+                await timerService.StopAsync();
             }
         }
 
@@ -556,8 +577,14 @@ namespace LicenseReleaseService.VersionManagement
         {
             // This would normally be resolved from DI container
             // For now, create a new instance
-            var logger = _logger;
-            return new TimerExecutionService(logger, options, _options.EnableTimerPerformanceOptimization);
+            // Cast the logger to the expected type or create a null logger as fallback
+            var timerLogger = _logger as ILogger<TimerExecutionService>;
+            if (timerLogger == null)
+            {
+                // Create a minimal logger wrapper or use a different approach
+                timerLogger = NullLogger<TimerExecutionService>.Instance;
+            }
+            return new TimerExecutionService(timerLogger, options, _options.EnableTimerPerformanceOptimization);
         }
 
         private async Task StartMaintenanceTimerAsync()
@@ -674,9 +701,9 @@ namespace LicenseReleaseService.VersionManagement
                 // Execute the operation using runtime manager
                 var requirements = CreateOperationRequirements(operationRequest);
                 var result = await _runtimeManager.ExecuteOperationAsync(
-                    operationRequest.OperationType,
+                    operationRequest.OperationType.ToString(),
                     operationRequest.Version,
-                    requirements,
+                    requirements.ToDictionary(),
                     operationRequest.Parameters,
                     _globalCancellationTokenSource.Token);
 

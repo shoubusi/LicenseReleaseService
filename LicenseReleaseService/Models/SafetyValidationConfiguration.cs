@@ -117,6 +117,18 @@ namespace LicenseReleaseService.Models
         public Dictionary<string, string> CustomValidationRules { get; set; } = new Dictionary<string, string>();
 
         /// <summary>
+        /// Gets or sets whether to prevent license release during high usage periods
+        /// </summary>
+        [DefaultValue(false)]
+        public bool PreventReleaseDuringHighUsage { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets the high usage threshold percentage
+        /// </summary>
+        [DefaultValue(85)]
+        public int HighUsageThreshold { get; set; } = 85;
+
+        /// <summary>
         /// Gets or sets the validation failure action
         /// </summary>
         [DefaultValue(SafetyValidationAction.Block)]

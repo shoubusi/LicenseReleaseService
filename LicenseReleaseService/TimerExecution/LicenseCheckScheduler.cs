@@ -21,7 +21,7 @@ namespace LicenseReleaseService.TimerExecution
         private readonly ConcurrentQueue<LicenseCheckEventArgs> _executionHistory;
         private readonly ReaderWriterLockSlim _lock;
         private readonly CancellationTokenSource _cancellationTokenSource;
-        private readonly Timer _cleanupTimer;
+        private readonly System.Threading.Timer _cleanupTimer;
 
         private LicenseCheckSchedulerStatus _status;
         private TimeSpan _currentInterval;
@@ -91,6 +91,11 @@ namespace LicenseReleaseService.TimerExecution
         /// </summary>
         public LicenseCheckSchedulerMetrics Metrics => GetMetrics();
 
+        /// <summary>
+        /// Gets the total number of operations completed
+        /// </summary>
+        public long TotalOperationsCompleted => Interlocked.Read(ref _totalOperationsCompleted);
+
         #endregion
 
         /// <summary>
@@ -108,7 +113,7 @@ namespace LicenseReleaseService.TimerExecution
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
-            _queue = new LicenseCheckQueue(logger, _configuration.QueueConfiguration);
+            _queue = new LicenseCheckQueue();
             _operationCancellationTokens = new ConcurrentDictionary<string, CancellationTokenSource>();
             _executionHistory = new ConcurrentQueue<LicenseCheckEventArgs>();
             _lock = new ReaderWriterLockSlim();
@@ -270,11 +275,11 @@ namespace LicenseReleaseService.TimerExecution
         /// <returns>Task representing the immediate execution operation</returns>
         public async Task ExecuteNowAsync(CancellationToken cancellationToken = default)
         {
-            var operation = LicenseCheckOperation.CreateComprehensiveCheck(
+            var operation = LicenseCheckOperationFactory.CreateComprehensiveCheck(
                 _configuration.DefaultServer,
                 _configuration.DefaultPort);
 
-            await EnqueueOperationAsync(operation, LicenseCheckPriority.High, cancellationToken);
+            await EnqueueOperationAsync(operation, LicenseCheckPriority.High);
         }
 
         #endregion
@@ -448,7 +453,7 @@ namespace LicenseReleaseService.TimerExecution
                 ConfigurationErrors = validationErrors,
                 IsHealthy = validationErrors.Count == 0 && _status != LicenseCheckSchedulerStatus.Faulted,
                 MemoryUsage = GC.GetTotalMemory(false),
-                ThreadCount = Process.GetCurrentProcess().Threads.Count,
+                ThreadCount = System.Diagnostics.Process.GetCurrentProcess().Threads.Count,
                 LastDiagnosticsCheck = DateTime.Now
             };
         }
@@ -485,7 +490,7 @@ namespace LicenseReleaseService.TimerExecution
             _logger.LogDebug("Timer execution started: {ExecutionId}", e.ExecutionId);
 
             // Execute default license check
-            var operation = LicenseCheckOperation.CreateComprehensiveCheck(
+            var operation = LicenseCheckOperationFactory.CreateComprehensiveCheck(
                 _configuration.DefaultServer,
                 _configuration.DefaultPort);
 
@@ -537,10 +542,16 @@ namespace LicenseReleaseService.TimerExecution
             var eventArgs = new LicenseCheckEventArgs(
                 e.OperationId,
                 e.OperationType,
+                e.TargetVersion,
                 e.Server,
                 e.Port,
-                LicenseCheckOperationStatus.Executing,
-                DateTime.Now);
+                LicenseCheckEventType.Started,
+                null, // result
+                null, // additionalData
+                null, // errorMessage
+                null, // exception
+                e.InitiatingUser,
+                e.ComputerName);
 
             CheckStarted?.Invoke(this, eventArgs);
             _executionHistory.Enqueue(eventArgs);
@@ -554,12 +565,14 @@ namespace LicenseReleaseService.TimerExecution
             Interlocked.Increment(ref _totalOperationsCompleted);
 
             var eventArgs = new LicenseCheckEventArgs(
-                e.OperationId,
-                e.OperationType,
-                e.Server,
-                e.Port,
-                LicenseCheckOperationStatus.Completed,
-                DateTime.Now);
+                operationId: e.OperationId,
+                operationType: e.OperationType,
+                targetVersion: e.TargetVersion,
+                licenseServer: e.Server,
+                port: e.Port,
+                eventType: LicenseCheckEventType.Completed,
+                initiatingUser: null,
+                computerName: null);
 
             CheckCompleted?.Invoke(this, eventArgs);
             _executionHistory.Enqueue(eventArgs);
@@ -575,10 +588,14 @@ namespace LicenseReleaseService.TimerExecution
             var eventArgs = new LicenseCheckEventArgs(
                 e.OperationId,
                 e.OperationType,
+                e.TargetVersion,
                 e.Server,
                 e.Port,
-                LicenseCheckOperationStatus.Failed,
-                DateTime.Now);
+                LicenseCheckEventType.Error,
+                null,
+                null,
+                e.ErrorMessage,
+                e.Exception);
 
             var errorArgs = new LicenseCheckErrorEventArgs(
                 e.ErrorMessage ?? "Operation failed",
@@ -646,11 +663,11 @@ namespace LicenseReleaseService.TimerExecution
                 CancelledOperations = queueStats.CancelledCount,
                 TimedOutOperations = queueStats.TimedOutCount,
                 AverageExecutionTime = queueStats.AverageExecutionTime,
-                OperationsPerSecond = uptime.TotalSeconds > 0 ? queueStats.TotalProcessed / uptime.TotalSeconds : 0,
+                OperationsPerSecond = uptime.TotalSeconds > 0 ? (double)queueStats.TotalProcessed / uptime.TotalSeconds : 0,
                 QueueSize = PendingOperationsCount,
                 IsRunning = IsRunning,
                 IsHealthy = _status != LicenseCheckSchedulerStatus.Faulted,
-                ConsecutiveErrors = _totalConsecutiveErrors,
+                ConsecutiveErrors = (int)_totalConsecutiveErrors,
                 Timestamp = DateTime.Now
             };
         }

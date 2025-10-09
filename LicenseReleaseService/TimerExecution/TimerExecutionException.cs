@@ -160,10 +160,7 @@ namespace LicenseReleaseService.TimerExecution
                 TimerState.CircuitBreaker,
                 null,
                 consecutiveErrors,
-                true)
-            {
-                ShouldTriggerCircuitBreaker = true
-            };
+                true);
         }
 
         /// <summary>
@@ -238,7 +235,7 @@ namespace LicenseReleaseService.TimerExecution
             : base(info, context)
         {
             State = (TimerState)info.GetInt32(nameof(State));
-            ExecutionId = info.GetGuid(nameof(ExecutionId));
+            ExecutionId = (Guid)info.GetValue(nameof(ExecutionId), typeof(Guid));
             ConsecutiveErrors = info.GetInt32(nameof(ConsecutiveErrors));
             ShouldTriggerCircuitBreaker = info.GetBoolean(nameof(ShouldTriggerCircuitBreaker));
             TimerInterval = (TimeSpan)info.GetValue(nameof(TimerInterval), typeof(TimeSpan));

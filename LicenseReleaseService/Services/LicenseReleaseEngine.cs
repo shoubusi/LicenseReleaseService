@@ -413,7 +413,7 @@ namespace LicenseReleaseService.Services
                 {
                     // Check if the user is still using the specific feature
                     var userUsage = users[request.User];
-                    if (userUsage.FeatureUsages?.Any(f => f.FeatureName.Equals(request.Feature, StringComparison.OrdinalIgnoreCase)) ?? false)
+                    if (userUsage.FeatureUsages?.Any(f => f.Feature.Equals(request.Feature, StringComparison.OrdinalIgnoreCase)) ?? false)
                     {
                         return VerificationResult.Failure("License was not successfully released - user still has the feature checked out");
                     }

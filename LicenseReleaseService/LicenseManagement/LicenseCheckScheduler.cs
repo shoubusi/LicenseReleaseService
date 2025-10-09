@@ -108,12 +108,14 @@ namespace LicenseReleaseService.LicenseManagement
         /// </summary>
         /// <param name="timerExecutionService">Timer execution service</param>
         /// <param name="logger">Logger instance</param>
+        /// <param name="loggerFactory">Logger factory for creating loggers</param>
         /// <param name="licenseManager">License manager instance</param>
         /// <param name="licenseQueryEngine">License query engine instance</param>
         /// <param name="options">Timer execution options</param>
         public LicenseCheckScheduler(
             ITimerExecutionService timerExecutionService,
             ILogger<LicenseCheckScheduler> logger,
+            ILoggerFactory loggerFactory,
             ILicenseManager licenseManager,
             ILicenseQueryEngine licenseQueryEngine,
             TimerExecutionOptions options)
@@ -124,7 +126,8 @@ namespace LicenseReleaseService.LicenseManagement
             _licenseQueryEngine = licenseQueryEngine ?? throw new ArgumentNullException(nameof(licenseQueryEngine));
             _options = options ?? throw new ArgumentNullException(nameof(options));
 
-            _queue = new LicenseCheckQueue(_logger, _options);
+            var queueLogger = loggerFactory?.CreateLogger<LicenseCheckQueue>() ?? throw new ArgumentNullException(nameof(loggerFactory));
+            _queue = new LicenseCheckQueue(queueLogger, _options);
             _recurringOperations = new ConcurrentDictionary<Guid, LicenseCheckOperation>();
             _recurringOperationLastExecution = new ConcurrentDictionary<Guid, DateTime>();
             _operationCancellationTokens = new ConcurrentDictionary<Guid, CancellationTokenSource>();
@@ -369,7 +372,7 @@ namespace LicenseReleaseService.LicenseManagement
         /// <param name="operation">The operation to execute</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Task representing the execution operation</returns>
-        public async Task<LicenseCheckResult> ExecuteNowAsync(LicenseCheckOperation operation, CancellationToken cancellationToken = default)
+        public Task<LicenseCheckResult> ExecuteNowAsync(LicenseCheckOperation operation, CancellationToken cancellationToken = default)
         {
             if (operation == null)
                 throw new ArgumentNullException(nameof(operation));
@@ -409,10 +412,8 @@ namespace LicenseReleaseService.LicenseManagement
             _queue.OperationCompleted += onCompleted;
             _queue.OperationFailed += onFailed;
 
-            // Enqueue the operation
-            await _queue.EnqueueAsync(operation, cancellationToken);
-
-            // Return the task that will complete when the operation finishes
+            // Enqueue the operation and return the task that will complete when the operation finishes
+            _ = _queue.EnqueueAsync(operation, cancellationToken);
             return tcs.Task;
         }
 

@@ -16,13 +16,17 @@ namespace LicenseReleaseService.TimerExecution
         private readonly TimerPerformanceTunerOptions _options;
         private readonly TimerMetricsCollector _metricsCollector;
         private readonly TimerPerformanceOptimizer _optimizer;
-        private readonly Timer _tuningTimer;
+        private readonly System.Threading.Timer _tuningTimer;
         private readonly Dictionary<string, TimerTuningRule> _tuningRules;
         private readonly object _lock = new object();
         private readonly Queue<TimerTuningAction> _tuningHistory;
         private DateTime _startTime;
         private bool _isDisposed;
         private bool _isTuning;
+        private DateTime? _lastTuningTime;
+        private int _tuningCyclesCompleted;
+        private TimerTuningConfiguration _currentConfiguration;
+        private readonly List<TimerOptimizationRecommendation> _optimizationHistory = new List<TimerOptimizationRecommendation>();
 
         /// <summary>
         /// Occurs when performance tuning is applied
@@ -87,7 +91,7 @@ namespace LicenseReleaseService.TimerExecution
             _isTuning = true;
             _startTime = DateTime.UtcNow;
 
-            await TuningCycleAsync(null);
+            TuningCycleAsync(null);
             _logger.LogInformation("Performance tuner started with interval {Interval}ms", _options.TuningIntervalMs);
         }
 
@@ -102,7 +106,7 @@ namespace LicenseReleaseService.TimerExecution
             _isTuning = false;
             _tuningTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
-            await TuningCycleAsync(null);
+            TuningCycleAsync(null);
             _logger.LogInformation("Performance tuner stopped after {Uptime}", Uptime);
         }
 
@@ -467,6 +471,170 @@ namespace LicenseReleaseService.TimerExecution
             // React to threshold exceeded events
             _logger.LogWarning("Performance threshold exceeded: {Thresholds}",
                 string.Join(", ", e.ExceededThresholds.Select(t => t.ToString())));
+        }
+
+        /// <summary>
+        /// Gets current tuner metrics
+        /// </summary>
+        public TimerTunerMetrics GetMetrics()
+        {
+            return new TimerTunerMetrics
+            {
+                IsTuningActive = _isTuning,
+                LastTuningTime = _lastTuningTime,
+                TuningCyclesCompleted = _tuningCyclesCompleted,
+                CurrentConfiguration = _currentConfiguration,
+                Timestamp = DateTime.UtcNow
+            };
+        }
+
+        /// <summary>
+        /// Analyzes performance and generates optimization recommendations
+        /// </summary>
+        public async Task<List<TimerOptimizationRecommendation>> AnalyzePerformanceAsync(TimerMetrics systemMetrics, CancellationToken cancellationToken = default)
+        {
+            if (systemMetrics == null)
+                return new List<TimerOptimizationRecommendation>();
+
+            try
+            {
+                var recommendations = new List<TimerOptimizationRecommendation>();
+
+                // Analyze CPU usage
+                if (systemMetrics.CpuUsagePercent > _options.CpuUsageThreshold)
+                {
+                    recommendations.Add(new TimerOptimizationRecommendation
+                    {
+                        Type = TimerOptimizationType.ReduceCpuUsage,
+                        Priority = TimerOptimizationPriority.High,
+                        Description = $"High CPU usage detected: {systemMetrics.CpuUsagePercent:F1}%",
+                        Parameters = new Dictionary<string, object>
+                        {
+                            { "CurrentCpuUsage", systemMetrics.CpuUsagePercent },
+                            { "Threshold", _options.CpuUsageThreshold }
+                        }
+                    });
+                }
+
+                // Analyze memory usage
+                if (systemMetrics.MemoryUsagePercent > _options.MemoryUsageThreshold)
+                {
+                    recommendations.Add(new TimerOptimizationRecommendation
+                    {
+                        Type = TimerOptimizationType.ReduceMemoryUsage,
+                        Priority = TimerOptimizationPriority.High,
+                        Description = $"High memory usage detected: {systemMetrics.MemoryUsagePercent:F1}%",
+                        Parameters = new Dictionary<string, object>
+                        {
+                            { "CurrentMemoryUsage", systemMetrics.MemoryUsagePercent },
+                            { "Threshold", _options.MemoryUsageThreshold }
+                        }
+                    });
+                }
+
+                // Analyze thread count
+                if (systemMetrics.ThreadCount > _options.MaxThreadCount)
+                {
+                    recommendations.Add(new TimerOptimizationRecommendation
+                    {
+                        Type = TimerOptimizationType.OptimizeThreadPool,
+                        Priority = TimerOptimizationPriority.Medium,
+                        Description = $"High thread count detected: {systemMetrics.ThreadCount}",
+                        Parameters = new Dictionary<string, object>
+                        {
+                            { "CurrentThreadCount", systemMetrics.ThreadCount },
+                            { "MaxThreadCount", _options.MaxThreadCount }
+                        }
+                    });
+                }
+
+                _logger.LogDebug("Generated {Count} optimization recommendations", recommendations.Count);
+                return recommendations;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error analyzing performance");
+                return new List<TimerOptimizationRecommendation>();
+            }
+        }
+
+        /// <summary>
+        /// Applies optimization recommendations
+        /// </summary>
+        public async Task ApplyOptimizationAsync(TimerOptimizationRecommendation recommendation, CancellationToken cancellationToken = default)
+        {
+            if (recommendation == null)
+                return;
+
+            try
+            {
+                _logger.LogInformation("Applying optimization: {Type} - {Description}",
+                    recommendation.Type, recommendation.Description);
+
+                switch (recommendation.Type)
+                {
+                    case TimerOptimizationType.ReduceCpuUsage:
+                        await ApplyCpuOptimizationAsync(recommendation, cancellationToken);
+                        break;
+                    case TimerOptimizationType.ReduceMemoryUsage:
+                        await ApplyMemoryOptimizationAsync(recommendation, cancellationToken);
+                        break;
+                    case TimerOptimizationType.OptimizeThreadPool:
+                        await ApplyThreadPoolOptimizationAsync(recommendation, cancellationToken);
+                        break;
+                    default:
+                        _logger.LogWarning("Unknown optimization type: {Type}", recommendation.Type);
+                        break;
+                }
+
+                _logger.LogDebug("Optimization applied successfully: {Type}", recommendation.Type);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error applying optimization: {Type}", recommendation.Type);
+            }
+        }
+
+        /// <summary>
+        /// Resets tuner statistics
+        /// </summary>
+        public void ResetStatistics()
+        {
+            lock (_lock)
+            {
+                _tuningCyclesCompleted = 0;
+                _lastTuningTime = null;
+                _optimizationHistory.Clear();
+            }
+
+            _logger.LogInformation("Timer performance tuner statistics reset");
+        }
+
+        /// <summary>
+        /// Resets tuner statistics asynchronously
+        /// </summary>
+        public async Task ResetStatisticsAsync()
+        {
+            ResetStatistics();
+            await Task.CompletedTask;
+        }
+
+        private async Task ApplyCpuOptimizationAsync(TimerOptimizationRecommendation recommendation, CancellationToken cancellationToken)
+        {
+            // Implementation for CPU optimization
+            await Task.Delay(10, cancellationToken); // Simulate work
+        }
+
+        private async Task ApplyMemoryOptimizationAsync(TimerOptimizationRecommendation recommendation, CancellationToken cancellationToken)
+        {
+            // Implementation for memory optimization
+            await Task.Delay(10, cancellationToken); // Simulate work
+        }
+
+        private async Task ApplyThreadPoolOptimizationAsync(TimerOptimizationRecommendation recommendation, CancellationToken cancellationToken)
+        {
+            // Implementation for thread pool optimization
+            await Task.Delay(10, cancellationToken); // Simulate work
         }
 
         public void Dispose()

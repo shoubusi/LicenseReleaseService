@@ -79,8 +79,22 @@ namespace LicenseReleaseService.VersionManagement
                 // Get or create resource pool for the version
                 var resourcePool = GetOrCreateResourcePool(version, requirements);
 
+                // Convert ResourceRequirements to VersionOperationRequirements
+                var operationRequirements = new VersionOperationRequirements
+                {
+                    Version = version,
+                    MaxConcurrentOperations = requirements.MaxConcurrentOperations,
+                    MemoryLimit = requirements.MemoryLimit,
+                    CpuLimit = requirements.CpuLimit,
+                    Timeout = requirements.Timeout,
+                    Priority = requirements.Priority,
+                    MaxMemoryUsageBytes = requirements.MaxMemoryUsageBytes,
+                    MaxCpuUsagePercent = requirements.MaxCpuUsagePercent,
+                    TimeoutMs = (int)requirements.Timeout.TotalMilliseconds
+                };
+
                 // Attempt to allocate resources
-                var allocation = await resourcePool.AllocateAsync(requirements, cancellationToken);
+                var allocation = await resourcePool.AllocateAsync(operationRequirements, cancellationToken);
 
                 if (allocation.Success)
                 {
@@ -101,7 +115,21 @@ namespace LicenseReleaseService.VersionManagement
                         version, allocation.ErrorMessage);
                 }
 
-                return allocation;
+                // Convert ResourceAllocationResult to ResourceAllocation
+                return new ResourceAllocation
+                {
+                    AllocationId = allocation.AllocationId,
+                    Version = allocation.Version,
+                    Success = allocation.Success,
+                    ErrorMessage = allocation.ErrorMessage,
+                    AllocatedAt = allocation.AllocatedAt,
+                    ExpiresAt = allocation.ExpiresAt,
+                    MemoryLimit = allocation.MemoryLimit,
+                    CpuLimit = allocation.CpuLimit,
+                    Priority = allocation.Priority,
+                    OperationType = allocation.OperationType,
+                    Requirements = allocation.Requirements
+                };
             }
             finally
             {
@@ -127,21 +155,42 @@ namespace LicenseReleaseService.VersionManagement
                 VersionResourcePool resourcePool = null;
                 lock (_poolsLock)
                 {
-                    if (_resourcePools.TryGetValue(allocation.Version, out resourcePool))
-                    {
-                        // Release the allocation
-                        var releaseResult = await resourcePool.ReleaseAsync(allocation);
+                    _resourcePools.TryGetValue(allocation.Version, out resourcePool);
+                }
 
+                if (resourcePool != null)
+                {
+                    // Convert ResourceAllocation to ResourceAllocationResult
+                    var allocationResult = new ResourceAllocationResult
+                    {
+                        AllocationId = allocation.AllocationId,
+                        Version = allocation.Version,
+                        Success = allocation.Success,
+                        ErrorMessage = allocation.ErrorMessage,
+                        AllocatedAt = allocation.AllocatedAt,
+                        ExpiresAt = allocation.ExpiresAt,
+                        MemoryLimit = allocation.MemoryLimit,
+                        CpuLimit = allocation.CpuLimit,
+                        Priority = allocation.Priority,
+                        OperationType = allocation.OperationType,
+                        Requirements = allocation.Requirements
+                    };
+
+                    // Release the allocation
+                    var releaseResult = await resourcePool.ReleaseAsync(allocationResult);
+
+                    lock (_poolsLock)
+                    {
                         // Update statistics
                         Statistics.ActiveAllocations--;
                         Statistics.TotalReleases++;
                         Statistics.LastReleaseTime = DateTime.UtcNow;
-
-                        _logger.LogDebug("Successfully released resources for allocation {AllocationId}",
-                            allocation.AllocationId);
-
-                        return releaseResult;
                     }
+
+                    _logger.LogDebug("Successfully released resources for allocation {AllocationId}",
+                        allocation.AllocationId);
+
+                    return releaseResult;
                 }
 
                 return new ResourceReleaseResult
@@ -173,7 +222,7 @@ namespace LicenseReleaseService.VersionManagement
                 _logger.LogDebug("Getting resource utilization summary");
 
                 var summary = new ResourceUtilizationSummary();
-                var utilizationTasks = new List<Task<VersionUtilization>>();
+                var utilizationTasks = new List<Task<VersionResourceUtilization>>();
 
                 lock (_poolsLock)
                 {
@@ -190,6 +239,7 @@ namespace LicenseReleaseService.VersionManagement
                 // Aggregate results
                 foreach (var utilization in utilizationResults)
                 {
+                    // Add VersionResourceUtilization directly
                     summary.VersionUtilization.Add(utilization);
                 }
 
@@ -251,7 +301,27 @@ namespace LicenseReleaseService.VersionManagement
                     return false;
                 }
 
-                var pool = new VersionResourcePool(version, requirements, Configuration);
+                // Convert ResourceRequirements to ResourcePoolConfiguration
+                var poolConfig = new ResourcePoolConfiguration
+                {
+                    MaxConcurrentOperations = requirements.MaxConcurrentOperations,
+                    MaxMemoryUsageBytes = requirements.MaxMemoryUsageBytes,
+                    MaxCpuUsagePercent = requirements.MaxCpuUsagePercent,
+                    TimeoutMs = (int)requirements.Timeout.TotalMilliseconds,
+                    Version = requirements.Version
+                };
+
+                // Convert ResourceAllocationConfiguration to ResourceManagementConfiguration
+                var managementConfig = new ResourceManagementConfiguration
+                {
+                    MaxConcurrentAllocations = Configuration.MaxConcurrentAllocations,
+                    AllocationTimeoutMs = Configuration.AllocationTimeoutMs,
+                    CleanupIntervalMs = Configuration.CleanupIntervalMs,
+                    EnableMetrics = Configuration.EnableMetrics,
+                    EnableLogging = Configuration.EnableLogging
+                };
+
+                var pool = new VersionResourcePool(version, poolConfig, managementConfig);
                 _resourcePools[version] = pool;
 
                 _logger.LogDebug("Created resource pool for version {Version} with capacity {Capacity}",
@@ -410,7 +480,27 @@ namespace LicenseReleaseService.VersionManagement
             {
                 if (!_resourcePools.TryGetValue(version, out var pool))
                 {
-                    pool = new VersionResourcePool(version, requirements, Configuration);
+                    // Convert ResourceRequirements to ResourcePoolConfiguration
+                    var poolConfig = new ResourcePoolConfiguration
+                    {
+                        MaxConcurrentOperations = requirements.MaxConcurrentOperations,
+                        MaxMemoryUsageBytes = requirements.MaxMemoryUsageBytes,
+                        MaxCpuUsagePercent = requirements.MaxCpuUsagePercent,
+                        TimeoutMs = (int)requirements.Timeout.TotalMilliseconds,
+                        Version = requirements.Version
+                    };
+
+                    // Convert ResourceAllocationConfiguration to ResourceManagementConfiguration
+                    var managementConfig = new ResourceManagementConfiguration
+                    {
+                        MaxConcurrentAllocations = Configuration.MaxConcurrentAllocations,
+                        AllocationTimeoutMs = Configuration.AllocationTimeoutMs,
+                        CleanupIntervalMs = Configuration.CleanupIntervalMs,
+                        EnableMetrics = Configuration.EnableMetrics,
+                        EnableLogging = Configuration.EnableLogging
+                    };
+
+                    pool = new VersionResourcePool(version, poolConfig, managementConfig);
                     _resourcePools[version] = pool;
 
                     _logger.LogDebug("Created new resource pool for version {Version}", version);
@@ -539,6 +629,26 @@ namespace LicenseReleaseService.VersionManagement
         /// Gets or sets the cleanup interval for expired allocations
         /// </summary>
         public TimeSpan CleanupInterval { get; set; } = TimeSpan.FromMinutes(5);
+
+        /// <summary>
+        /// Gets or sets the allocation timeout in milliseconds
+        /// </summary>
+        public long AllocationTimeoutMs { get; set; } = 30000;
+
+        /// <summary>
+        /// Gets or sets the cleanup interval in milliseconds
+        /// </summary>
+        public long CleanupIntervalMs { get; set; } = 300000;
+
+        /// <summary>
+        /// Gets or sets whether metrics are enabled
+        /// </summary>
+        public bool EnableMetrics { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether logging is enabled
+        /// </summary>
+        public bool EnableLogging { get; set; } = true;
     }
 
     /// <summary>
@@ -552,6 +662,9 @@ namespace LicenseReleaseService.VersionManagement
         public int CpuLimit { get; set; }
         public TimeSpan Timeout { get; set; }
         public AllocationPriority Priority { get; set; }
+        public long MaxMemoryUsageBytes { get; set; }
+        public int MaxCpuUsagePercent { get; set; }
+        public long TimeoutMs { get; set; }
     }
 
     /// <summary>
@@ -568,6 +681,8 @@ namespace LicenseReleaseService.VersionManagement
         public long MemoryLimit { get; set; }
         public int CpuLimit { get; set; }
         public AllocationPriority Priority { get; set; }
+        public VersionOperationType OperationType { get; set; }
+        public VersionOperationRequirements Requirements { get; set; }
     }
 
 
@@ -587,21 +702,7 @@ namespace LicenseReleaseService.VersionManagement
     }
 
 
-    /// <summary>
-    /// Version-specific utilization information
-    /// </summary>
-    public class VersionUtilization
-    {
-        public string Version { get; set; }
-        public int TotalCapacity { get; set; }
-        public int AllocatedResources { get; set; }
-        public int AvailableResources { get; set; }
-        public double UtilizationPercentage { get; set; }
-        public long MemoryUsed { get; set; }
-        public int CpuUsed { get; set; }
-        public List<string> ActiveAllocations { get; set; } = new List<string>();
-    }
-
+  
     /// <summary>
     /// Allocation cleanup result
     /// </summary>

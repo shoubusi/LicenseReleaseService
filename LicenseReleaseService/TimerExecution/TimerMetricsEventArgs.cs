@@ -389,4 +389,50 @@ namespace LicenseReleaseService.TimerExecution
         /// </summary>
         Unknown
     }
+
+    /// <summary>
+    /// Represents collected timer metrics
+    /// </summary>
+    public class TimerMetrics
+    {
+        /// <summary>
+        /// Gets the CPU usage percentage
+        /// </summary>
+        public double CpuUsagePercent { get; set; }
+
+        /// <summary>
+        /// Gets the memory usage percentage
+        /// </summary>
+        public double MemoryUsagePercent { get; set; }
+
+        /// <summary>
+        /// Gets the thread count
+        /// </summary>
+        public int ThreadCount { get; set; }
+
+        /// <summary>
+        /// Gets the working set memory in MB
+        /// </summary>
+        public long WorkingSetMB { get; set; }
+
+        /// <summary>
+        /// Gets the private memory in MB
+        /// </summary>
+        public long PrivateMemoryMB { get; set; }
+
+        /// <summary>
+        /// Gets the handle count
+        /// </summary>
+        public int HandleCount { get; set; }
+
+        /// <summary>
+        /// Gets the timestamp when metrics were collected
+        /// </summary>
+        public DateTime Timestamp { get; set; }
+
+        /// <summary>
+        /// Gets the snapshot ID
+        /// </summary>
+        public string SnapshotId { get; set; }
+    }
 }

@@ -129,6 +129,21 @@ namespace LicenseReleaseService.TimerExecution
         public long TotalSize { get; set; }
 
         /// <summary>
+        /// Gets a value indicating whether the cache manager is running
+        /// </summary>
+        public bool IsRunning { get; set; }
+
+        /// <summary>
+        /// Gets the number of active caches (alias for TotalCaches)
+        /// </summary>
+        public int CacheCount => TotalCaches;
+
+        /// <summary>
+        /// Gets the timestamp when these metrics were generated
+        /// </summary>
+        public DateTime GeneratedAt { get; set; }
+
+        /// <summary>
         /// Gets the total memory usage in bytes
         /// </summary>
         public long TotalMemoryUsage { get; set; }

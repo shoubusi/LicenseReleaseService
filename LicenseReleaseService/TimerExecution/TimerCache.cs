@@ -389,6 +389,16 @@ namespace LicenseReleaseService.TimerExecution
         }
 
         /// <summary>
+        /// Cleans up expired items from the cache (alias for ClearExpiredItemsAsync)
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task representing the operation</returns>
+        public Task CleanupExpiredItemsAsync(CancellationToken cancellationToken = default)
+        {
+            return ClearExpiredItemsAsync(false);
+        }
+
+        /// <summary>
         /// Adjusts the expiration policy
         /// </summary>
         /// <param name="newExpiration">New default expiration time</param>

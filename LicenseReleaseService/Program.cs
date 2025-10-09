@@ -4,7 +4,6 @@ using System.Linq;
 using System.ServiceProcess;
 using System.Text;
 using System.Threading.Tasks;
-using System.Configuration.Install;
 using System.IO;
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +17,11 @@ using LicenseReleaseService.IdleDetection;
 using HealthChecker = LicenseReleaseService.LicenseManagement.HealthChecker;
 using PerformanceMonitor = LicenseReleaseService.LicenseManagement.PerformanceMonitor;
 using Microsoft.Extensions.Logging;
+
+#if NET9_0
+#else
+using System.Configuration.Install;
+#endif
 
 namespace LicenseReleaseService
 {
@@ -112,7 +116,7 @@ namespace LicenseReleaseService
 				// Set up dependency injection
 				var services = new ServiceCollection();
 			 ConfigureServices(services);
-				_serviceProvider = services.BuildServiceProvider();
+				_serviceProvider = new ServiceProviderAdapter(services.BuildServiceProvider());
 
 				// Get the ConfigurationManager instance to initialize it
 				var configManager = ConfigurationManager.Instance;
@@ -201,7 +205,6 @@ namespace LicenseReleaseService
 			});
 
 			// Add health monitoring
-			services.AddSingleton<ServiceHealth>();
 			services.AddSingleton<HealthChecker>();
 
 			// Add license management
@@ -424,6 +427,23 @@ namespace LicenseReleaseService
 			try
 			{
 				var assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+
+#if NET9_0
+				// Use sc.exe for .NET 5+
+				var process = new System.Diagnostics.Process
+				{
+					StartInfo = new System.Diagnostics.ProcessStartInfo
+					{
+						FileName = "sc.exe",
+						Arguments = $"create \"{ServiceName}\" binPath= \"{assemblyPath}\" DisplayName= \"{ServiceDisplayName}\" start= auto",
+						UseShellExecute = false,
+						RedirectStandardOutput = true,
+						RedirectStandardError = true,
+						CreateNoWindow = true
+					}
+				};
+#else
+				// Use installutil.exe for .NET Framework
 				var installUtilPath = Path.Combine(
 					System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(),
 					"installutil.exe");
@@ -447,11 +467,33 @@ namespace LicenseReleaseService
 						CreateNoWindow = true
 					}
 				};
+#endif
 
 				process.Start();
 				var output = process.StandardOutput.ReadToEnd();
 				var error = process.StandardError.ReadToEnd();
 				process.WaitForExit();
+
+#if NET9_0
+				// For .NET 5+, also set the service description
+				if (process.ExitCode == 0)
+				{
+					var descProcess = new System.Diagnostics.Process
+					{
+						StartInfo = new System.Diagnostics.ProcessStartInfo
+						{
+							FileName = "sc.exe",
+							Arguments = $"description \"{ServiceName}\" \"{ServiceDescription}\"",
+							UseShellExecute = false,
+							RedirectStandardOutput = true,
+							RedirectStandardError = true,
+							CreateNoWindow = true
+						}
+					};
+					descProcess.Start();
+					descProcess.WaitForExit();
+				}
+#endif
 
 				if (process.ExitCode == 0)
 				{
@@ -489,6 +531,22 @@ namespace LicenseReleaseService
 
 			try
 			{
+#if NET9_0
+				// Use sc.exe for .NET 5+
+				var process = new System.Diagnostics.Process
+				{
+					StartInfo = new System.Diagnostics.ProcessStartInfo
+					{
+						FileName = "sc.exe",
+						Arguments = $"delete \"{ServiceName}\"",
+						UseShellExecute = false,
+						RedirectStandardOutput = true,
+						RedirectStandardError = true,
+						CreateNoWindow = true
+					}
+				};
+#else
+				// Use installutil.exe for .NET Framework
 				var assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
 				var installUtilPath = Path.Combine(
 					System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(),
@@ -513,6 +571,7 @@ namespace LicenseReleaseService
 						CreateNoWindow = true
 					}
 				};
+#endif
 
 				process.Start();
 				var output = process.StandardOutput.ReadToEnd();

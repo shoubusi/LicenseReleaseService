@@ -10,8 +10,8 @@ namespace LicenseReleaseService
     public class PerformanceCounters
     {
         private readonly object _lock = new object();
-        private readonly Dictionary<string, CustomPerformanceCounter> _counters;
-        private readonly Timer _collectionTimer;
+        private readonly Dictionary<string, PerformanceMetric> _counters;
+        private readonly System.Threading.Timer _collectionTimer;
         private readonly TimeSpan _collectionInterval = TimeSpan.FromSeconds(30);
         private bool _isRunning;
         private readonly Queue<PerformanceSnapshot> _snapshotHistory;
@@ -19,7 +19,7 @@ namespace LicenseReleaseService
 
         public PerformanceCounters()
         {
-            _counters = new Dictionary<string, CustomPerformanceCounter>();
+            _counters = new Dictionary<string, PerformanceMetric>();
             _snapshotHistory = new Queue<PerformanceSnapshot>();
             _collectionTimer = new Timer(CollectPerformanceData, null, Timeout.Infinite, (int)_collectionInterval.TotalMilliseconds);
 
@@ -126,7 +126,7 @@ namespace LicenseReleaseService
         {
             lock (_lock)
             {
-                var counter = new CustomPerformanceCounter
+                var counter = new PerformanceMetric
                 {
                     Name = name,
                     Unit = unit,
@@ -298,7 +298,7 @@ namespace LicenseReleaseService
         }
     }
 
-    public class CustomPerformanceCounter
+    public class PerformanceMetric
     {
         public string Name { get; set; }
         public string Unit { get; set; }

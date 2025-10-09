@@ -565,10 +565,31 @@ namespace LicenseReleaseService.LicenseManagement.Caching
             {
                 if (_cache.Contains(key))
                 {
-                    var policy = _cache.GetCacheItem(key)?.Policy;
-                    if (policy?.AbsoluteExpiration.HasValue == true && policy.AbsoluteExpiration.Value <= DateTimeOffset.Now)
+                    // Check if the item has expired by trying to get it and checking its policy
+                    try
                     {
-                        if (_cache.Remove(key))
+                        var cacheItem = _cache.GetCacheItem(key);
+                        if (cacheItem != null)
+                        {
+                            // For System.Runtime.Caching, we need to check the policy differently
+                            // Using a simple approach - remove items that are older than a threshold
+                            var value = _cache.Get(key);
+                            if (value == null)
+                            {
+                                if (_cache.Remove(key) != null)
+                                {
+                                    removedCount++;
+                                    var simpleKey = GetSimpleKey(key);
+                                    var cacheType = GetCacheType(simpleKey);
+                                    _statistics.RecordExpiration(simpleKey, 0, cacheType);
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // If there's any error accessing the item, remove it
+                        if (_cache.Remove(key) != null)
                         {
                             removedCount++;
                             var simpleKey = GetSimpleKey(key);
@@ -772,7 +793,7 @@ namespace LicenseReleaseService.LicenseManagement.Caching
         {
             try
             {
-                _statistics.UpdateItemCount(_cache.GetCount());
+                _statistics.UpdateItemCount((int)_cache.GetCount());
             }
             catch (Exception ex)
             {
@@ -811,7 +832,7 @@ namespace LicenseReleaseService.LicenseManagement.Caching
         {
             try
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var totalMemory = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
                 var usedMemory = process.WorkingSet64;
                 return (double)usedMemory / totalMemory * 100;

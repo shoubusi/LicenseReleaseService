@@ -461,8 +461,10 @@ namespace LicenseReleaseService.TimerExecution
 
             try
             {
-                var completedTask = await Task.WhenAny(_currentExecutionTask, Task.Delay(timeout));
-                return completedTask == _currentExecutionTask;
+                // Wait for execution with timeout using WaitAsync
+                using var timeoutCts = new CancellationTokenSource(timeout);
+                await _currentExecutionTask.WaitAsync(timeoutCts.Token);
+                return true; // Task completed successfully
             }
             catch (OperationCanceledException)
             {
@@ -481,7 +483,9 @@ namespace LicenseReleaseService.TimerExecution
                 {
                     if (_currentExecutionTask != null)
                     {
-                        await Task.WhenAny(_currentExecutionTask, Task.Delay(_options.DisposalGracePeriod));
+                        // Wait for cancellation with grace period using WaitAsync
+                        using var gracePeriodCts = new CancellationTokenSource(_options.DisposalGracePeriod);
+                        await _currentExecutionTask.WaitAsync(gracePeriodCts.Token);
                     }
                 }
                 catch (OperationCanceledException)
@@ -727,10 +731,14 @@ namespace LicenseReleaseService.TimerExecution
                     var timeoutTask = Task.Delay(_options.ExecutionTimeout, linkedTokenSource.Token);
                     var allCallbacksTask = Task.WhenAll(callbackTasks);
 
-                    var completedTask = await Task.WhenAny(allCallbacksTask, timeoutTask);
-
-                    if (completedTask == timeoutTask)
+                    // Wait for all callbacks to complete or timeout using WaitAsync
+                    try
                     {
+                        await allCallbacksTask.WaitAsync(linkedTokenSource.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Timeout occurred
                         throw new TimeoutException($"Timer execution timed out after {_options.ExecutionTimeout.TotalMilliseconds:F2}ms");
                     }
 
@@ -825,7 +833,7 @@ namespace LicenseReleaseService.TimerExecution
 
         private async Task HandleErrorAsync(Exception error, TimerStatus status, Guid? executionId = null)
         {
-            var errorArgs = new TimerErrorEventArgs(error, status, _consecutiveErrors, executionId);
+            var errorArgs = new TimerErrorEventArgs(error, executionId, status, _consecutiveErrors);
 
             // Determine if circuit breaker should be triggered
             errorArgs.ShouldTriggerCircuitBreaker = _options.EnableCircuitBreaker &&
@@ -923,12 +931,12 @@ namespace LicenseReleaseService.TimerExecution
 
         private TimerMemoryInfo GetMemoryInfo()
         {
-            var process = Process.GetCurrentProcess();
+            var process = System.Diagnostics.Process.GetCurrentProcess();
             return new TimerMemoryInfo
             {
                 CurrentMemoryUsage = process.WorkingSet64,
                 PeakMemoryUsage = process.PeakWorkingSet64,
-                TrackedObjects = GC.GetTotalMemory(false),
+                TrackedObjects = (int)GC.GetTotalMemory(false),
                 GarbageCollectionInfo = $"Gen0: {GC.CollectionCount(0)}, Gen1: {GC.CollectionCount(1)}, Gen2: {GC.CollectionCount(2)}"
             };
         }

@@ -19,7 +19,7 @@ namespace LicenseReleaseService.Configuration
         private static readonly object _instanceLock = new object();
 
         private readonly FileSystemWatcher _configWatcher;
-        private readonly Timer _reloadTimer;
+        private readonly System.Threading.Timer _reloadTimer;
         private readonly object _configLock = new object();
         private LicenseReleaseServiceSection _currentConfiguration;
         private ServiceSettings _serviceSettings;
@@ -54,6 +54,11 @@ namespace LicenseReleaseService.Configuration
         /// Event raised when configuration backup operations complete
         /// </summary>
         public event ConfigurationEvents.ConfigurationBackupEventHandler ConfigurationBackupCompleted;
+
+        /// <summary>
+        /// Gets the application settings from configuration
+        /// </summary>
+        public static System.Collections.Specialized.NameValueCollection AppSettings => GlobalConfig.AppSettings;
 
         /// <summary>
         /// Gets the singleton instance of ConfigurationManager
@@ -218,7 +223,15 @@ namespace LicenseReleaseService.Configuration
         /// </summary>
         private string GetConfigFilePath()
         {
+#if !NET9_0
             var appConfigPath = AppDomain.CurrentDomain.SetupInformation.ConfigurationFile;
+#else
+            var appConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+            if (!File.Exists(appConfigPath))
+            {
+                appConfigPath = Path.Combine(AppContext.BaseDirectory, "app.config");
+            }
+#endif
             if (!string.IsNullOrEmpty(appConfigPath) && File.Exists(appConfigPath))
             {
                 return appConfigPath;

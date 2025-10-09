@@ -134,6 +134,11 @@ namespace LicenseReleaseService.IdleDetection
         public double? NetworkUsage { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether the activity is in the foreground
+        /// </summary>
+        public bool HasForeground { get; set; }
+
+        /// <summary>
         /// Gets or sets additional metadata for the activity
         /// </summary>
         public System.Collections.Generic.Dictionary<string, object> Metadata { get; set; } = new System.Collections.Generic.Dictionary<string, object>();

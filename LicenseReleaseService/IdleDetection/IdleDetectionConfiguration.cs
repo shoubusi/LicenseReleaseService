@@ -18,12 +18,108 @@ namespace LicenseReleaseService.IdleDetection
             set { this["enableIdleDetection"] = value; }
         }
 
+        // Missing property - alias for EnableIdleDetection
+        public bool IsEnabled
+        {
+            get => EnableIdleDetection;
+            set => EnableIdleDetection = value;
+        }
+
         [ConfigurationProperty("detectionInterval", DefaultValue = 5)]
         [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 60)]
         public int DetectionInterval
         {
             get { return (int)this["detectionInterval"]; }
             set { this["detectionInterval"] = value; }
+        }
+
+        // Missing properties
+        [ConfigurationProperty("detectionIntervalSeconds", DefaultValue = 300)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 3600)]
+        public int DetectionIntervalSeconds
+        {
+            get { return (int)this["detectionIntervalSeconds"]; }
+            set { this["detectionIntervalSeconds"] = value; }
+        }
+
+        [ConfigurationProperty("idleThresholdSeconds", DefaultValue = 1800)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 7200)]
+        public int IdleThresholdSeconds
+        {
+            get { return (int)this["idleThresholdSeconds"]; }
+            set { this["idleThresholdSeconds"] = value; }
+        }
+
+        [ConfigurationProperty("confidenceThreshold", DefaultValue = 0.7)]
+        [DoubleValidator(Minimum = 0.0, Maximum = 1.0)]
+        public double ConfidenceThreshold
+        {
+            get { return (double)this["confidenceThreshold"]; }
+            set { this["confidenceThreshold"] = value; }
+        }
+
+        // Missing properties
+        [ConfigurationProperty("priority", DefaultValue = 5)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 10)]
+        public int Priority
+        {
+            get { return (int)this["priority"]; }
+            set { this["priority"] = value; }
+        }
+
+        [ConfigurationProperty("maxDetectionTimeMs", DefaultValue = 30000)]
+        [System.Configuration.IntegerValidator(MinValue = 1000, MaxValue = 300000)]
+        public int MaxDetectionTimeMs
+        {
+            get { return (int)this["maxDetectionTimeMs"]; }
+            set { this["maxDetectionTimeMs"] = value; }
+        }
+
+        [ConfigurationProperty("timeoutSeconds", DefaultValue = 30)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 300)]
+        public int TimeoutSeconds
+        {
+            get { return (int)this["timeoutSeconds"]; }
+            set { this["timeoutSeconds"] = value; }
+        }
+
+        // Additional missing properties
+        [ConfigurationProperty("retryCount", DefaultValue = 3)]
+        [System.Configuration.IntegerValidator(MinValue = 0, MaxValue = 10)]
+        public int RetryCount
+        {
+            get { return (int)this["retryCount"]; }
+            set { this["retryCount"] = value; }
+        }
+
+        [ConfigurationProperty("retryDelayMs", DefaultValue = 1000)]
+        [System.Configuration.IntegerValidator(MinValue = 100, MaxValue = 10000)]
+        public int RetryDelayMs
+        {
+            get { return (int)this["retryDelayMs"]; }
+            set { this["retryDelayMs"] = value; }
+        }
+
+        [ConfigurationProperty("maxConcurrentOperations", DefaultValue = 5)]
+        [System.Configuration.IntegerValidator(MinValue = 1, MaxValue = 50)]
+        public int MaxConcurrentOperations
+        {
+            get { return (int)this["maxConcurrentOperations"]; }
+            set { this["maxConcurrentOperations"] = value; }
+        }
+
+        [ConfigurationProperty("customParameters", DefaultValue = "")]
+        public string CustomParameters
+        {
+            get { return (string)this["customParameters"]; }
+            set { this["customParameters"] = value; }
+        }
+
+        [ConfigurationProperty("detectors", DefaultValue = "")]
+        public string Detectors
+        {
+            get { return (string)this["detectors"]; }
+            set { this["detectors"] = value; }
         }
 
         [ConfigurationProperty("timeBasedDetection")]
@@ -60,6 +156,11 @@ namespace LicenseReleaseService.IdleDetection
             get { return (ActivityMonitoringElement)this["activityMonitoring"] ?? new ActivityMonitoringElement(); }
             set { this["activityMonitoring"] = value; }
         }
+
+        /// <summary>
+        /// Gets or sets the detector name
+        /// </summary>
+        public string DetectorName { get; set; } = "IdleDetection";
 
         /// <summary>
         /// Validates the idle detection configuration
@@ -109,6 +210,56 @@ namespace LicenseReleaseService.IdleDetection
             }
 
             return errors;
+        }
+
+        /// <summary>
+        /// Gets a custom parameter value from the CustomParameters string
+        /// </summary>
+        /// <typeparam name="T">The type of the parameter</typeparam>
+        /// <param name="key">The parameter key</param>
+        /// <param name="defaultValue">The default value if not found</param>
+        /// <returns>The parameter value or default</returns>
+        public T GetCustomParameter<T>(string key, T defaultValue = default(T))
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(CustomParameters))
+                {
+                    return defaultValue;
+                }
+
+                var parameters = CustomParameters.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var param in parameters)
+                {
+                    var keyValue = param.Split(new[] { '=' }, 2);
+                    if (keyValue.Length == 2 && keyValue[0].Trim().Equals(key, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var value = keyValue[1].Trim();
+                        if (typeof(T) == typeof(string))
+                        {
+                            return (T)(object)value;
+                        }
+                        if (typeof(T) == typeof(int) && int.TryParse(value, out var intValue))
+                        {
+                            return (T)(object)intValue;
+                        }
+                        if (typeof(T) == typeof(double) && double.TryParse(value, out var doubleValue))
+                        {
+                            return (T)(object)doubleValue;
+                        }
+                        if (typeof(T) == typeof(bool) && bool.TryParse(value, out var boolValue))
+                        {
+                            return (T)(object)boolValue;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore parsing errors and return default value
+            }
+
+            return defaultValue;
         }
 
         /// <summary>

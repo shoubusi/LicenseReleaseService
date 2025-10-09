@@ -465,7 +465,7 @@ namespace LicenseReleaseService.VersionManagement
                 result.AverageOperationTime = metricsResults.Any() ?
                     TimeSpan.FromTicks((long)metricsResults.Average(m => m.AverageOperationTime.Ticks)) : TimeSpan.Zero;
                 result.PeakMemoryUsage = metricsResults.Max(m => m.PeakMemoryUsage);
-                result.TotalCpuTime = metricsResults.Sum(m => m.TotalCpuTime);
+                result.TotalCpuTime = TimeSpan.FromMilliseconds(metricsResults.Sum(m => (long)m.TotalCpuTime.TotalMilliseconds));
 
                 // Calculate success rate
                 result.SuccessRate = result.TotalOperations > 0 ?
@@ -542,6 +542,33 @@ namespace LicenseReleaseService.VersionManagement
             {
                 _logger.LogError(ex, "Error creating runtime context for version {Version}", version.Version);
                 result.Errors.Add($"Failed to create runtime context for version {version.Version}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Creates a runtime context for a version during refresh
+        /// </summary>
+        /// <param name="version">Version to create context for</param>
+        /// <param name="result">Refresh result to update</param>
+        /// <returns>Task representing the operation</returns>
+        private async Task CreateRuntimeContextAsync(SolidWorksVersionInfo version, RuntimeRefreshResult result)
+        {
+            try
+            {
+                var context = new VersionRuntimeContext(version, _configuration);
+                await context.InitializeAsync();
+
+                _runtimeContexts[version.Version] = context;
+                // Version already added to result.AddedVersions before this call
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating runtime context for version {Version}", version.Version);
+                // Add error to refresh result
+                if (result.ErrorMessage == null)
+                    result.ErrorMessage = $"Failed to create runtime context for version {version.Version}: {ex.Message}";
+                else
+                    result.ErrorMessage += $"; Failed to create runtime context for version {version.Version}: {ex.Message}";
             }
         }
 

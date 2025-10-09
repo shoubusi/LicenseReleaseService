@@ -19,7 +19,7 @@ namespace LicenseReleaseService.IdleDetection
         private readonly ConfigurationIntegration _configurationIntegration;
         private readonly object _lock = new object();
         private bool _isDisposed;
-        private Dictionary<string, TimerRegistration> _timerRegistrations;
+        private Dictionary<string, IdleDetectionTimerRegistration> _timerRegistrations;
         private Queue<IdleDetectionTask> _taskQueue;
         private Task _processingTask;
         private CancellationTokenSource _processingCancellationTokenSource;
@@ -79,7 +79,9 @@ namespace LicenseReleaseService.IdleDetection
             {
                 lock (_lock)
                 {
-                    return new System.Collections.ObjectModel.ReadOnlyDictionary<string, TimerRegistration>(_timerRegistrations);
+                    return _timerRegistrations
+                    .ToDictionary(kvp => kvp.Key, kvp => (TimerRegistration)kvp.Value)
+                    .AsReadOnly();
                 }
             }
         }
@@ -120,7 +122,7 @@ namespace LicenseReleaseService.IdleDetection
             _timerExecutionService = timerExecutionService ?? throw new ArgumentNullException(nameof(timerExecutionService));
             _configurationIntegration = configurationIntegration ?? throw new ArgumentNullException(nameof(configurationIntegration));
 
-            _timerRegistrations = new Dictionary<string, TimerRegistration>();
+            _timerRegistrations = new Dictionary<string, IdleDetectionTimerRegistration>();
             _taskQueue = new Queue<IdleDetectionTask>();
             _processingCancellationTokenSource = new CancellationTokenSource();
 
@@ -190,7 +192,7 @@ namespace LicenseReleaseService.IdleDetection
                 }
 
                 // Cancel all timer registrations
-                var registrationsToStop = new List<TimerRegistration>();
+                var registrationsToStop = new List<IdleDetectionTimerRegistration>();
 
                 lock (_lock)
                 {
@@ -239,15 +241,18 @@ namespace LicenseReleaseService.IdleDetection
                     _configurationIntegration.DetectionInterval;
 
                 // Create timer registration
-                var registration = new TimerRegistration
+                var registration = new IdleDetectionTimerRegistration
                 {
                     DetectorName = config.DetectorName,
                     TimerName = timerName,
                     Interval = interval,
+                    DetectionInterval = config.DetectionInterval,
+                    MaxDetectionTime = _configurationIntegration.MaxDetectionTime,
                     Configuration = config,
                     IsEnabled = true,
+                    IsDetectorActive = true,
                     StartedAt = DateTime.UtcNow,
-                    LastExecution = null,
+                    LastUpdated = DateTime.UtcNow,
                     ExecutionCount = 0,
                     ErrorCount = 0
                 };
@@ -270,7 +275,7 @@ namespace LicenseReleaseService.IdleDetection
                 await _timerExecutionService.StartOneTimeAsync(interval, cancellationToken);
 
                 // Raise timer started event
-                OnTimerStarted(new IdleDetectionTimerEventArgs(registration.TimerId, registration.TimerName, registration.StartedAt, registration.Interval, registration.Status));
+                OnTimerStarted(new IdleDetectionTimerEventArgs(registration.TimerId, registration.TimerName, registration.StartedAt, registration.Interval, ConvertTimerStatus(registration.Status)));
             }
             catch (Exception ex)
             {
@@ -292,13 +297,13 @@ namespace LicenseReleaseService.IdleDetection
             try
             {
                 var timerName = $"IdleDetection_{detectorName}";
-                TimerRegistration registration = null;
+                IdleDetectionTimerRegistration registration = null;
 
                 lock (_lock)
                 {
                     if (_timerRegistrations.TryGetValue(timerName, out var reg))
                     {
-                        registration = reg.Clone();
+                        registration = (IdleDetectionTimerRegistration)((IdleDetectionTimerRegistration)reg).Clone();
                         registration.IsEnabled = false;
                         registration.StoppedAt = DateTime.UtcNow;
                         _timerRegistrations[timerName] = registration;
@@ -308,7 +313,7 @@ namespace LicenseReleaseService.IdleDetection
                 if (registration != null)
                 {
                     // Raise timer stopped event
-                    OnTimerStopped(new IdleDetectionTimerEventArgs(registration.TimerId, registration.TimerName, registration.StartedAt, registration.Interval, registration.Status));
+                    OnTimerStopped(new IdleDetectionTimerEventArgs(registration.TimerId, registration.TimerName, registration.StartedAt, registration.Interval, ConvertTimerStatus(registration.Status)));
                 }
             }
             catch (Exception ex)
@@ -429,8 +434,12 @@ namespace LicenseReleaseService.IdleDetection
                     // Execute the task
                     if (task.TaskFunc != null)
                     {
-                        var taskResult = await task.TaskFunc(cancellationToken);
-                        result.Results = taskResult;
+                        await task.TaskFunc(cancellationToken);
+                        result.Success = true;
+                    }
+                    else if (task.ExecuteAsync != null)
+                    {
+                        await task.ExecuteAsync(cancellationToken);
                         result.Success = true;
                     }
                     else
@@ -454,10 +463,10 @@ namespace LicenseReleaseService.IdleDetection
                     result.Duration = result.EndTime - result.StartTime;
 
                     // Update timer registration statistics
-                    UpdateTimerRegistrationStatistics(task.DetectorName, result.Success, result.Duration);
+                    UpdateTimerRegistrationStatistics(task.DetectorName, result.Success, result.Duration ?? TimeSpan.Zero);
 
                     // Raise task executed event
-                    OnTaskExecuted(new IdleDetectionTaskEventArgs(task, result, DateTime.UtcNow));
+                    OnTaskExecuted(new IdleDetectionTaskEventArgs(task, DateTime.UtcNow, result.Duration ?? TimeSpan.Zero));
                 }
             }
             catch (Exception ex)
@@ -478,7 +487,7 @@ namespace LicenseReleaseService.IdleDetection
                 {
                     IsEnabled = IsEnabled,
                     IsRunning = IsRunning,
-                    TimerState = TimerState,
+                    TimerState = TimerState.ToString(),
                     PendingTaskCount = PendingTaskCount,
                     TotalTimerRegistrations = _timerRegistrations.Count,
                     EnabledTimerRegistrations = _timerRegistrations.Values.Count(r => r.IsEnabled),
@@ -514,7 +523,22 @@ namespace LicenseReleaseService.IdleDetection
                 if (_timerExecutionService != null)
                 {
                     var timerMetrics = _timerExecutionService.GetMetrics();
-                    stats.TimerMetrics = timerMetrics;
+                    stats.TimerMetrics = new Dictionary<string, object>
+                    {
+                        ["AverageExecutionTime"] = timerMetrics.AverageExecutionDuration,
+                        ["MinExecutionTime"] = timerMetrics.MinExecutionDuration,
+                        ["MaxExecutionTime"] = timerMetrics.MaxExecutionDuration,
+                        ["TotalExecutionTime"] = timerMetrics.Uptime,
+                        ["ExecutionCount"] = timerMetrics.TotalExecutions,
+                        ["ErrorCount"] = timerMetrics.FailedExecutions,
+                        ["SuccessRate"] = timerMetrics.SuccessRate,
+                        ["LastExecutionTime"] = timerMetrics.LastExecutionTime,
+                        ["Uptime"] = timerMetrics.Uptime,
+                        ["CurrentConsecutiveErrors"] = timerMetrics.CurrentConsecutiveErrors,
+                        ["MaxConsecutiveErrors"] = timerMetrics.MaxConsecutiveErrors,
+                        ["StartTime"] = timerMetrics.StartTime,
+                        ["StopTime"] = timerMetrics.StopTime
+                    };
                 }
 
                 return stats;
@@ -525,7 +549,7 @@ namespace LicenseReleaseService.IdleDetection
                 {
                     IsEnabled = IsEnabled,
                     IsRunning = IsRunning,
-                    TimerState = TimerState,
+                    TimerState = TimerState.ToString(),
                     ErrorMessage = ex.Message
                 };
             }
@@ -534,7 +558,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets timer registration by detector name
         /// </summary>
-        public TimerRegistration GetTimerRegistration(string detectorName)
+        public IdleDetectionTimerRegistration GetTimerRegistration(string detectorName)
         {
             if (string.IsNullOrWhiteSpace(detectorName))
             {
@@ -564,21 +588,25 @@ namespace LicenseReleaseService.IdleDetection
             {
                 var timerName = $"IdleDetection_{detectorName}";
 
+                // Check if registration exists inside lock
+                IdleDetectionTimerRegistration existingRegistration = null;
                 lock (_lock)
                 {
                     if (_timerRegistrations.TryGetValue(timerName, out var registration))
                     {
                         registration.Interval = newInterval;
                         registration.LastUpdated = DateTime.UtcNow;
+                        existingRegistration = registration;
                     }
-                    else
+                }
+
+                // If no existing registration, create new one outside lock
+                if (existingRegistration == null)
+                {
+                    var config = _configurationIntegration.GetDetectorConfiguration(detectorName);
+                    if (config != null)
                     {
-                        // Create new registration
-                        var config = _configurationIntegration.GetDetectorConfiguration(detectorName);
-                        if (config != null)
-                        {
-                            await StartDetectorTimerAsync(config, cancellationToken);
-                        }
+                        await StartDetectorTimerAsync(config, cancellationToken);
                     }
                 }
             }
@@ -587,6 +615,32 @@ namespace LicenseReleaseService.IdleDetection
                 await LogErrorAsync($"Error updating timer registration for detector {detectorName}: {ex.Message}");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Converts TimerExecution.TimerStatus to IdleDetection.Events.TimerStatus
+        /// </summary>
+        /// <param name="timerStatus">The TimerExecution.TimerStatus to convert</param>
+        /// <returns>Equivalent IdleDetection.Events.TimerStatus</returns>
+        private Events.TimerStatus ConvertTimerStatus(TimerExecution.TimerStatus timerStatus)
+        {
+            return timerStatus switch
+            {
+                TimerExecution.TimerStatus.Created => Events.TimerStatus.Stopped,
+                TimerExecution.TimerStatus.Starting => Events.TimerStatus.Running,
+                TimerExecution.TimerStatus.Running => Events.TimerStatus.Running,
+                TimerExecution.TimerStatus.Paused => Events.TimerStatus.Paused,
+                TimerExecution.TimerStatus.Executing => Events.TimerStatus.Running,
+                TimerExecution.TimerStatus.Stopping => Events.TimerStatus.Stopped,
+                TimerExecution.TimerStatus.Stopped => Events.TimerStatus.Stopped,
+                TimerExecution.TimerStatus.Error => Events.TimerStatus.Faulted,
+                TimerExecution.TimerStatus.CircuitBreaker => Events.TimerStatus.Faulted,
+                TimerExecution.TimerStatus.Disposed => Events.TimerStatus.Disposed,
+                TimerExecution.TimerStatus.Restarting => Events.TimerStatus.Running,
+                TimerExecution.TimerStatus.Waiting => Events.TimerStatus.Running,
+                TimerExecution.TimerStatus.Cancelled => Events.TimerStatus.Faulted,
+                _ => Events.TimerStatus.Stopped
+            };
         }
 
         /// <summary>
@@ -599,12 +653,12 @@ namespace LicenseReleaseService.IdleDetection
                 // Schedule idle detection task
                 var task = new IdleDetectionTask
                 {
-                    TaskId = Guid.NewGuid().ToString(),
+                    TaskId = Guid.NewGuid(),
                     DetectorName = "Main",
                     TaskType = IdleDetectionTaskType.PeriodicDetection,
                     ScheduledTime = DateTime.UtcNow,
                     CreatedAt = DateTime.UtcNow,
-                    Priority = 10,
+                    Priority = (TaskPriority)10,
                     Timeout = _configurationIntegration?.MaxDetectionTime ?? TimeSpan.FromSeconds(30)
                 };
 
@@ -612,7 +666,8 @@ namespace LicenseReleaseService.IdleDetection
                 task.TaskFunc = async (cancellationToken) =>
                 {
                     // This would be implemented to call the idle detection engine
-                    return new List<IdleDetectionResult>();
+                    // For now, just simulate some work
+                    await Task.Delay(100, cancellationToken);
                 };
 
                 _ = ScheduleIdleDetectionTaskAsync(task);
@@ -654,13 +709,13 @@ namespace LicenseReleaseService.IdleDetection
         {
             try
             {
-                await LogErrorAsync($"Timer execution error: {e.Exception.Message}");
+                LogErrorAsync($"Timer execution error: {e.Error.Message}").Wait();
 
                 // Update error statistics
                 foreach (var registration in _timerRegistrations.Values)
                 {
                     registration.ErrorCount++;
-                    registration.LastError = e.Exception.Message;
+                    registration.LastError = e.Error.Message;
                     registration.LastErrorTime = DateTime.UtcNow;
                 }
             }
@@ -677,7 +732,7 @@ namespace LicenseReleaseService.IdleDetection
         {
             try
             {
-                OnTimerStateChanged(new TimerStateChangedEventArgs(e.OldState, e.NewState, e.Timestamp));
+                OnTimerStateChanged(new TimerStateChangedEventArgs(e.PreviousState, e.NewState, $"State changed at {e.Timestamp}"));
             }
             catch (Exception ex)
             {
@@ -785,14 +840,14 @@ namespace LicenseReleaseService.IdleDetection
             {
                 var task = new IdleDetectionTask
                 {
-                    TaskId = Guid.NewGuid().ToString(),
+                    TaskId = Guid.NewGuid(),
                     DetectorName = registration.DetectorName,
                     TaskType = IdleDetectionTaskType.DetectorSpecific,
                     ScheduledTime = DateTime.UtcNow + registration.Interval,
                     CreatedAt = DateTime.UtcNow,
-                    Priority = registration.Configuration?.Priority ?? 10,
-                    Timeout = registration.Configuration?.MaxDetectionTime > 0 ?
-                        TimeSpan.FromMilliseconds(registration.Configuration.MaxDetectionTime) :
+                    Priority = (TaskPriority)(registration.Configuration?.Priority ?? 10),
+                    Timeout = registration.Configuration?.MaxDetectionTimeMs > 0 ?
+                        TimeSpan.FromMilliseconds(registration.Configuration.MaxDetectionTimeMs) :
                         TimeSpan.FromSeconds(30)
                 };
 
@@ -800,7 +855,7 @@ namespace LicenseReleaseService.IdleDetection
                 task.TaskFunc = async (cancellationToken) =>
                 {
                     // This would call the specific detector
-                    return new List<IdleDetectionResult>();
+                    await Task.Delay(100, cancellationToken);
                 };
 
                 await ScheduleIdleDetectionTaskAsync(task);

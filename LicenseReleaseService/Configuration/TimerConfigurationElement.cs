@@ -272,6 +272,80 @@ namespace LicenseReleaseService.Configuration
             set { this["supportedVersions"] = value; }
         }
 
+        // Additional properties for backward compatibility with TimerConfigurationProvider
+        [ConfigurationProperty("enabled", DefaultValue = true)]
+        public bool Enabled
+        {
+            get { return (bool)this["enabled"]; }
+            set { this["enabled"] = value; }
+        }
+
+        [ConfigurationProperty("interval", DefaultValue = "00:01:00")]
+        public TimeSpan Interval
+        {
+            get { return (TimeSpan)this["interval"]; }
+            set { this["interval"] = value; }
+        }
+
+        [ConfigurationProperty("timeout", DefaultValue = "00:05:00")]
+        public TimeSpan Timeout
+        {
+            get { return (TimeSpan)this["timeout"]; }
+            set { this["timeout"] = value; }
+        }
+
+        [ConfigurationProperty("maxRetries", DefaultValue = 3)]
+        [IntegerValidator(MinValue = 0, MaxValue = 10)]
+        public int MaxRetries
+        {
+            get { return (int)this["maxRetries"]; }
+            set { this["maxRetries"] = value; }
+        }
+
+        [ConfigurationProperty("licenseServer", DefaultValue = "localhost")]
+        public string LicenseServer
+        {
+            get { return (string)this["licenseServer"]; }
+            set { this["licenseServer"] = value; }
+        }
+
+        [ConfigurationProperty("port", DefaultValue = 27000)]
+        [IntegerValidator(MinValue = 1, MaxValue = 65535)]
+        public int Port
+        {
+            get { return (int)this["port"]; }
+            set { this["port"] = value; }
+        }
+
+        [ConfigurationProperty("lmutilPath", DefaultValue = @"C:\flexlm\lmutil.exe")]
+        public string LmutilPath
+        {
+            get { return (string)this["lmutilPath"]; }
+            set { this["lmutilPath"] = value; }
+        }
+
+        [ConfigurationProperty("enableHealthMonitoring", DefaultValue = true)]
+        public bool EnableHealthMonitoring
+        {
+            get { return (bool)this["enableHealthMonitoring"]; }
+            set { this["enableHealthMonitoring"] = value; }
+        }
+
+        [ConfigurationProperty("enableLicenseRecovery", DefaultValue = true)]
+        public bool EnableLicenseRecovery
+        {
+            get { return (bool)this["enableLicenseRecovery"]; }
+            set { this["enableLicenseRecovery"] = value; }
+        }
+
+        [ConfigurationProperty("recoveryCheckInterval", DefaultValue = 300)]
+        [IntegerValidator(MinValue = 60, MaxValue = 3600)]
+        public int RecoveryCheckInterval
+        {
+            get { return (int)this["recoveryCheckInterval"]; }
+            set { this["recoveryCheckInterval"] = value; }
+        }
+
         /// <summary>
         /// Validates the timer configuration
         /// </summary>

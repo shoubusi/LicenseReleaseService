@@ -75,6 +75,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
     public class VersionAlertManagerOptions
     {
         public bool Enabled { get; set; } = true;
+        public bool EnableAlerts { get; set; } = true;
         public int MaxActiveAlerts { get; set; } = 100;
         public int MaxAlertHistory { get; set; } = 10000;
         public TimeSpan DefaultEscalationTimeout { get; set; } = TimeSpan.FromHours(1);
@@ -82,6 +83,8 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         public bool EnableAutoEscalation { get; set; } = true;
         public bool EnableAutoResolution { get; set; } = true;
         public bool EnableAlertDeduplication { get; set; } = true;
+        public bool RepeatNotifications { get; set; } = true;
+        public AlertSeverity MinimumAlertSeverity { get; set; } = AlertSeverity.Informational;
         public Dictionary<AlertSeverity, int> SeverityThresholds { get; set; } = new();
         public Dictionary<string, TimeSpan> CategorySuppressionTimes { get; set; } = new();
         public List<string> NotificationChannels { get; set; } = new();
@@ -661,6 +664,57 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
             }
         }
 
+        /// <summary>
+        /// Gets alerts with optional filtering
+        /// </summary>
+        /// <param name="version">Optional version filter</param>
+        /// <param name="severity">Optional severity filter</param>
+        /// <param name="category">Optional category filter</param>
+        /// <param name="status">Optional status filter</param>
+        /// <returns>Filtered alerts</returns>
+        public VersionAlertGetActiveResult GetAlerts(string? version = null, AlertSeverity? severity = null, AlertCategory? category = null, AlertStatus? status = null)
+        {
+            if (_isDisposed)
+                throw new ObjectDisposedException(nameof(VersionAlertManager));
+
+            try
+            {
+                var alerts = _activeAlerts.Values.AsEnumerable();
+
+                if (!string.IsNullOrWhiteSpace(version))
+                {
+                    alerts = alerts.Where(a => a.Version == version);
+                }
+
+                if (severity.HasValue)
+                {
+                    alerts = alerts.Where(a => a.Severity == severity.Value);
+                }
+
+                if (category.HasValue)
+                {
+                    alerts = alerts.Where(a => a.Category == category.Value);
+                }
+
+                if (status.HasValue)
+                {
+                    alerts = alerts.Where(a => a.Status == status.Value);
+                }
+
+                return new VersionAlertGetActiveResult
+                {
+                    Success = true,
+                    Alerts = alerts.OrderByDescending(a => a.Timestamp).ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting alerts");
+                AlertError?.Invoke(this, ex);
+                return new VersionAlertGetActiveResult { Success = false, Error = ex.Message };
+            }
+        }
+
         public VersionAlertAddRuleResult AddAlertRule(AlertRule rule)
         {
             if (_isDisposed)
@@ -924,6 +978,95 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
             }
         }
 
+        /// <summary>
+        /// Starts alert management operations
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task representing the operation</returns>
+        public async Task StartAlertManagementAsync(CancellationToken cancellationToken = default)
+        {
+            await StartAsync();
+        }
+
+        /// <summary>
+        /// Stops alert management operations
+        /// </summary>
+        /// <returns>Task representing the operation</returns>
+        public async Task StopAlertManagementAsync()
+        {
+            await StopAsync();
+        }
+
+        /// <summary>
+        /// Configures version alerts for a specific version
+        /// </summary>
+        /// <param name="version">Version to configure</param>
+        /// <param name="configuration">Configuration for the version</param>
+        public void ConfigureVersionAlerts(string version, VersionAlertManagementConfig configuration)
+        {
+            if (string.IsNullOrWhiteSpace(version))
+                throw new ArgumentException("Version cannot be null or empty", nameof(version));
+
+            if (configuration == null)
+                throw new ArgumentNullException(nameof(configuration));
+
+            try
+            {
+                _logger.LogDebug("Configuring version alerts for {Version}", version);
+
+                // Apply configuration to specific version
+                // Update alert settings based on configuration
+                _options.EnableAlerts = configuration.EnableAlerts;
+                _options.MinimumAlertSeverity = configuration.MinimumAlertSeverity;
+                _options.AlertSuppressionDuration = configuration.AlertSuppressionDuration;
+                _options.EnableAutoResolution = configuration.EnableAutoResolution;
+
+                // Configure version-specific alert rules if needed
+                // This could include creating version-specific alert rules or modifying existing ones
+
+                _logger.LogDebug("Version alerts configured for {Version}", version);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error configuring version alerts for {Version}", version);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Configures version alerts
+        /// </summary>
+        /// <param name="configuration">Alert configuration</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task representing the operation</returns>
+        public async Task ConfigureVersionAlertsAsync(VersionAlertManagerOptions configuration, CancellationToken cancellationToken = default)
+        {
+            await Task.Run(() =>
+            {
+                // Update options with new configuration
+                _options.SeverityThresholds.Clear();
+                foreach (var threshold in configuration.SeverityThresholds)
+                {
+                    _options.SeverityThresholds[threshold.Key] = threshold.Value;
+                }
+
+                _options.CategorySuppressionTimes.Clear();
+                foreach (var suppression in configuration.CategorySuppressionTimes)
+                {
+                    _options.CategorySuppressionTimes[suppression.Key] = suppression.Value;
+                }
+
+                _options.NotificationChannels.Clear();
+                _options.NotificationChannels.AddRange(configuration.NotificationChannels);
+
+                _options.DefaultEscalationTimeout = configuration.DefaultEscalationTimeout;
+                _options.AlertSuppressionDuration = configuration.AlertSuppressionDuration;
+                _options.RepeatNotifications = configuration.RepeatNotifications;
+
+                _logger.LogInformation("Version alerts configured successfully");
+            }, cancellationToken);
+        }
+
         public void Dispose()
         {
             Dispose(true);
@@ -1032,5 +1175,17 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
         public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Configuration for version alert management
+    /// </summary>
+    public class VersionAlertManagementConfig
+    {
+        public bool EnableAlerts { get; set; } = true;
+        public AlertSeverity MinimumAlertSeverity { get; set; } = AlertSeverity.Informational;
+        public TimeSpan AlertSuppressionDuration { get; set; } = TimeSpan.FromMinutes(5);
+        public bool EnableAutoResolution { get; set; } = true;
+        public bool EnableAutoEscalation { get; set; } = true;
     }
 }

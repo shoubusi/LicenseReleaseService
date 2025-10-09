@@ -21,7 +21,7 @@ namespace LicenseReleaseService.IdleDetection
         private readonly PingBasedDetectionConfig _config;
         private readonly object _lock = new object();
         private readonly Dictionary<int, ProcessPingState> _processStates = new Dictionary<int, ProcessPingState>();
-        private readonly Timer _detectionTimer;
+        private readonly System.Threading.Timer _detectionTimer;
         private bool _isDisposed;
         private CancellationTokenSource _cancellationTokenSource;
 
@@ -1371,6 +1371,7 @@ namespace LicenseReleaseService.IdleDetection
         public string DocumentPath { get; set; }
         public DateTime Timestamp { get; set; }
         public double Confidence { get; set; }
+        public Dictionary<string, object> Metadata { get; set; }
     }
 
     /// <summary>
@@ -1383,5 +1384,6 @@ namespace LicenseReleaseService.IdleDetection
         public string RemoteEndpoint { get; set; }
         public DateTime Timestamp { get; set; }
         public double Confidence { get; set; }
+        public object Metadata { get; set; }
     }
 }

@@ -79,6 +79,22 @@ namespace LicenseReleaseService.VersionManagement
         /// </summary>
         /// <returns>Runtime metrics</returns>
         Task<VersionRuntimeManagerMetrics> GetMetricsAsync();
+
+        /// <summary>
+        /// Executes an operation asynchronously
+        /// </summary>
+        /// <param name="operationType">Type of operation to execute</param>
+        /// <param name="version">Version to execute operation on</param>
+        /// <param name="requirements">Operation requirements</param>
+        /// <param name="parameters">Additional parameters</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Result of the operation</returns>
+        Task<CoreOperationResult> ExecuteOperationAsync(
+            string operationType,
+            string version,
+            Dictionary<string, object> requirements,
+            Dictionary<string, object> parameters,
+            CancellationToken cancellationToken = default);
     }
 
     /// <summary>

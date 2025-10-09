@@ -10,6 +10,7 @@ using System.Threading;
 using LicenseReleaseService.IdleDetection;
 using LicenseReleaseService.Process;
 using LicenseReleaseService.Configuration;
+using LicenseReleaseService.Models;
 
 namespace LicenseReleaseService.Configuration
 {
@@ -111,6 +112,37 @@ namespace LicenseReleaseService.Configuration
         }
 
         /// <summary>
+        /// Gets or sets the health check interval in seconds
+        /// </summary>
+        [ConfigurationProperty("healthCheckIntervalSeconds", DefaultValue = 60)]
+        [IntegerValidator(MinValue = 10, MaxValue = 3600)]
+        public int HealthCheckIntervalSeconds
+        {
+            get { return (int)this["healthCheckIntervalSeconds"]; }
+            set { this["healthCheckIntervalSeconds"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the safety validation configuration
+        /// </summary>
+        [ConfigurationProperty("safetyValidation")]
+        public SafetyValidationConfigurationElement SafetyValidation
+        {
+            get { return (SafetyValidationConfigurationElement)this["safetyValidation"] ?? new SafetyValidationConfigurationElement(); }
+            set { this["safetyValidation"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the advanced features configuration
+        /// </summary>
+        [ConfigurationProperty("advancedFeatures")]
+        public AdvancedFeaturesElement AdvancedFeatures
+        {
+            get { return (AdvancedFeaturesElement)this["advancedFeatures"] ?? new AdvancedFeaturesElement(); }
+            set { this["advancedFeatures"] = value; }
+        }
+
+        /// <summary>
         /// Validates the configuration section
         /// </summary>
         /// <returns>List of validation errors</returns>
@@ -148,6 +180,9 @@ namespace LicenseReleaseService.Configuration
 
                     // Validate idle detection section
                     errors.AddRange(IdleDetection.Validate());
+
+                    // Validate safety validation section
+                    errors.AddRange(SafetyValidation.Validate());
                 }
                 catch (Exception ex)
                 {
@@ -175,6 +210,7 @@ namespace LicenseReleaseService.Configuration
             sb.AppendLine($"  Timer: {Timer}");
             sb.AppendLine($"  VersionConfiguration: {VersionConfiguration}");
             sb.AppendLine($"  IdleDetection: {IdleDetection}");
+            sb.AppendLine($"  SafetyValidation: {SafetyValidation}");
             return sb.ToString();
         }
     }
@@ -1662,6 +1698,303 @@ namespace LicenseReleaseService.Configuration
             };
 
             return options;
+        }
+    }
+
+    /// <summary>
+    /// Configuration element for advanced features
+    /// </summary>
+    public class AdvancedFeaturesElement : ConfigurationElement
+    {
+        /// <summary>
+        /// Gets or sets whether advanced monitoring is enabled
+        /// </summary>
+        [ConfigurationProperty("enabled", DefaultValue = true)]
+        public bool Enabled
+        {
+            get { return (bool)this["enabled"]; }
+            set { this["enabled"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets whether AI-powered optimization is enabled
+        /// </summary>
+        [ConfigurationProperty("aiOptimization", DefaultValue = false)]
+        public bool AIOptimization
+        {
+            get { return (bool)this["aiOptimization"]; }
+            set { this["aiOptimization"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets whether predictive analysis is enabled
+        /// </summary>
+        [ConfigurationProperty("predictiveAnalysis", DefaultValue = false)]
+        public bool PredictiveAnalysis
+        {
+            get { return (bool)this["predictiveAnalysis"]; }
+            set { this["predictiveAnalysis"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets whether advanced caching is enabled
+        /// </summary>
+        [ConfigurationProperty("advancedCaching", DefaultValue = true)]
+        public bool AdvancedCaching
+        {
+            get { return (bool)this["advancedCaching"]; }
+            set { this["advancedCaching"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the machine learning model path
+        /// </summary>
+        [ConfigurationProperty("mlModelPath")]
+        public string MlModelPath
+        {
+            get { return (string)this["mlModelPath"]; }
+            set { this["mlModelPath"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets whether advanced monitoring is enabled
+        /// </summary>
+        [ConfigurationProperty("enableAdvancedMonitoring", DefaultValue = false)]
+        public bool EnableAdvancedMonitoring
+        {
+            get { return (bool)this["enableAdvancedMonitoring"]; }
+            set { this["enableAdvancedMonitoring"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets whether diagnostics is enabled
+        /// </summary>
+        [ConfigurationProperty("enableDiagnostics", DefaultValue = false)]
+        public bool EnableDiagnostics
+        {
+            get { return (bool)this["enableDiagnostics"]; }
+            set { this["enableDiagnostics"] = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets whether automatic backups are enabled
+        /// </summary>
+        [ConfigurationProperty("enableAutomaticBackups", DefaultValue = false)]
+        public bool EnableAutomaticBackups
+        {
+            get { return (bool)this["enableAutomaticBackups"]; }
+            set { this["enableAutomaticBackups"] = value; }
+        }
+
+        /// <summary>
+        /// Validates the advanced features configuration
+        /// </summary>
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
+        {
+            var errors = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(MlModelPath) && !System.IO.File.Exists(MlModelPath))
+            {
+                errors.Add($"ML model file not found: {MlModelPath}");
+            }
+
+            return errors;
+        }
+    }
+
+    /// <summary>
+    /// Configuration element for safety validation settings
+    /// </summary>
+    public class SafetyValidationConfigurationElement : ConfigurationElement
+    {
+        [ConfigurationProperty("enabled", DefaultValue = true)]
+        public bool Enabled
+        {
+            get { return (bool)this["enabled"]; }
+            set { this["enabled"] = value; }
+        }
+
+        [ConfigurationProperty("validationTimeoutSeconds", DefaultValue = 30)]
+        [IntegerValidator(MinValue = 1, MaxValue = 300)]
+        public int ValidationTimeoutSeconds
+        {
+            get { return (int)this["validationTimeoutSeconds"]; }
+            set { this["validationTimeoutSeconds"] = value; }
+        }
+
+        [ConfigurationProperty("maxConsecutiveFailures", DefaultValue = 5)]
+        [IntegerValidator(MinValue = 1, MaxValue = 20)]
+        public int MaxConsecutiveFailures
+        {
+            get { return (int)this["maxConsecutiveFailures"]; }
+            set { this["maxConsecutiveFailures"] = value; }
+        }
+
+        [ConfigurationProperty("safetyLockoutDurationMinutes", DefaultValue = 60)]
+        [IntegerValidator(MinValue = 1, MaxValue = 1440)]
+        public int SafetyLockoutDurationMinutes
+        {
+            get { return (int)this["safetyLockoutDurationMinutes"]; }
+            set { this["safetyLockoutDurationMinutes"] = value; }
+        }
+
+        [ConfigurationProperty("minimumIdleTimeMinutes", DefaultValue = 15)]
+        [IntegerValidator(MinValue = 0, MaxValue = 1440)]
+        public int MinimumIdleTimeMinutes
+        {
+            get { return (int)this["minimumIdleTimeMinutes"]; }
+            set { this["minimumIdleTimeMinutes"] = value; }
+        }
+
+        [ConfigurationProperty("protectedProcesses")]
+        public NameValueConfigurationCollection ProtectedProcesses
+        {
+            get { return (NameValueConfigurationCollection)this["protectedProcesses"] ?? new NameValueConfigurationCollection(); }
+            set { this["protectedProcesses"] = value; }
+        }
+
+        [ConfigurationProperty("criticalApplications")]
+        public NameValueConfigurationCollection CriticalApplications
+        {
+            get { return (NameValueConfigurationCollection)this["criticalApplications"] ?? new NameValueConfigurationCollection(); }
+            set { this["criticalApplications"] = value; }
+        }
+
+        [ConfigurationProperty("requireUserConfirmation", DefaultValue = true)]
+        public bool RequireUserConfirmation
+        {
+            get { return (bool)this["requireUserConfirmation"]; }
+            set { this["requireUserConfirmation"] = value; }
+        }
+
+        [ConfigurationProperty("userActivityCheckIntervalSeconds", DefaultValue = 5)]
+        [IntegerValidator(MinValue = 1, MaxValue = 300)]
+        public int UserActivityCheckIntervalSeconds
+        {
+            get { return (int)this["userActivityCheckIntervalSeconds"]; }
+            set { this["userActivityCheckIntervalSeconds"] = value; }
+        }
+
+        [ConfigurationProperty("maxCpuUsagePercent", DefaultValue = 80)]
+        [IntegerValidator(MinValue = 1, MaxValue = 100)]
+        public int MaxCpuUsagePercent
+        {
+            get { return (int)this["maxCpuUsagePercent"]; }
+            set { this["maxCpuUsagePercent"] = value; }
+        }
+
+        [ConfigurationProperty("maxMemoryUsagePercent", DefaultValue = 85)]
+        [IntegerValidator(MinValue = 1, MaxValue = 100)]
+        public int MaxMemoryUsagePercent
+        {
+            get { return (int)this["maxMemoryUsagePercent"]; }
+            set { this["maxMemoryUsagePercent"] = value; }
+        }
+
+        [ConfigurationProperty("validateNetworkConnectivity", DefaultValue = true)]
+        public bool ValidateNetworkConnectivity
+        {
+            get { return (bool)this["validateNetworkConnectivity"]; }
+            set { this["validateNetworkConnectivity"] = value; }
+        }
+
+        [ConfigurationProperty("networkConnectivityTimeoutSeconds", DefaultValue = 10)]
+        [IntegerValidator(MinValue = 1, MaxValue = 300)]
+        public int NetworkConnectivityTimeoutSeconds
+        {
+            get { return (int)this["networkConnectivityTimeoutSeconds"]; }
+            set { this["networkConnectivityTimeoutSeconds"] = value; }
+        }
+
+        [ConfigurationProperty("enableDebugLogging", DefaultValue = false)]
+        public bool EnableDebugLogging
+        {
+            get { return (bool)this["enableDebugLogging"]; }
+            set { this["enableDebugLogging"] = value; }
+        }
+
+        [ConfigurationProperty("preventReleaseDuringHighUsage", DefaultValue = false)]
+        public bool PreventReleaseDuringHighUsage
+        {
+            get { return (bool)this["preventReleaseDuringHighUsage"]; }
+            set { this["preventReleaseDuringHighUsage"] = value; }
+        }
+
+        [ConfigurationProperty("highUsageThreshold", DefaultValue = 85)]
+        [IntegerValidator(MinValue = 1, MaxValue = 100)]
+        public int HighUsageThreshold
+        {
+            get { return (int)this["highUsageThreshold"]; }
+            set { this["highUsageThreshold"] = value; }
+        }
+
+        /// <summary>
+        /// Validates the safety validation configuration
+        /// </summary>
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
+        {
+            var errors = new List<string>();
+
+            if (ValidationTimeoutSeconds <= 0)
+                errors.Add("Validation timeout must be greater than 0");
+
+            if (MaxConsecutiveFailures <= 0)
+                errors.Add("Maximum consecutive failures must be greater than 0");
+
+            if (SafetyLockoutDurationMinutes <= 0)
+                errors.Add("Safety lockout duration must be greater than 0");
+
+            if (MinimumIdleTimeMinutes < 0)
+                errors.Add("Minimum idle time must be non-negative");
+
+            if (UserActivityCheckIntervalSeconds <= 0)
+                errors.Add("User activity check interval must be greater than 0");
+
+            if (MaxCpuUsagePercent <= 0 || MaxCpuUsagePercent > 100)
+                errors.Add("Maximum CPU usage must be between 1 and 100");
+
+            if (MaxMemoryUsagePercent <= 0 || MaxMemoryUsagePercent > 100)
+                errors.Add("Maximum memory usage must be between 1 and 100");
+
+            if (NetworkConnectivityTimeoutSeconds <= 0)
+                errors.Add("Network connectivity timeout must be greater than 0");
+
+            return errors;
+        }
+
+        /// <summary>
+        /// Returns a string representation of the configuration
+        /// </summary>
+        public override string ToString()
+        {
+            return $"SafetyValidation[Enabled={Enabled}, Timeout={ValidationTimeoutSeconds}s, MaxFailures={MaxConsecutiveFailures}]";
+        }
+
+        /// <summary>
+        /// Converts to a Models.SafetyValidationConfiguration
+        /// </summary>
+        /// <returns>SafetyValidationConfiguration instance</returns>
+        public Models.SafetyValidationConfiguration ToSafetyValidationConfiguration()
+        {
+            return new Models.SafetyValidationConfiguration
+            {
+                Enabled = this.Enabled,
+                ValidationTimeoutSeconds = this.ValidationTimeoutSeconds,
+                MaxConsecutiveFailures = this.MaxConsecutiveFailures,
+                SafetyLockoutDurationMinutes = this.SafetyLockoutDurationMinutes,
+                MinimumIdleTimeMinutes = this.MinimumIdleTimeMinutes,
+                RequireUserConfirmation = this.RequireUserConfirmation,
+                UserActivityCheckIntervalSeconds = this.UserActivityCheckIntervalSeconds,
+                MaxCpuUsagePercent = this.MaxCpuUsagePercent,
+                MaxMemoryUsagePercent = this.MaxMemoryUsagePercent,
+                ValidateNetworkConnectivity = this.ValidateNetworkConnectivity,
+                NetworkConnectivityTimeoutSeconds = this.NetworkConnectivityTimeoutSeconds,
+                EnableDebugLogging = this.EnableDebugLogging,
+                PreventReleaseDuringHighUsage = this.PreventReleaseDuringHighUsage,
+                HighUsageThreshold = this.HighUsageThreshold
+            };
         }
     }
 }

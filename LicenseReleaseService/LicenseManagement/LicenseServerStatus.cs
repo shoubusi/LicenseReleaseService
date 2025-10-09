@@ -131,6 +131,16 @@ namespace LicenseReleaseService.LicenseManagement
         public bool IsAvailable => IsServerUp && IsHealthy && string.IsNullOrEmpty(ErrorMessage);
 
         /// <summary>
+        /// Gets or sets the server address
+        /// </summary>
+        public string ServerAddress { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the raw output from the license server command
+        /// </summary>
+        public string RawOutput { get; set; } = string.Empty;
+
+        /// <summary>
         /// Gets the license utilization percentage
         /// </summary>
         public double UtilizationPercentage => TotalLicenses > 0 ? (LicensesInUse * 100.0 / TotalLicenses) : 0;
@@ -453,6 +463,11 @@ namespace LicenseReleaseService.LicenseManagement
         /// Gets or sets the process name using the license
         /// </summary>
         public string ProcessName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the list of feature usages by this user
+        /// </summary>
+        public List<LicenseFeatureUsage> FeatureUsages { get; set; } = new List<LicenseFeatureUsage>();
 
         /// <summary>
         /// Gets or sets the duration the license has been checked out

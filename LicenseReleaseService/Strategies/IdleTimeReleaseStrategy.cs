@@ -299,10 +299,10 @@ namespace LicenseReleaseService.Strategies
             var processes = new List<ProcessInfo>
             {
                 new ProcessInfo(
-                    ProcessId: GetMockProcessId(request.User),
-                    ProcessName: "licenced_application.exe",
-                    UserName: request.User,
-                    ComputerName: request.Host
+                    GetMockProcessId(request.User),
+                    "licenced_application.exe",
+                    request.User,
+                    request.Host
                 )
             };
 

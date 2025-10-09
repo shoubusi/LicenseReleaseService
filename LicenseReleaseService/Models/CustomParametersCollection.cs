@@ -13,6 +13,11 @@ namespace LicenseReleaseService.Models
             _parameters = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         }
 
+        public CustomParametersCollection(IEnumerable<KeyValuePair<string, object>> parameters)
+        {
+            _parameters = new Dictionary<string, object>(parameters, StringComparer.OrdinalIgnoreCase);
+        }
+
         public object this[string key]
         {
             get

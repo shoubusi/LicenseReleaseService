@@ -151,6 +151,34 @@ namespace LicenseReleaseService.VersionManagement
         }
 
         /// <summary>
+        /// Gets the health status for a specific version
+        /// </summary>
+        /// <param name="version">Version to get health status for</param>
+        /// <returns>Health status for the version</returns>
+        public VersionHealthStatus GetHealthStatus(string version)
+        {
+            if (string.IsNullOrWhiteSpace(version))
+                throw new ArgumentException("Version cannot be null or empty", nameof(version));
+
+            lock (_healthLock)
+            {
+                if (_healthHistory.TryGetValue(version, out var history))
+                {
+                    return history.CurrentStatus;
+                }
+                return new VersionHealthStatus
+                {
+                    Health = VersionHealth.Unknown,
+                    IsAvailable = false,
+                    IsHealthy = false,
+                    HasIssues = true,
+                    LastCheck = DateTime.UtcNow,
+                    UptimePercentage = 0.0
+                };
+            }
+        }
+
+        /// <summary>
         /// Gets the health history for a specific version
         /// </summary>
         /// <param name="version">Version to get history for</param>
@@ -795,6 +823,74 @@ namespace LicenseReleaseService.VersionManagement
         }
 
         /// <summary>
+        /// Configures version monitoring with new settings
+        /// </summary>
+        /// <param name="configuration">New health monitoring configuration</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>Task representing the operation</returns>
+        public async Task ConfigureVersionMonitoringAsync(VersionHealthConfiguration configuration, CancellationToken cancellationToken = default)
+        {
+            await Task.Run(() =>
+            {
+                // Stop current monitoring if running
+                if (_isMonitoring)
+                {
+                    StopMonitoring();
+                }
+
+                // Update configuration - apply settings to existing configuration
+                // Note: Since _configuration is readonly, we can't replace it, but we can update the timer interval
+                if (_healthCheckTimer != null)
+                {
+                    _healthCheckTimer.Interval = configuration.HealthCheckInterval.TotalMilliseconds;
+                }
+
+  
+                _logger.LogInformation("Version monitoring configured with new settings");
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// Configures version monitoring for a specific version
+        /// </summary>
+        /// <param name="version">Version to configure</param>
+        /// <param name="configuration">Configuration for the version</param>
+        public void ConfigureVersionMonitoring(string version, VersionHealthMonitoringConfig configuration)
+        {
+            if (string.IsNullOrWhiteSpace(version))
+                throw new ArgumentException("Version cannot be null or empty", nameof(version));
+
+            if (configuration == null)
+                throw new ArgumentNullException(nameof(configuration));
+
+            try
+            {
+                _logger.LogDebug("Configuring version monitoring for {Version}", version);
+
+                // Apply configuration to specific version
+                lock (_healthLock)
+                {
+                    if (!_healthHistory.ContainsKey(version))
+                    {
+                        // Create health history for new version
+                        var history = new VersionHealthHistory(version, _configuration.MaxHistoryRecords);
+                        _healthHistory[version] = history;
+                    }
+
+                    // Update monitoring settings for this version
+                    // Configuration settings are applied globally but version-specific settings can be added here
+                }
+
+                _logger.LogDebug("Version monitoring configured for {Version}", version);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error configuring version monitoring for {Version}", version);
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Disposes the health monitor
         /// </summary>
         public void Dispose()
@@ -895,6 +991,22 @@ namespace LicenseReleaseService.VersionManagement
         /// Gets or sets the uptime percentage
         /// </summary>
         public double UptimePercentage { get; set; }
+
+        // Additional properties for monitoring service
+        /// <summary>
+        /// Gets or sets the overall health status
+        /// </summary>
+        public VersionHealth OverallHealth { get; set; }
+
+        /// <summary>
+        /// Gets or sets the count of healthy versions
+        /// </summary>
+        public int HealthyVersionCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the total count of versions
+        /// </summary>
+        public int TotalVersionCount { get; set; }
     }
 
     /// <summary>
@@ -1179,6 +1291,16 @@ namespace LicenseReleaseService.VersionManagement
         public List<string> CriticalIssues { get; set; }
 
         /// <summary>
+        /// Gets or sets the license manager response time in milliseconds
+        /// </summary>
+        public double LicenseManagerResponseTimeMs { get; set; }
+
+        /// <summary>
+        /// Gets or sets the filesystem performance in milliseconds
+        /// </summary>
+        public double FilesystemPerformanceMs { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the SingleVersionHealthCheckResult class
         /// </summary>
         public SingleVersionHealthCheckResult()
@@ -1187,6 +1309,8 @@ namespace LicenseReleaseService.VersionManagement
             CriticalIssues = new List<string>();
             CheckDuration = TimeSpan.Zero;
             Health = VersionHealth.Unknown;
+            LicenseManagerResponseTimeMs = 0;
+            FilesystemPerformanceMs = 0;
         }
     }
 
@@ -1309,5 +1433,31 @@ namespace LicenseReleaseService.VersionManagement
         /// Gets or sets the list of all issues
         /// </summary>
         public List<string> AllIssues { get; set; }
+    }
+
+    /// <summary>
+    /// Configuration for version health monitoring
+    /// </summary>
+    public class VersionHealthMonitoringConfig
+    {
+        /// <summary>
+        /// Gets or sets the health check interval
+        /// </summary>
+        public TimeSpan HealthCheckInterval { get; set; } = TimeSpan.FromMinutes(5);
+
+        /// <summary>
+        /// Gets or sets a value indicating whether file system checks are enabled
+        /// </summary>
+        public bool EnableFileSystemChecks { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether registry checks are enabled
+        /// </summary>
+        public bool EnableRegistryChecks { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether performance checks are enabled
+        /// </summary>
+        public bool EnablePerformanceChecks { get; set; } = true;
     }
 }

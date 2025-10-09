@@ -50,6 +50,27 @@ namespace LicenseReleaseService.TimerExecution
         public long TotalMemoryOptimized => Interlocked.Read(ref _totalMemoryOptimized);
 
         /// <summary>
+        /// Gets the current memory statistics asynchronously
+        /// </summary>
+        /// <returns>Memory statistics</returns>
+        public Task<TimerMemoryStatistics> GetMemoryStatisticsAsync()
+        {
+            return Task.FromResult(new TimerMemoryStatistics
+            {
+                IsRunning = _isRunning,
+                CurrentPressureLevel = _currentPressureLevel,
+                TotalMemoryOptimized = _totalMemoryOptimized,
+                GcCollectionsForced = _gcCollectionsForced,
+                MemoryLeaksDetected = _memoryLeaksDetected,
+                MemoryPoolsCreated = _memoryPoolsCreated,
+                MemoryPoolsReleased = _memoryPoolsReleased,
+                CurrentMemoryUsage = GC.GetTotalMemory(false),
+                Uptime = _uptimeStopwatch.Elapsed,
+                GeneratedAt = DateTime.UtcNow
+            });
+        }
+
+        /// <summary>
         /// Gets the number of forced GC collections
         /// </summary>
         public long GcCollectionsForced => Interlocked.Read(ref _gcCollectionsForced);

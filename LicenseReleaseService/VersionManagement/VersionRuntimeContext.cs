@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using LicenseReleaseServiceConfiguration = LicenseReleaseService.Configuration;
 
 namespace LicenseReleaseService.VersionManagement
 {
@@ -48,7 +49,7 @@ namespace LicenseReleaseService.VersionManagement
         /// <summary>
         /// Gets the current health status
         /// </summary>
-        public VersionHealthStatus HealthStatus { get; private set; }
+        public LicenseReleaseServiceConfiguration.VersionHealthStatus HealthStatus { get; private set; }
 
         /// <summary>
         /// Initializes a new instance of the VersionRuntimeContext class
@@ -67,7 +68,7 @@ namespace LicenseReleaseService.VersionManagement
             _healthMonitor = new HealthMonitor();
             CreatedAt = DateTime.UtcNow;
             LastActivatedAt = CreatedAt;
-            HealthStatus = VersionHealthStatus.Unknown;
+            HealthStatus = LicenseReleaseServiceConfiguration.VersionHealthStatus.Unknown;
         }
 
         /// <summary>
@@ -80,13 +81,13 @@ namespace LicenseReleaseService.VersionManagement
             {
                 await _healthMonitor.InitializeAsync();
                 IsActive = true;
-                HealthStatus = VersionHealthStatus.Healthy;
+                HealthStatus = LicenseReleaseServiceConfiguration.VersionHealthStatus.Healthy;
                 return true;
             }
             catch (Exception ex)
             {
                 IsActive = false;
-                HealthStatus = VersionHealthStatus.Error;
+                HealthStatus = LicenseReleaseServiceConfiguration.VersionHealthStatus.Error;
                 return false;
             }
         }
@@ -104,7 +105,7 @@ namespace LicenseReleaseService.VersionManagement
             if (!IsActive)
                 return false;
 
-            if (HealthStatus != VersionHealthStatus.Healthy)
+            if (HealthStatus != LicenseReleaseServiceConfiguration.VersionHealthStatus.Healthy)
                 return false;
 
             // Check if we have capacity for the operation
@@ -222,7 +223,7 @@ namespace LicenseReleaseService.VersionManagement
                 return new VersionRuntimeHealth
                 {
                     Version = Version,
-                    IsHealthy = HealthStatus == VersionHealthStatus.Healthy,
+                    IsHealthy = HealthStatus == LicenseReleaseServiceConfiguration.VersionHealthStatus.Healthy,
                     Status = HealthStatus.ToString(),
                     CurrentLoad = _metrics.CurrentLoad,
                     MemoryUsage = _metrics.MemoryUsage,
@@ -246,7 +247,7 @@ namespace LicenseReleaseService.VersionManagement
 
                 lock (_contextLock)
                 {
-                    HealthStatus = isHealthy ? VersionHealthStatus.Healthy : VersionHealthStatus.Unhealthy;
+                    HealthStatus = isHealthy ? LicenseReleaseServiceConfiguration.VersionHealthStatus.Healthy : LicenseReleaseServiceConfiguration.VersionHealthStatus.Error;
                 }
 
                 return isHealthy;
@@ -255,7 +256,7 @@ namespace LicenseReleaseService.VersionManagement
             {
                 lock (_contextLock)
                 {
-                    HealthStatus = VersionHealthStatus.Error;
+                    HealthStatus = LicenseReleaseServiceConfiguration.VersionHealthStatus.Error;
                 }
                 return false;
             }
@@ -293,7 +294,7 @@ namespace LicenseReleaseService.VersionManagement
                     lock (_contextLock)
                     {
                         IsActive = false;
-                        HealthStatus = VersionHealthStatus.Disposed;
+                        HealthStatus = LicenseReleaseServiceConfiguration.VersionHealthStatus.Unavailable;
                         _healthMonitor?.Dispose();
                         _historyTracker?.Dispose();
                     }
@@ -333,6 +334,55 @@ namespace LicenseReleaseService.VersionManagement
         public VersionRuntimeMetrics()
         {
             Timestamp = DateTime.UtcNow;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the VersionRuntimeMetrics class with specified values
+        /// </summary>
+        /// <param name="totalOperations">Total number of operations</param>
+        /// <param name="successfulOperations">Number of successful operations</param>
+        /// <param name="failedOperations">Number of failed operations</param>
+        /// <param name="averageOperationTime">Average operation time</param>
+        /// <param name="peakOperationTime">Peak operation time</param>
+        /// <param name="memoryUsage">Memory usage in bytes</param>
+        /// <param name="peakMemoryUsage">Peak memory usage in bytes</param>
+        /// <param name="cpuUsage">Current CPU usage percentage</param>
+        /// <param name="peakCpuUsage">Peak CPU usage percentage</param>
+        /// <param name="totalCpuTime">Total CPU time</param>
+        /// <param name="currentLoad">Current load factor</param>
+        /// <param name="stabilityScore">Stability score</param>
+        /// <param name="performanceScore">Performance score</param>
+        /// <param name="timestamp">Timestamp for the metrics</param>
+        public VersionRuntimeMetrics(
+            long totalOperations = 0,
+            long successfulOperations = 0,
+            long failedOperations = 0,
+            TimeSpan averageOperationTime = default,
+            TimeSpan peakOperationTime = default,
+            long memoryUsage = 0,
+            long peakMemoryUsage = 0,
+            int cpuUsage = 0,
+            int peakCpuUsage = 0,
+            TimeSpan totalCpuTime = default,
+            double currentLoad = 0,
+            double stabilityScore = 0,
+            double performanceScore = 0,
+            DateTime timestamp = default)
+        {
+            TotalOperations = totalOperations;
+            SuccessfulOperations = successfulOperations;
+            FailedOperations = failedOperations;
+            AverageOperationTime = averageOperationTime;
+            PeakOperationTime = peakOperationTime;
+            MemoryUsage = memoryUsage;
+            PeakMemoryUsage = peakMemoryUsage;
+            CpuUsage = cpuUsage;
+            PeakCpuUsage = peakCpuUsage;
+            TotalCpuTime = totalCpuTime;
+            CurrentLoad = currentLoad;
+            StabilityScore = stabilityScore;
+            PerformanceScore = performanceScore;
+            Timestamp = timestamp == default ? DateTime.UtcNow : timestamp;
         }
 
         public void RecordSuccessfulOperation(TimeSpan duration = default)

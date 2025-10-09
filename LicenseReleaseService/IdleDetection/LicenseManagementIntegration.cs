@@ -246,7 +246,7 @@ namespace LicenseReleaseService.IdleDetection
                     }
                 }
 
-                results.TotalCandidates = candidates.Count;
+                results.TotalCandidates = candidates.Count();
                 results.TotalReleased = results.ReleasedLicenses.Count;
                 results.TotalFailed = results.FailedReleases.Count;
                 results.TotalSkipped = results.SkippedReleases.Count;
@@ -283,14 +283,14 @@ namespace LicenseReleaseService.IdleDetection
                     TotalSessions = currentSessions.Count,
                     ActiveSessions = currentSessions.Count(s => s.IsActive),
                     IdleSessions = currentSessions.Count(s => s.IsIdle),
-                    MonitoredSessions = currentSessions.Count(s => detectionResultsCopy.ContainsKey(s.SessionId)),
+                    MonitoredSessionsCount = currentSessions.Count(s => detectionResultsCopy.ContainsKey(s.SessionId)),
                     TotalIdleTime = TimeSpan.Zero,
                     AverageIdleTime = TimeSpan.Zero,
                     LongestIdleTime = TimeSpan.Zero,
                     ConfidenceThreshold = _configurationIntegration?.ConfidenceThreshold ?? 0.7
                 };
 
-                if (statistics.MonitoredSessions > 0)
+                if (statistics.MonitoredSessionsCount > 0)
                 {
                     var idleTimes = new List<TimeSpan>();
                     var confidenceScores = new List<double>();
@@ -420,8 +420,8 @@ namespace LicenseReleaseService.IdleDetection
                 }
 
                 // Get users from license server
-                var server = config.GetCustomParameter("licenseServer") ?? "localhost";
-                var port = config.GetCustomParameter<int>("licensePort") ?? 27000;
+                var server = config.GetCustomParameter<string>("licenseServer") ?? "localhost";
+                var port = config.GetCustomParameter<int>("licensePort", 27000);
 
                 var users = await _licenseManager.GetUsersAsync(server, port, cancellationToken);
                 if (!users.Any())
@@ -430,21 +430,22 @@ namespace LicenseReleaseService.IdleDetection
                 }
 
                 // Convert to session objects
-                foreach (var userUsage in users)
+                foreach (var userUsageKvp in users)
                 {
+                    var userUsage = userUsageKvp.Value;
                     foreach (var featureUsage in userUsage.FeatureUsages)
                     {
                         sessions.Add(new LicenseUserSession
                         {
-                            SessionId = $"{userUsage.User}_{featureUsage.Feature}_{DateTime.UtcNow:yyyyMMddHHmmss}",
-                            UserName = userUsage.User,
+                            SessionId = $"{userUsage.UserName}_{featureUsage.Feature}_{DateTime.UtcNow:yyyyMMddHHmmss}",
+                            UserName = userUsage.UserName,
                             Feature = featureUsage.Feature,
                             Server = server,
                             Port = port,
-                            LoginTime = featureUsage.LoginTime,
-                            LastActivity = featureUsage.LastActivity,
-                            IsActive = featureUsage.IsActive,
-                            IsIdle = featureUsage.IsIdle,
+                            LoginTime = userUsage.CheckoutTime,
+                            LastActivity = userUsage.CheckoutTime,
+                            IsActive = true, // Default to active since we found the user
+                            IsIdle = false,  // Default to not idle since we don't have this info
                             FeatureUsage = featureUsage
                         });
                     }
@@ -598,7 +599,7 @@ namespace LicenseReleaseService.IdleDetection
                         Success = true,
                         ReleasedLicense = new ReleasedLicenseInfo
                         {
-                            SessionId = candidate.SessionId,
+                            SessionId = candidate.SessionId.GetHashCode(), // Convert string session ID to int hash
                             UserName = candidate.UserName,
                             Feature = candidate.Feature,
                             Server = candidate.Server,

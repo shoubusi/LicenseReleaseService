@@ -152,6 +152,8 @@ namespace LicenseReleaseService.VersionManagement
         public Dictionary<string, int> VersionResourceCounts { get; set; }
         public TimeSpan Timeout { get; set; }
         public Dictionary<string, object> Parameters { get; set; }
+        public string FeatureName { get; set; }
+        public int RequiredLicenses { get; set; }
     }
 
     /// <summary>
@@ -173,6 +175,9 @@ namespace LicenseReleaseService.VersionManagement
         public string RequestId { get; set; }
         public Dictionary<string, List<string>> VersionResourceIds { get; set; }
         public Dictionary<string, object> Parameters { get; set; }
+        public string FeatureName { get; set; }
+        public string User { get; set; }
+        public string Version { get; set; }
     }
 
     /// <summary>
@@ -186,6 +191,12 @@ namespace LicenseReleaseService.VersionManagement
         public List<string> AllocatedResourceIds { get; set; }
         public string ErrorMessage { get; set; }
         public DateTime Timestamp { get; set; }
+
+        // Additional properties for license allocation
+        public int AllocatedLicenses { get; set; }
+        public int RemainingLicenses { get; set; }
+        public string AllocationId { get; set; }
+        public DateTime? ExpiresAt { get; set; }
     }
 
     /// <summary>
@@ -199,6 +210,9 @@ namespace LicenseReleaseService.VersionManagement
         public List<string> ReleasedResourceIds { get; set; }
         public string ErrorMessage { get; set; }
         public DateTime Timestamp { get; set; }
+        public List<string> Errors { get; set; }
+        public List<ReleasedLicense> ReleasedLicenses { get; set; }
+        public List<string> Warnings { get; set; } = new List<string>();
     }
 
     /// <summary>
@@ -212,6 +226,8 @@ namespace LicenseReleaseService.VersionManagement
         public List<string> Issues { get; set; }
         public Dictionary<string, object> Metrics { get; set; }
         public DateTime Timestamp { get; set; }
+        public string Status { get; set; }
+        public DateTime LastCheck { get; set; }
     }
 
     /// <summary>
@@ -222,6 +238,47 @@ namespace LicenseReleaseService.VersionManagement
         public Dictionary<string, VersionHealthResult> VersionHealthResults { get; set; }
         public double OverallHealthScore { get; set; }
         public DateTime Timestamp { get; set; }
+        public Dictionary<string, VersionHealth> VersionHealth { get; set; }
+        public int TotalVersionCount { get; set; }
+        public List<SystemWideIssue> SystemWideIssues { get; set; }
+        public int HealthyVersionCount { get; set; }
+        public MultiVersionHealthLevel OverallHealth { get; set; }
+    }
+
+    /// <summary>
+    /// Represents a system-wide issue affecting multiple versions
+    /// </summary>
+    public class SystemWideIssue
+    {
+        public string IssueId { get; set; }
+        public string Description { get; set; }
+        public SystemWideIssueSeverity Severity { get; set; }
+        public DateTime DetectedAt { get; set; }
+        public List<string> AffectedVersions { get; set; }
+        public string IssueType { get; set; }
+        public int AffectedVersionCount { get; set; }
+    }
+
+    /// <summary>
+    /// Severity levels for system-wide issues
+    /// </summary>
+    public enum SystemWideIssueSeverity
+    {
+        Low,
+        Medium,
+        High,
+        Critical,
+        Warning
+    }
+
+    /// <summary>
+    /// Multi-version health levels
+    /// </summary>
+    public enum MultiVersionHealthLevel
+    {
+        Healthy,
+        Degraded,
+        Unhealthy
     }
 
     /// <summary>
@@ -243,6 +300,7 @@ namespace LicenseReleaseService.VersionManagement
         public List<string> Users { get; set; }
         public bool Cached { get; set; }
         public List<string> Errors { get; set; }
+        public List<string> Warnings { get; set; }
     }
 
     /// <summary>
@@ -279,6 +337,12 @@ namespace LicenseReleaseService.VersionManagement
         public string ErrorMessage { get; set; }
         public Dictionary<string, string> InitializedVersions { get; set; } = new Dictionary<string, string>();
         public DateTime Timestamp { get; set; }
+        public List<string> Errors { get; set; } = new List<string>();
+        public List<string> Warnings { get; set; } = new List<string>();
+        public TimeSpan InitializationTime { get; set; }
+        public int ManagedVersionCount { get; set; }
+        public int TotalVersionCount { get; set; }
+        public List<string> Conflicts { get; set; } = new List<string>();
     }
 
     /// <summary>
@@ -290,6 +354,17 @@ namespace LicenseReleaseService.VersionManagement
         public string ErrorMessage { get; set; }
         public Dictionary<string, object> Results { get; set; } = new Dictionary<string, object>();
         public DateTime Timestamp { get; set; }
+        public List<string> Warnings { get; set; } = new List<string>();
+
+        // Additional properties for MultiVersionLicenseManager compatibility
+        public List<VersionSpecificQueryResult> VersionResults { get; set; } = new List<VersionSpecificQueryResult>();
+        public int SuccessfulVersionCount { get; set; }
+        public int FailedVersionCount { get; set; }
+        public int TotalLicenseCount { get; set; }
+        public List<string> Errors { get; set; } = new List<string>();
+        public List<VersionConflict> Conflicts { get; set; } = new List<VersionConflict>();
+        public List<VersionConflict> ResolvedConflicts { get; set; } = new List<VersionConflict>();
+        public TimeSpan QueryTime { get; set; }
     }
 
     /// <summary>
@@ -301,6 +376,12 @@ namespace LicenseReleaseService.VersionManagement
         public string ErrorMessage { get; set; }
         public Dictionary<string, VersionAllocationResult> VersionResults { get; set; } = new Dictionary<string, VersionAllocationResult>();
         public DateTime Timestamp { get; set; }
+
+        // Additional properties for MultiVersionLicenseManager compatibility
+        public string AllocatedVersion { get; set; }
+        public VersionAllocationResult AllocationDetails { get; set; }
+        public List<VersionAllocationAttempt> FailedAttempts { get; set; } = new List<VersionAllocationAttempt>();
+        public TimeSpan AllocationTime { get; set; }
     }
 
     /// <summary>
@@ -312,6 +393,10 @@ namespace LicenseReleaseService.VersionManagement
         public string ErrorMessage { get; set; }
         public Dictionary<string, VersionReleaseResult> VersionResults { get; set; } = new Dictionary<string, VersionReleaseResult>();
         public DateTime Timestamp { get; set; }
+        public List<string> Warnings { get; set; } = new List<string>();
+        public TimeSpan ReleaseTime { get; set; }
+        public List<ReleasedLicense> ReleasedLicenses { get; set; } = new List<ReleasedLicense>();
+        public List<string> Errors { get; set; } = new List<string>();
     }
 
     /// <summary>
@@ -323,5 +408,8 @@ namespace LicenseReleaseService.VersionManagement
         public string ErrorMessage { get; set; }
         public Dictionary<string, bool> RefreshResults { get; set; } = new Dictionary<string, bool>();
         public DateTime Timestamp { get; set; }
+        public List<string> AddedVersions { get; set; } = new List<string>();
+        public List<string> RemovedVersions { get; set; } = new List<string>();
+        public DateTime RefreshTime { get; set; }
     }
 }

@@ -320,7 +320,7 @@ namespace LicenseReleaseService.IdleDetection
                 {
                     var activity = new ActivityData
                     {
-                        ActivityType = ActivityType.System,
+                        Type = ActivityType.System,
                         Confidence = confidence,
                         Timestamp = DateTime.UtcNow
                     };
@@ -440,13 +440,13 @@ namespace LicenseReleaseService.IdleDetection
                     LastActivity = _activityMonitor.LastActivity,
                     State = MapDetectionLevelToSessionState(detectionLevel),
                     Confidence = CalculateIdleConfidence(systemIdleTime, detectionLevel),
-                    DetectionMethods = recentActivities.Select(a => a.ActivityType.ToString()).Distinct().ToList(),
+                    DetectionMethods = recentActivities.Select(a => a.Type.ToString()).Distinct().ToList(),
                     AdditionalInfo = new Dictionary<string, object>
                     {
                         ["SystemIdleTime"] = systemIdleTime,
                         ["DetectionLevel"] = detectionLevel,
                         ["RecentActivities"] = recentActivities.Count,
-                        ["LastActivityType"] = recentActivities.FirstOrDefault()?.ActivityType.ToString(),
+                        ["LastActivityType"] = recentActivities.FirstOrDefault()?.Type.ToString(),
                         ["ActivityMonitorStatus"] = _activityMonitor.IsRunning
                     }
                 };
@@ -905,7 +905,7 @@ namespace LicenseReleaseService.IdleDetection
         {
             // This handles activity detected by the activity monitor
             _logger.LogDebug("Activity detected by monitor: {ActivityType}, Confidence: {Confidence:F2}",
-                activity.ActivityType, activity.Confidence);
+                activity.Type, activity.Confidence);
         }
 
         private void OnThresholdsAdapted(object sender, ThresholdAdaptedEventArgs e)

@@ -184,6 +184,11 @@ namespace LicenseReleaseService.TimerExecution
         public TimerState State { get; }
 
         /// <summary>
+        /// Gets the error message
+        /// </summary>
+        public string ErrorMessage { get; }
+
+        /// <summary>
         /// Gets the execution identifier if the error occurred during execution
         /// </summary>
         public Guid? ExecutionId { get; }
@@ -194,19 +199,25 @@ namespace LicenseReleaseService.TimerExecution
         public bool ShouldTriggerCircuitBreaker { get; set; }
 
         /// <summary>
+        /// Gets the formatted message for logging purposes
+        /// </summary>
+        public string FormattedMessage => $"Timer error in {State} state (Consecutive: {ConsecutiveErrors}): {ErrorMessage}";
+
+        /// <summary>
         /// Initializes a new instance of the TimerExecutionErrorEventArgs class
         /// </summary>
         /// <param name="error">The exception that caused the error</param>
         /// <param name="consecutiveErrors">The number of consecutive errors</param>
         /// <param name="state">The current timer state</param>
         /// <param name="executionId">The execution identifier</param>
-        public TimerExecutionErrorEventArgs(Exception error, int consecutiveErrors, TimerState state, Guid? executionId = null)
+        public TimerExecutionErrorEventArgs(Exception error, int consecutiveErrors, TimerState state, Guid? executionId = null, string errorMessage = null)
         {
             Error = error ?? throw new ArgumentNullException(nameof(error));
             ConsecutiveErrors = consecutiveErrors;
             Timestamp = DateTime.UtcNow;
             State = state;
             ExecutionId = executionId;
+            ErrorMessage = errorMessage ?? error?.Message;
             ShouldTriggerCircuitBreaker = false;
         }
     }
@@ -287,6 +298,11 @@ namespace LicenseReleaseService.TimerExecution
         public DateTime? StopTime { get; internal set; }
 
         /// <summary>
+        /// Gets the current timer interval
+        /// </summary>
+        public TimeSpan CurrentInterval { get; internal set; }
+
+        /// <summary>
         /// Initializes a new instance of the TimerPerformanceMetrics class
         /// </summary>
         public TimerPerformanceMetrics()
@@ -300,6 +316,31 @@ namespace LicenseReleaseService.TimerExecution
             Uptime = TimeSpan.Zero;
             CurrentConsecutiveErrors = 0;
             MaxConsecutiveErrors = 0;
+            CurrentInterval = TimeSpan.Zero;
+        }
+
+        /// <summary>
+        /// Creates a clone of the performance metrics
+        /// </summary>
+        /// <returns>A cloned copy of the metrics</returns>
+        public TimerPerformanceMetrics Clone()
+        {
+            return new TimerPerformanceMetrics
+            {
+                TotalExecutions = this.TotalExecutions,
+                SuccessfulExecutions = this.SuccessfulExecutions,
+                FailedExecutions = this.FailedExecutions,
+                AverageExecutionDuration = this.AverageExecutionDuration,
+                MinExecutionDuration = this.MinExecutionDuration,
+                MaxExecutionDuration = this.MaxExecutionDuration,
+                Uptime = this.Uptime,
+                LastExecutionTime = this.LastExecutionTime,
+                CurrentConsecutiveErrors = this.CurrentConsecutiveErrors,
+                MaxConsecutiveErrors = this.MaxConsecutiveErrors,
+                StartTime = this.StartTime,
+                StopTime = this.StopTime,
+                CurrentInterval = this.CurrentInterval
+            };
         }
 
         /// <summary>

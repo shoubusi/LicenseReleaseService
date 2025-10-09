@@ -137,7 +137,7 @@ namespace LicenseReleaseService.LicenseManagement
         private readonly SemaphoreSlim _queueLock;
         private readonly TimeSpan _processingInterval;
         private readonly int _maxConcurrentRecoveries;
-        private readonly int _activeRecoveries;
+        private int _activeRecoveries;
         private bool _disposed;
 
         /// <summary>
@@ -170,7 +170,7 @@ namespace LicenseReleaseService.LicenseManagement
             _maxConcurrentRecoveries = 3;
             _activeRecoveries = 0;
 
-            Statistics = new RecoveryManagerStatistics();
+            Statistics = new RecoveryManagerStatistics { StartTime = DateTime.Now };
             _processorTask = Task.Run(ProcessRecoveryQueueAsync);
         }
 
@@ -609,6 +609,28 @@ namespace LicenseReleaseService.LicenseManagement
         }
 
         /// <summary>
+        /// Converts RecoveryManagerStatistics to RecoveryEngineStatistics
+        /// </summary>
+        /// <param name="stats">The recovery manager statistics</param>
+        /// <returns>Recovery engine statistics</returns>
+        private RecoveryEngineStatistics ConvertToRecoveryEngineStatistics(RecoveryManagerStatistics stats)
+        {
+            return new RecoveryEngineStatistics
+            {
+                State = stats.FailedRecoveries > stats.SuccessfulRecoveries ? RecoveryEngineState.Degraded : RecoveryEngineState.Running,
+                TotalRequests = stats.TotalRequests,
+                SuccessfulRecoveries = stats.SuccessfulRecoveries,
+                FailedRecoveries = stats.FailedRecoveries,
+                CurrentQueueSize = stats.QueueSize,
+                ActiveRecoveries = _activeRecoveries,
+                AverageRecoveryTime = stats.AverageProcessingTime,
+                LastRecoveryTime = stats.LastProcessedAt,
+                Uptime = DateTime.Now - (Statistics.StartTime ?? DateTime.Now),
+                RecoveryRatePerMinute = stats.TotalProcessed > 0 ? stats.TotalProcessed / (DateTime.Now - (Statistics.StartTime ?? DateTime.Now)).TotalMinutes : 0
+            };
+        }
+
+        /// <summary>
         /// Gets the current recovery queue status
         /// </summary>
         /// <returns>Queue status information</returns>
@@ -627,7 +649,7 @@ namespace LicenseReleaseService.LicenseManagement
                 CompletedRecoveries = completedRequests.Count,
                 HighestPriorityPending = pendingRequests.Any() ? pendingRequests.Max(r => r.Priority) : RecoveryPriority.Low,
                 OldestPendingRequest = pendingRequests.Any() ? pendingRequests.Min(r => r.CreatedAt) : (DateTime?)null,
-                Statistics = Statistics
+                Statistics = ConvertToRecoveryEngineStatistics(Statistics)
             };
         }
 
@@ -696,5 +718,10 @@ namespace LicenseReleaseService.LicenseManagement
         /// Gets or sets the timestamp of the last processed request
         /// </summary>
         public DateTime? LastProcessedAt { get; set; }
+
+        /// <summary>
+        /// Gets or sets the start time of the statistics collection
+        /// </summary>
+        public DateTime? StartTime { get; set; }
     }
 }

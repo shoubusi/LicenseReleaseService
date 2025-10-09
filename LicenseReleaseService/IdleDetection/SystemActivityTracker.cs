@@ -18,7 +18,7 @@ namespace LicenseReleaseService.IdleDetection
     public class SystemActivityTracker : IDisposable
     {
         private readonly ILogger<SystemActivityTracker> _logger;
-        private readonly SystemActivityTrackerConfig _config;
+        private SystemActivityTrackerConfig _config;
         private readonly object _lock = new object();
         private readonly ConcurrentDictionary<int, ProcessActivityRecord> _processRecords = new ConcurrentDictionary<int, ProcessActivityRecord>();
         private readonly List<SystemActivityEvent> _activityHistory = new List<SystemActivityEvent>();
@@ -87,6 +87,11 @@ namespace LicenseReleaseService.IdleDetection
         public event EventHandler<ProcessActivityRecord> ProcessActivityDetected;
 
         /// <summary>
+        /// Event raised when system activity is tracked
+        /// </summary>
+        public event EventHandler<SystemActivityEvent> SystemActivityTracked;
+
+        /// <summary>
         /// Gets a value indicating whether the tracker is running
         /// </summary>
         public bool IsRunning { get; private set; }
@@ -99,7 +104,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Gets the last system activity timestamp
         /// </summary>
-        public DateTime LastSystemActivity { get; private set; }
+        public DateTime? LastSystemActivity { get; private set; }
 
         /// <summary>
         /// Gets tracking statistics
@@ -152,6 +157,15 @@ namespace LicenseReleaseService.IdleDetection
         }
 
         /// <summary>
+        /// Starts the system activity tracking with cancellation token
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        public async Task StartAsync(CancellationToken cancellationToken)
+        {
+            await StartAsync();
+        }
+
+        /// <summary>
         /// Stops the system activity tracking
         /// </summary>
         public async Task StopAsync()
@@ -195,6 +209,62 @@ namespace LicenseReleaseService.IdleDetection
             _trackingTask = null;
 
             _logger.LogInformation("System activity tracker stopped");
+        }
+
+        /// <summary>
+        /// Stops the system activity tracking with cancellation token
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            await StopAsync();
+        }
+
+        /// <summary>
+        /// Initializes the system activity tracker asynchronously
+        /// </summary>
+        /// <returns>Task representing the initialization operation</returns>
+        public async Task InitializeAsync()
+        {
+            await PerformInitialTrackingAsync();
+        }
+
+        /// <summary>
+        /// Pauses the system activity tracking
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        public async Task PauseAsync(CancellationToken cancellationToken)
+        {
+            if (IsRunning)
+            {
+                lock (_lock)
+                {
+                    IsRunning = false;
+                }
+                _logger.LogInformation("System activity tracker paused");
+            }
+        }
+
+        /// <summary>
+        /// Resumes the system activity tracking
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        public async Task ResumeAsync(CancellationToken cancellationToken)
+        {
+            if (!IsRunning)
+            {
+                lock (_lock)
+                {
+                    if (!IsRunning)
+                    {
+                        _cancellationTokenSource = new CancellationTokenSource();
+                        IsRunning = true;
+                    }
+                }
+
+                _trackingTask = Task.Run(() => TrackingLoop(_cancellationTokenSource.Token));
+                _logger.LogInformation("System activity tracker resumed");
+            }
         }
 
         /// <summary>
@@ -1040,5 +1110,208 @@ namespace LicenseReleaseService.IdleDetection
                 _isDisposed = true;
             }
         }
+
+        /// <summary>
+        /// Updates the tracker configuration asynchronously
+        /// </summary>
+        /// <param name="config">The new configuration</param>
+        /// <returns>Task representing the operation</returns>
+        public async Task UpdateConfigurationAsync(SystemActivityTrackerConfig config)
+        {
+            await Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    _config = config ?? throw new ArgumentNullException(nameof(config));
+                    _logger.LogInformation("SystemActivityTracker configuration updated");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Gets the health status of the tracker asynchronously
+        /// </summary>
+        /// <returns>Health status information</returns>
+        public async Task<SystemActivityTrackerHealth> GetHealthAsync()
+        {
+            return await Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    return new SystemActivityTrackerHealth
+                    {
+                        IsHealthy = IsRunning && !_isDisposed,
+                        StatusMessage = IsRunning ? "Running" : (_isDisposed ? "Disposed" : "Stopped"),
+                        IsRunning = IsRunning,
+                        IsDisposed = _isDisposed,
+                        ActivityHistoryCount = _activityHistory.Count,
+                        ProcessRecordsCount = _processRecords.Count,
+                        LastSystemActivity = LastSystemActivity,
+                        CurrentSystemIdleTime = CurrentSystemIdleTime,
+                        Statistics = Statistics
+                    };
+                }
+            });
+        }
+
+        /// <summary>
+        /// Gets the tracker statistics asynchronously
+        /// </summary>
+        /// <returns>Tracker statistics</returns>
+        public async Task<object> GetStatisticsAsync()
+        {
+            return await Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    return new
+                    {
+                        TotalEventsProcessed = Statistics.TotalEventsProcessed,
+                        EventsNotified = Statistics.EventsNotified,
+                        ProcessEventsNotified = Statistics.ProcessEventsNotified,
+                        ErrorCount = Statistics.ErrorCount,
+                        LastErrorTime = Statistics.LastErrorTime,
+                        StartTime = Statistics.StartTime,
+                        Uptime = DateTime.UtcNow - Statistics.StartTime,
+                        ActivityHistoryCount = _activityHistory.Count,
+                        ProcessRecordsCount = _processRecords.Count,
+                        CurrentSystemIdleTime = CurrentSystemIdleTime,
+                        LastSystemActivity = LastSystemActivity
+                    };
+                }
+            });
+        }
+
+        /// <summary>
+        /// Resets the tracker statistics asynchronously
+        /// </summary>
+        /// <returns>Task representing the operation</returns>
+        public async Task ResetStatisticsAsync()
+        {
+            await Task.Run(() =>
+            {
+                lock (_lock)
+                {
+                    Statistics.Reset();
+                    _activityHistory.Clear();
+                    _processRecords.Clear();
+                    LastSystemActivity = null;
+                    CurrentSystemIdleTime = TimeSpan.Zero;
+                    _logger.LogInformation("SystemActivityTracker statistics reset");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Gets process activities for system activity tracking
+        /// </summary>
+        public async Task<List<ActivityData>> GetProcessActivitiesAsync(int processId, CancellationToken cancellationToken = default)
+        {
+            var activities = new List<ActivityData>();
+
+            try
+            {
+                // Get system activity events for this process
+                var processEvents = _activityHistory
+                    .Where(e => e.ProcessId == processId)
+                    .OrderByDescending(e => e.Timestamp)
+                    .Take(10) // Limit to recent activities
+                    .ToList();
+
+                foreach (var evt in processEvents)
+                {
+                    var activity = new ActivityData
+                    {
+                        Type = ActivityType.System,
+                        Timestamp = evt.Timestamp,
+                        Confidence = evt.Confidence,
+                        Source = "SystemActivityTracker",
+                        Details = new Dictionary<string, object>
+                        {
+                            ["ActivityType"] = evt.ActivityType,
+                            ["WindowTitle"] = evt.WindowTitle,
+                            ["IdleTime"] = evt.IdleTime,
+                            ["HasForeground"] = evt.HasForeground
+                        }
+                    };
+                    activities.Add(activity);
+                }
+
+                // If no recent events, create a basic activity entry
+                if (!activities.Any())
+                {
+                    activities.Add(new ActivityData
+                    {
+                        Type = ActivityType.System,
+                        Timestamp = DateTime.UtcNow,
+                        Confidence = 0.5,
+                        Source = "SystemActivityTracker",
+                        Details = new Dictionary<string, object>
+                        {
+                            ["ActivityType"] = "ProcessCheck",
+                            ["Status"] = "Active"
+                        }
+                    });
+                }
+
+                return activities;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting process activities for process {ProcessId}", processId);
+                return activities;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Represents the health status of the system activity tracker
+    /// </summary>
+    public class SystemActivityTrackerHealth
+    {
+        /// <summary>
+        /// Gets or sets a value indicating whether the tracker is healthy
+        /// </summary>
+        public bool IsHealthy { get; set; }
+
+        /// <summary>
+        /// Gets or sets the status message
+        /// </summary>
+        public string StatusMessage { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the tracker is running
+        /// </summary>
+        public bool IsRunning { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the tracker is disposed
+        /// </summary>
+        public bool IsDisposed { get; set; }
+
+        /// <summary>
+        /// Gets or sets the activity history count
+        /// </summary>
+        public int ActivityHistoryCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the process records count
+        /// </summary>
+        public int ProcessRecordsCount { get; set; }
+
+        /// <summary>
+        /// Gets or sets the last system activity time
+        /// </summary>
+        public DateTime? LastSystemActivity { get; set; }
+
+        /// <summary>
+        /// Gets or sets the current system idle time
+        /// </summary>
+        public TimeSpan? CurrentSystemIdleTime { get; set; }
+
+        /// <summary>
+        /// Gets or sets the statistics
+        /// </summary>
+        public object Statistics { get; set; }
     }
 }

@@ -34,12 +34,12 @@ namespace LicenseReleaseService.TimerExecution
         private bool _isDisposed;
 
         // Performance optimization components
-        private readonly TimerPerformanceOptimizer _performanceOptimizer;
-        private readonly TimerMemoryManager _memoryManager;
-        private readonly TimerThreadPoolManager _threadPoolManager;
-        private readonly TimerCacheManager _cacheManager;
-        private readonly TimerMetricsCollector _metricsCollector;
-        private readonly TimerPerformanceTuner _performanceTuner;
+        private TimerPerformanceOptimizer _performanceOptimizer;
+        private TimerMemoryManager _memoryManager;
+        private TimerThreadPoolManager _threadPoolManager;
+        private TimerCacheManager _cacheManager;
+        private TimerMetricsCollector _metricsCollector;
+        private TimerPerformanceTuner _performanceTuner;
         private bool _performanceOptimizationEnabled;
 
         #region Events
@@ -142,6 +142,8 @@ namespace LicenseReleaseService.TimerExecution
 
             ValidateInterval(interval);
 
+            bool shouldStartPerformanceOptimization = false;
+
             lock (_lock)
             {
                 if (_state != TimerState.Stopped)
@@ -168,11 +170,8 @@ namespace LicenseReleaseService.TimerExecution
                     _uptimeStopwatch.Start();
                     _metrics.StartTime = _startTime;
 
-                    // Start performance optimization
-                    if (_performanceOptimizationEnabled)
-                    {
-                        await StartPerformanceOptimizationAsync();
-                    }
+                    // Check if performance optimization should be started
+                    shouldStartPerformanceOptimization = _performanceOptimizationEnabled;
 
                     _logger.LogInformation("Timer started with interval {Interval}ms", interval.TotalMilliseconds);
                 }
@@ -181,6 +180,12 @@ namespace LicenseReleaseService.TimerExecution
                     ChangeState(TimerState.Error, $"Failed to start timer: {ex.Message}");
                     throw TimerExecutionException.StartFailure(ex, interval);
                 }
+            }
+
+            // Start performance optimization outside the lock
+            if (shouldStartPerformanceOptimization)
+            {
+                await StartPerformanceOptimizationAsync();
             }
         }
 
@@ -192,6 +197,7 @@ namespace LicenseReleaseService.TimerExecution
 
             ValidateInterval(delay);
 
+            bool shouldStartPerformanceOptimization = false;
             lock (_lock)
             {
                 if (_state != TimerState.Stopped)
@@ -218,11 +224,8 @@ namespace LicenseReleaseService.TimerExecution
                     _uptimeStopwatch.Start();
                     _metrics.StartTime = _startTime;
 
-                    // Start performance optimization
-                    if (_performanceOptimizationEnabled)
-                    {
-                        await StartPerformanceOptimizationAsync();
-                    }
+                    // Check if we should start performance optimization
+                    shouldStartPerformanceOptimization = _performanceOptimizationEnabled;
 
                     _logger.LogInformation("One-time timer started with delay {Delay}ms", delay.TotalMilliseconds);
                 }
@@ -232,6 +235,12 @@ namespace LicenseReleaseService.TimerExecution
                     throw TimerExecutionException.StartFailure(ex, delay);
                 }
             }
+
+            // Start performance optimization outside the lock
+            if (shouldStartPerformanceOptimization)
+            {
+                await StartPerformanceOptimizationAsync();
+            }
         }
 
         /// <inheritdoc/>
@@ -240,6 +249,7 @@ namespace LicenseReleaseService.TimerExecution
             if (_isDisposed)
                 return;
 
+            bool shouldStopPerformanceOptimization = false;
             lock (_lock)
             {
                 if (_state == TimerState.Stopped || _state == TimerState.Disposed)
@@ -290,11 +300,8 @@ namespace LicenseReleaseService.TimerExecution
                     _metrics.Uptime = _uptimeStopwatch.Elapsed;
                     _metrics.StopTime = DateTime.UtcNow;
 
-                    // Stop performance optimization
-                    if (_performanceOptimizationEnabled)
-                    {
-                        await StopPerformanceOptimizationAsync();
-                    }
+                    // Check if performance optimization should be stopped
+                    shouldStopPerformanceOptimization = _performanceOptimizationEnabled;
 
                     ChangeState(TimerState.Stopped, "Timer stopped");
                     _logger.LogInformation("Timer stopped successfully");
@@ -304,6 +311,12 @@ namespace LicenseReleaseService.TimerExecution
                     ChangeState(TimerState.Error, $"Failed to stop timer: {ex.Message}");
                     throw TimerExecutionException.StopFailure(ex);
                 }
+            }
+
+            // Stop performance optimization outside the lock
+            if (shouldStopPerformanceOptimization)
+            {
+                await StopPerformanceOptimizationAsync();
             }
         }
 
@@ -459,15 +472,14 @@ namespace LicenseReleaseService.TimerExecution
                 var threadPoolOptions = TimerThreadPoolOptions.ServerDefaults();
                 var cacheOptions = TimerCacheOptions.ServerDefaults();
                 var metricsOptions = TimerMetricsOptions.ServerDefaults();
-                var optimizerOptions = TimerPerformanceOptimizerOptions.ServerDefaults();
                 var tunerOptions = TimerPerformanceTunerOptions.ServerDefaults();
 
-                _memoryManager = new TimerMemoryManager(_logger, memoryOptions);
-                _threadPoolManager = new TimerThreadPoolManager(_logger, threadPoolOptions);
-                _cacheManager = new TimerCacheManager(_logger, cacheOptions);
-                _metricsCollector = new TimerMetricsCollector(_logger, metricsOptions);
-                _performanceOptimizer = new TimerPerformanceOptimizer(_logger, optimizerOptions, _memoryManager, _threadPoolManager, _cacheManager);
-                _performanceTuner = new TimerPerformanceTuner(_logger, tunerOptions, _metricsCollector, _performanceOptimizer);
+                _memoryManager = new TimerMemoryManager(new Microsoft.Extensions.Logging.LoggerFactory().CreateLogger<TimerMemoryManager>(), _options, memoryOptions);
+                _threadPoolManager = new TimerThreadPoolManager(new Microsoft.Extensions.Logging.LoggerFactory().CreateLogger<TimerThreadPoolManager>(), _options, threadPoolOptions);
+                _cacheManager = new TimerCacheManager(new Microsoft.Extensions.Logging.LoggerFactory().CreateLogger<TimerCacheManager>(), _options, cacheOptions);
+                _metricsCollector = new TimerMetricsCollector(new Microsoft.Extensions.Logging.LoggerFactory().CreateLogger<TimerMetricsCollector>(), metricsOptions);
+                _performanceOptimizer = new TimerPerformanceOptimizer(new Microsoft.Extensions.Logging.LoggerFactory().CreateLogger<TimerPerformanceOptimizer>(), _options, _memoryManager, _threadPoolManager, _cacheManager);
+                _performanceTuner = new TimerPerformanceTuner(new Microsoft.Extensions.Logging.LoggerFactory().CreateLogger<TimerPerformanceTuner>(), tunerOptions, _metricsCollector, _performanceOptimizer);
 
                 // Subscribe to performance optimization events
                 SubscribeToPerformanceEvents();

@@ -17,6 +17,18 @@ namespace LicenseReleaseService.IdleDetection.Models
         public Dictionary<string, long> TaskTypeCounts { get; set; }
         public Dictionary<string, long> ErrorCounts { get; set; }
 
+        // Missing properties
+        public bool IsEnabled { get; set; }
+        public bool IsRunning { get; set; }
+        public string TimerState { get; set; }
+        public int PendingTaskCount { get; set; }
+        public long TotalTimerRegistrations { get; set; }
+        public long EnabledTimerRegistrations { get; set; }
+        public long TotalErrors { get; set; }
+        public DateTime? LastExecutionTime { get; set; }
+        public Dictionary<string, object> TimerMetrics { get; set; }
+        public string ErrorMessage { get; set; }
+
         public TimerExecutionStatistics()
         {
             StartTime = DateTime.UtcNow;
@@ -29,6 +41,18 @@ namespace LicenseReleaseService.IdleDetection.Models
             TotalExecutionTime = TimeSpan.Zero;
             TaskTypeCounts = new Dictionary<string, long>();
             ErrorCounts = new Dictionary<string, long>();
+
+            // Initialize missing properties
+            IsEnabled = false;
+            IsRunning = false;
+            TimerState = "Stopped";
+            PendingTaskCount = 0;
+            TotalTimerRegistrations = 0;
+            EnabledTimerRegistrations = 0;
+            TotalErrors = 0;
+            LastExecutionTime = null;
+            TimerMetrics = new Dictionary<string, object>();
+            ErrorMessage = null;
         }
 
         public void RecordExecution(TimeSpan executionTime, bool success, string taskType, string errorType = null)

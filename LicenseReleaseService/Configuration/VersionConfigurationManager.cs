@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,8 +16,8 @@ namespace LicenseReleaseService.Configuration
         private readonly ILogger<VersionConfigurationManager> _logger;
         private readonly ConfigurationManager _configManager;
         private readonly object _lock = new object();
-        private readonly Timer _refreshTimer;
-        private readonly Timer _cleanupTimer;
+        private readonly System.Threading.Timer _refreshTimer;
+        private readonly System.Threading.Timer _cleanupTimer;
         private readonly Dictionary<string, VersionConfigurationElement> _configCache;
         private readonly Dictionary<string, DateTime> _cacheTimestamps;
         private readonly Dictionary<string, VersionHealthStatus> _versionHealthStatus;
@@ -520,7 +521,7 @@ namespace LicenseReleaseService.Configuration
 
             lock (_lock)
             {
-                var oldStatus = _versionHealthStatus.TryGetValue(version, out var currentStatus) ? currentStatus : VersionHealthStatus.Unknown;
+                var oldStatus = _versionHealthStatus.TryGetValue(version, out var currentStatus) ? currentStatus : Configuration.VersionHealthStatus.Unknown;
 
                 if (oldStatus != healthStatus)
                 {
@@ -731,8 +732,17 @@ namespace LicenseReleaseService.Configuration
                     var connectTask = tcpClient.ConnectAsync(server, port);
                     var timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
 
-                    var completedTask = await Task.WhenAny(connectTask, timeoutTask);
-                    return completedTask == connectTask;
+                    // Wait for connection with timeout using WaitAsync
+                    try
+                    {
+                        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        await connectTask.WaitAsync(timeoutCts.Token);
+                        return true;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return false;
+                    }
                 }
             }
             catch
@@ -753,7 +763,7 @@ namespace LicenseReleaseService.Configuration
                 {
                     if (!_versionHealthStatus.ContainsKey(version))
                     {
-                        _versionHealthStatus[version] = VersionHealthStatus.Unknown;
+                        _versionHealthStatus[version] = Configuration.VersionHealthStatus.Unknown;
                     }
                 }
 
@@ -1072,9 +1082,9 @@ namespace LicenseReleaseService.Configuration
         public List<string> Warnings { get; set; }
 
         /// <summary>
-        /// Gets a value indicating whether validation passed
+        /// Gets or sets a value indicating whether validation passed
         /// </summary>
-        public bool IsValid => Errors.Count == 0;
+        public bool IsValid { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether validation has any issues

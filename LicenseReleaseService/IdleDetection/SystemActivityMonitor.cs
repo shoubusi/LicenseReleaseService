@@ -289,7 +289,7 @@ namespace LicenseReleaseService.IdleDetection
 
             try
             {
-                var processes = Process.GetProcesses();
+                var processes = System.Diagnostics.Process.GetProcesses();
                 var solidWorksProcesses = processes
                     .Where(p => p.ProcessName.Contains("SLDWORKS", StringComparison.OrdinalIgnoreCase))
                     .ToList();

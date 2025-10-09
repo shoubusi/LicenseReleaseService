@@ -60,6 +60,27 @@ namespace LicenseReleaseService.TimerExecution
         public long TotalCacheEvictions => Interlocked.Read(ref _totalCacheEvictions);
 
         /// <summary>
+        /// Gets the current cache metrics asynchronously
+        /// </summary>
+        /// <returns>Cache metrics</returns>
+        public Task<TimerCacheMetrics> GetCacheMetricsAsync()
+        {
+            return Task.FromResult(new TimerCacheMetrics
+            {
+                IsRunning = _isRunning,
+                TotalCacheHits = _totalCacheHits,
+                TotalCacheMisses = _totalCacheMisses,
+                TotalCacheItems = _totalCacheItems,
+                TotalCacheEvictions = _totalCacheEvictions,
+                CacheOptimizationsPerformed = _cacheOptimizationsPerformed,
+                OverallHitRate = _overallHitRate,
+                TotalCaches = _caches.Count,
+                Uptime = _uptimeStopwatch.Elapsed,
+                GeneratedAt = DateTime.UtcNow
+            });
+        }
+
+        /// <summary>
         /// Gets the overall cache hit rate
         /// </summary>
         public double OverallHitRate => _overallHitRate;
@@ -680,9 +701,9 @@ namespace LicenseReleaseService.TimerExecution
 
         private TimerCacheMemoryPressureLevel DetermineMemoryPressureLevel(long totalMemoryUsage)
         {
-            var process = Process.GetCurrentProcess();
+            var process = System.Diagnostics.Process.GetCurrentProcess();
             var memoryMB = process.WorkingSet64 / (1024 * 1024);
-            var systemMemoryMB = _cacheOptions.SystemMemoryMB ?? 8192;
+            var systemMemoryMB = _cacheOptions.SystemMemoryMB != 0 ? _cacheOptions.SystemMemoryMB : 8192;
             var memoryUsagePercent = (memoryMB * 100.0) / systemMemoryMB;
 
             if (memoryUsagePercent >= 90)

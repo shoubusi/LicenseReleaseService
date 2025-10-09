@@ -95,6 +95,15 @@ namespace LicenseReleaseService.LicenseManagement
         public DateTime? CompletedAt { get; set; }
 
         /// <summary>
+        /// Gets or sets the operation completion timestamp (alias for CompletedAt)
+        /// </summary>
+        public DateTime? CompletedTime
+        {
+            get => CompletedAt;
+            set => CompletedAt = value;
+        }
+
+        /// <summary>
         /// Gets or sets the operation status
         /// </summary>
         public LicenseCheckOperationStatus Status { get; set; } = LicenseCheckOperationStatus.Pending;

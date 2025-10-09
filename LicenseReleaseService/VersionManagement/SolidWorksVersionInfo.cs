@@ -217,6 +217,36 @@ namespace LicenseReleaseService.VersionManagement
 
             return false;
         }
+
+        /// <summary>
+        /// Updates this instance with data from another SolidWorksVersionInfo
+        /// </summary>
+        /// <param name="other">The source version info to update from</param>
+        public void UpdateFrom(SolidWorksVersionInfo other)
+        {
+            if (other == null)
+                throw new ArgumentNullException(nameof(other));
+
+            this.Version = other.Version;
+            this.FullVersion = other.FullVersion;
+            this.InstallationPath = other.InstallationPath;
+            this.ExecutablePath = other.ExecutablePath;
+            this.LmutilPath = other.LmutilPath;
+            this.RegistryKeyPath = other.RegistryKeyPath;
+            this.InstallationDate = other.InstallationDate;
+            this.ServicePack = other.ServicePack;
+            this.BuildNumber = other.BuildNumber;
+            this.Is64Bit = other.Is64Bit;
+            this.Status = other.Status;
+            this.Health = other.Health;
+            this.LastDetected = other.LastDetected;
+
+            // Update metadata dictionary
+            if (other.Metadata != null)
+            {
+                this.Metadata = new Dictionary<string, string>(other.Metadata);
+            }
+        }
     }
 
     /// <summary>

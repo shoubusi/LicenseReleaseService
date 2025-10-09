@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using LicenseReleaseService.IdleDetection;
 
 namespace LicenseReleaseService.LicenseManagement.Models
 {
@@ -11,6 +12,10 @@ namespace LicenseReleaseService.LicenseManagement.Models
         public List<string> Errors { get; set; }
         public Dictionary<string, object> ValidationData { get; set; }
 
+        // Additional properties for LicenseManagementIntegration
+        public LicenseUserSession Session { get; set; }
+        public List<string> CompatibilityIssues { get; set; }
+
         public LicenseSessionValidationResult()
         {
             IsValid = true;
@@ -18,6 +23,7 @@ namespace LicenseReleaseService.LicenseManagement.Models
             Warnings = new List<string>();
             Errors = new List<string>();
             ValidationData = new Dictionary<string, object>();
+            CompatibilityIssues = new List<string>();
         }
 
         public static LicenseSessionValidationResult Valid(string message = "Session is valid")

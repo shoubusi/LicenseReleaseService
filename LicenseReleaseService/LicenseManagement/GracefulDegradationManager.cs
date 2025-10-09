@@ -2,8 +2,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using LicenseReleaseService.Process;
 using Microsoft.Extensions.Logging;
 
 namespace LicenseReleaseService.LicenseManagement
@@ -337,7 +339,7 @@ namespace LicenseReleaseService.LicenseManagement
         {
             lock (_stateLock)
             {
-                var currentState = _componentStates.GetOrAdd(component, () => new DegradationState
+                var currentState = _componentStates.GetOrAdd(component, key => new DegradationState
                 {
                     CurrentLevel = DegradationLevel.Full,
                     StartedAt = DateTime.Now,

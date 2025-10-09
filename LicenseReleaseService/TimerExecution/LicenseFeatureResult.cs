@@ -354,7 +354,7 @@ namespace LicenseReleaseService.TimerExecution
             string displayName = null,
             DateTime? checkoutTime = null,
             int? processId = null)
-            : this(username, computerName, displayName, null, checkoutTime, null, null, null, null, processId, null, false, null)
+            : this(username, computerName, displayName, null, checkoutTime, null, null, null, processId, true, null)
         {
         }
 

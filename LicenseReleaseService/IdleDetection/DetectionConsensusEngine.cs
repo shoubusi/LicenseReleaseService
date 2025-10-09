@@ -384,12 +384,13 @@ namespace LicenseReleaseService.IdleDetection
 
             var isIdle = idleCount >= majorityThreshold;
             var confidence = isIdle ? (double)idleCount / detectorResults.Count : (double)activeCount / detectorResults.Count;
-            var averageIdleTime = detectorResults.Where(r => r.IsIdle).Select(r => r.IdleTime).DefaultIfEmpty(TimeSpan.Zero).Average();
+            var averageIdleTimeSpan = detectorResults.Where(r => r.IsIdle).Select(r => r.IdleTime).DefaultIfEmpty(TimeSpan.Zero).Average(t => t.TotalMilliseconds);
+            var averageIdleTimeSpanSpan = averageIdleTimeSpan > 0 ? TimeSpan.FromMilliseconds(averageIdleTimeSpan) : TimeSpan.Zero;
             var reason = isIdle
                 ? $"Majority consensus: {idleCount}/{detectorResults.Count} detectors indicate idle"
                 : $"Majority consensus: {activeCount}/{detectorResults.Count} detectors indicate active";
 
-            return CreateConsensusResult(processInfo, isIdle, confidence, averageIdleTime, reason, detectorResults);
+            return CreateConsensusResult(processInfo, isIdle, confidence, averageIdleTimeSpanSpan, reason, detectorResults);
         }
 
         private IdleDetectionResult ApplyWeightedConsensus(
@@ -419,29 +420,29 @@ namespace LicenseReleaseService.IdleDetection
             var isIdle = allIdle;
 
             double confidence;
-            TimeSpan averageIdleTime;
+            TimeSpan averageIdleTimeSpan;
             string reason;
 
             if (allIdle)
             {
                 confidence = 1.0;
-                averageIdleTime = detectorResults.Select(r => r.IdleTime).Average();
+                averageIdleTimeSpan = TimeSpan.FromMilliseconds(detectorResults.Where(r => r.IdleTime > TimeSpan.Zero).Select(r => r.IdleTime.TotalMilliseconds).DefaultIfEmpty(0).Average());
                 reason = "Unanimous consensus: all detectors indicate idle";
             }
             else if (allActive)
             {
                 confidence = 1.0;
-                averageIdleTime = TimeSpan.Zero;
+                averageIdleTimeSpan = TimeSpan.Zero;
                 reason = "Unanimous consensus: all detectors indicate active";
             }
             else
             {
                 confidence = 0.0;
-                averageIdleTime = TimeSpan.Zero;
+                averageIdleTimeSpan = TimeSpan.Zero;
                 reason = "Unanimous consensus: detectors disagree";
             }
 
-            return CreateConsensusResult(processInfo, isIdle, confidence, averageIdleTime, reason, detectorResults);
+            return CreateConsensusResult(processInfo, isIdle, confidence, averageIdleTimeSpan, reason, detectorResults);
         }
 
         private IdleDetectionResult ApplyThresholdConsensus(
@@ -454,12 +455,13 @@ namespace LicenseReleaseService.IdleDetection
 
             var isIdle = idleRatio >= threshold;
             var confidence = isIdle ? idleRatio : 1.0 - idleRatio;
-            var averageIdleTime = detectorResults.Where(r => r.IsIdle).Select(r => r.IdleTime).DefaultIfEmpty(TimeSpan.Zero).Average();
+            var averageIdleTimeSpan = detectorResults.Where(r => r.IsIdle).Select(r => r.IdleTime).DefaultIfEmpty(TimeSpan.Zero).Average(t => t.TotalMilliseconds);
+            var averageIdleTimeSpanSpan = averageIdleTimeSpan > 0 ? TimeSpan.FromMilliseconds(averageIdleTimeSpan) : TimeSpan.Zero;
             var reason = isIdle
                 ? $"Threshold consensus: {idleRatio:P2} >= {threshold:P2} idle detectors"
                 : $"Threshold consensus: {idleRatio:P2} < {threshold:P2} idle detectors";
 
-            return CreateConsensusResult(processInfo, isIdle, confidence, averageIdleTime, reason, detectorResults);
+            return CreateConsensusResult(processInfo, isIdle, confidence, averageIdleTimeSpanSpan, reason, detectorResults);
         }
 
         private IdleDetectionResult ApplyHierarchicalConsensus(
@@ -518,11 +520,29 @@ namespace LicenseReleaseService.IdleDetection
             // Raise appropriate event
             if (isIdle)
             {
-                OnIdleDetected(result);
+                var idleEventArgs = new IdleDetectionEventArgs(
+                    result.SessionId,
+                    result.ProcessId,
+                    result.UserName,
+                    result.ComputerName,
+                    result.Confidence,
+                    result.IdleTime,
+                    result.DetectionMethod,
+                    result.DetectorName);
+                OnIdleDetected(idleEventArgs);
             }
             else
             {
-                OnActivityDetected(result);
+                var activityEventArgs = new IdleDetectionEventArgs(
+                    result.SessionId,
+                    result.ProcessId,
+                    result.UserName,
+                    result.ComputerName,
+                    result.Confidence,
+                    result.IdleTime,
+                    result.DetectionMethod,
+                    result.DetectorName);
+                OnActivityDetected(activityEventArgs);
             }
 
             return result;
@@ -773,6 +793,11 @@ namespace LicenseReleaseService.IdleDetection
         public DateTime Timestamp { get; set; }
 
         /// <summary>
+        /// Gets the detector name associated with the error
+        /// </summary>
+        public string DetectorName { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the ConsensusErrorEventArgs class
         /// </summary>
         /// <param name="operation">The operation that failed</param>
@@ -784,6 +809,7 @@ namespace LicenseReleaseService.IdleDetection
             Error = error;
             Severity = severity;
             Timestamp = DateTime.UtcNow;
+            DetectorName = "ConsensusEngine";
         }
     }
 

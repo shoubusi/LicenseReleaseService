@@ -11,6 +11,7 @@ namespace LicenseReleaseService.LicenseManagement.Models
         public int AvailableLicenses { get; set; }
         public double UsagePercentage { get; set; }
         public DateTime LastUpdated { get; set; }
+        public bool CanBeReleased { get; set; }
 
         public LicenseFeatureUsage()
         {
@@ -21,6 +22,7 @@ namespace LicenseReleaseService.LicenseManagement.Models
             AvailableLicenses = 0;
             UsagePercentage = 0.0;
             LastUpdated = DateTime.UtcNow;
+            CanBeReleased = false;
         }
 
         public LicenseFeatureUsage(string feature, string licenseServer, int total, int used)
@@ -32,6 +34,7 @@ namespace LicenseReleaseService.LicenseManagement.Models
             AvailableLicenses = total - used;
             UsagePercentage = total > 0 ? (double)used / total * 100 : 0.0;
             LastUpdated = DateTime.UtcNow;
+            CanBeReleased = used > 0; // Can be released if there are licenses in use
         }
     }
 }

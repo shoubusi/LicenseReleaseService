@@ -238,7 +238,9 @@ namespace LicenseReleaseService.IdleDetection
                 // Wait for monitoring task to complete
                 if (_monitoringTask != null)
                 {
-                    await Task.WhenAny(_monitoringTask, Task.Delay(TimeSpan.FromSeconds(5)));
+                    // Wait for monitoring task with timeout using WaitAsync
+                    using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await _monitoringTask.WaitAsync(timeoutCts.Token);
                 }
 
                 _logger.LogInformation("NetworkActivityMonitor stopped successfully");
@@ -928,7 +930,7 @@ namespace LicenseReleaseService.IdleDetection
                     if (result != 0)
                         return endpoints;
 
-                    var numEntries = Marshal.ReadUInt32(buffer);
+                    var numEntries = BitConverter.ToUInt32(BitConverter.GetBytes(Marshal.ReadInt32(buffer)), 0);
                     var rowPtr = (IntPtr)((long)buffer + 4);
 
                     for (var i = 0; i < numEntries; i++)

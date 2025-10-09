@@ -1019,11 +1019,11 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
                 {
                     // Cache statistics
                     var cacheStats = _cacheManager.Statistics;
-                    healthResult["CacheItemCount"] = cacheStats.ItemCount;
-                    healthResult["CacheHitCount"] = cacheStats.HitCount;
-                    healthResult["CacheMissCount"] = cacheStats.MissCount;
-                    healthResult["CacheHitRate"] = cacheStats.HitRate;
-                    healthResult["CacheTotalSize"] = cacheStats.TotalSize;
+                    healthResult["CacheItemCount"] = cacheStats.CurrentItemCount;
+                    healthResult["CacheHitCount"] = cacheStats.CacheHits;
+                    healthResult["CacheMissCount"] = cacheStats.CacheMisses;
+                    healthResult["CacheHitRate"] = cacheStats.HitRatio;
+                    healthResult["CacheTotalSize"] = cacheStats.TotalMemoryBytesUsed;
                 }
 
                 healthResult["LastChecked"] = DateTime.Now;
@@ -1090,7 +1090,7 @@ Users of solidworks: (Total of 10 licenses issued; Total of 5 licenses in use)
                 // Update service health based on configuration health
                 if (e.HealthStatus == ConfigurationHealthStatus.Error)
                 {
-                    _serviceState.RecordError($"Configuration health error: {string.Join(", ", e.Issues)}", null);
+                    _serviceState.RecordError($"Configuration health error: {string.Join(", ", e.HealthIssues)}", null);
                 }
             }
             catch (Exception ex)

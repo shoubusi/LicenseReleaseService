@@ -168,7 +168,7 @@ namespace LicenseReleaseService.Configuration
         /// <summary>
         /// Initializes a new instance of the ConfigurationReloadEventArgs class
         /// </summary>
-        public ConfigurationReloadEventArgs(LicenseReleaseServiceSection oldConfig, LicenseReleaseServiceSection newConfig, List<string> validationErrors, ReloadTrigger trigger, TimeSpan reloadDuration, DateTime initiatedAt, DateTime completedAt, bool isRollback = false, string backupFilePath = null)
+        public ConfigurationReloadEventArgs(LicenseReleaseServiceSection oldConfig, LicenseReleaseServiceSection newConfig, List<string> validationErrors, ReloadTrigger trigger, TimeSpan reloadDuration, DateTime initiatedAt, DateTime completedAt, bool isRollback = false, string backupFilePath = null, string errorMessage = null)
         {
             OldConfiguration = oldConfig;
             NewConfiguration = newConfig;
@@ -179,6 +179,29 @@ namespace LicenseReleaseService.Configuration
             CompletedAt = completedAt;
             IsRollback = isRollback;
             BackupFilePath = backupFilePath;
+            ErrorMessage = errorMessage;
+        }
+
+        /// <summary>
+        /// Gets the error message if the reload failed
+        /// </summary>
+        public string ErrorMessage { get; }
+
+        /// <summary>
+        /// Constructor for simple reload scenarios
+        /// </summary>
+        public ConfigurationReloadEventArgs(LicenseReleaseServiceSection oldConfig, LicenseReleaseServiceSection newConfig, List<string> validationErrors)
+        {
+            OldConfiguration = oldConfig;
+            NewConfiguration = newConfig;
+            ValidationErrors = validationErrors ?? new List<string>();
+            Trigger = ReloadTrigger.Manual;
+            ReloadDuration = TimeSpan.Zero;
+            InitiatedAt = DateTime.UtcNow;
+            CompletedAt = DateTime.UtcNow;
+            IsRollback = false;
+            BackupFilePath = null;
+            ErrorMessage = null;
         }
     }
 

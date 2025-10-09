@@ -17,7 +17,7 @@ namespace LicenseReleaseService.TimerExecution
         private readonly TimerExecutionOptions _options;
         private readonly ITimerExecutionService _timerService;
         private readonly TimerCircuitBreaker _circuitBreaker;
-        private readonly Timer _healthCheckTimer;
+        private readonly System.Timers.Timer _healthCheckTimer;
         private readonly object _healthLock;
         private readonly Queue<TimerHealthCheckResult> _healthHistory;
         private readonly Dictionary<string, HealthMetric> _metrics;
@@ -120,7 +120,7 @@ namespace LicenseReleaseService.TimerExecution
             _healthCheckInterval = TimeSpan.FromMinutes(5); // Default 5 minutes
             _currentStatus = TimerHealthStatus.Healthy;
 
-            _healthCheckTimer = new Timer(_healthCheckInterval.TotalMilliseconds);
+            _healthCheckTimer = new System.Timers.Timer();
             _healthCheckTimer.Elapsed += OnHealthCheckTimerElapsed;
 
             InitializeMetrics();
@@ -464,7 +464,7 @@ namespace LicenseReleaseService.TimerExecution
         {
             try
             {
-                var currentProcess = Process.GetCurrentProcess();
+                var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
                 var memoryUsage = currentProcess.WorkingSet64;
                 var cpuUsage = currentProcess.TotalProcessorTime;
                 var threadCount = currentProcess.Threads.Count;

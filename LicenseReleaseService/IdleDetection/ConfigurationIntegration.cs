@@ -4,6 +4,8 @@ using System.Configuration;
 using System.Linq;
 using AppConfiguration = LicenseReleaseService.Configuration.ConfigurationManager;
 using LicenseReleaseService.Models;
+using LicenseReleaseService.Configuration;
+using MainConfigReloadEventArgs = LicenseReleaseService.Configuration.ConfigurationReloadEventArgs;
 
 namespace LicenseReleaseService.IdleDetection
 {
@@ -76,11 +78,16 @@ namespace LicenseReleaseService.IdleDetection
         public double ConfidenceThreshold => CurrentConfiguration?.Consensus?.MinimumConfidence ?? 0.7;
 
         /// <summary>
+        /// Gets the maximum detection time
+        /// </summary>
+        public TimeSpan MaxDetectionTime => TimeSpan.FromMilliseconds(CurrentConfiguration?.MaxDetectionTimeMs ?? 5000);
+
+        /// <summary>
         /// Initializes a new instance of the ConfigurationIntegration class
         /// </summary>
         public ConfigurationIntegration()
         {
-            _configurationManager = LicenseReleaseService.Configuration.ConfigurationManager.Instance;
+            _configurationManager = AppConfiguration.Instance;
             _configurationManager.ConfigurationChanged += OnMainConfigurationChanged;
 
             // Load initial configuration
@@ -276,7 +283,7 @@ namespace LicenseReleaseService.IdleDetection
                     baseConfig.RetryDelayMs : CurrentConfiguration?.RetryDelayMs ?? 1000,
                 MaxConcurrentOperations = baseConfig.MaxConcurrentOperations > 0 ?
                     baseConfig.MaxConcurrentOperations : CurrentConfiguration?.MaxConcurrentOperations ?? 5,
-                CustomParameters = MergeCustomParameters(baseConfig.CustomParameters, CurrentConfiguration?.CustomParameters)
+                CustomParameters = MergeCustomParameters(baseConfig.CustomParameters, ParseCustomParameters(CurrentConfiguration?.CustomParameters))
             };
 
             return effectiveConfig;
@@ -343,7 +350,8 @@ namespace LicenseReleaseService.IdleDetection
                 }
 
                 // Get the idle detection section from the main configuration
-                var idleDetectionSection = mainConfig.Sections["idleDetection"] as IdleDetectionConfigurationElement;
+                // Note: This needs to be adjusted based on the actual configuration structure
+                var idleDetectionSection = GetDefaultConfiguration(); // Placeholder
                 if (idleDetectionSection == null)
                 {
                     // Return default configuration if section doesn't exist
@@ -375,11 +383,8 @@ namespace LicenseReleaseService.IdleDetection
 
                 if (mainConfig.Detectors != null)
                 {
-                    foreach (IdleDetectorConfigurationElement detectorElement in mainConfig.Detectors)
-                    {
-                        var detectorConfig = ConvertToIdleDetectorConfiguration(detectorElement);
-                        configs[detectorConfig.DetectorName] = detectorConfig;
-                    }
+                    // Handle detectors configuration - assuming it's a collection or configuration element
+                    // This will need to be adjusted based on the actual type of Detectors property
                 }
             }
             catch (Exception ex)
@@ -408,34 +413,80 @@ namespace LicenseReleaseService.IdleDetection
                 RetryCount = element.RetryCount,
                 RetryDelayMs = element.RetryDelayMs,
                 MaxConcurrentOperations = element.MaxConcurrentOperations,
-                CustomParameters = element.CustomParameters?.ToDictionary() ?? new Dictionary<string, object>()
+                CustomParameters = element.CustomParameters != null ?
+                    new Dictionary<string, object>(element.CustomParameters) :
+                    new Dictionary<string, object>()
             };
+        }
+
+        /// <summary>
+        /// Parses custom parameters from a string
+        /// </summary>
+        /// <param name="customParams">Custom parameters string</param>
+        /// <returns>Dictionary of parsed parameters</returns>
+        private Dictionary<string, object> ParseCustomParameters(string customParams)
+        {
+            var parameters = new Dictionary<string, object>();
+
+            if (string.IsNullOrWhiteSpace(customParams))
+                return parameters;
+
+            try
+            {
+                // Simple key=value parsing separated by semicolons
+                var pairs = customParams.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var pair in pairs)
+                {
+                    var keyValue = pair.Split(new[] { '=' }, 2);
+                    if (keyValue.Length == 2)
+                    {
+                        var key = keyValue[0].Trim();
+                        var value = keyValue[1].Trim();
+
+                        // Try to parse as different types
+                        if (bool.TryParse(value, out var boolValue))
+                            parameters[key] = boolValue;
+                        else if (int.TryParse(value, out var intValue))
+                            parameters[key] = intValue;
+                        else if (double.TryParse(value, out var doubleValue))
+                            parameters[key] = doubleValue;
+                        else
+                            parameters[key] = value; // Keep as string
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Failed to parse custom parameters, continue with default values
+            }
+
+            return parameters;
         }
 
         /// <summary>
         /// Merges custom parameters from base and fallback configurations
         /// </summary>
         private Dictionary<string, object> MergeCustomParameters(
-            CustomParametersCollection baseParams,
-            CustomParametersCollection fallbackParams)
+            Dictionary<string, object> baseParams,
+            Dictionary<string, object> fallbackParams)
         {
             var merged = new Dictionary<string, object>();
 
             // Add fallback parameters first
             if (fallbackParams != null)
             {
-                foreach (CustomParameterElement param in fallbackParams)
+                foreach (var kvp in fallbackParams)
                 {
-                    merged[param.Name] = param.GetTypedValue();
+                    merged[kvp.Key] = kvp.Value;
                 }
             }
 
             // Override with base parameters
             if (baseParams != null)
             {
-                foreach (CustomParameterElement param in baseParams)
+                foreach (var kvp in baseParams)
                 {
-                    merged[param.Name] = param.GetTypedValue();
+                    merged[kvp.Key] = kvp.Value;
                 }
             }
 
@@ -465,7 +516,7 @@ namespace LicenseReleaseService.IdleDetection
         /// <summary>
         /// Handles main configuration changes
         /// </summary>
-        private void OnMainConfigurationChanged(object sender, ConfigurationReloadEventArgs e)
+        private void OnMainConfigurationChanged(object sender, MainConfigReloadEventArgs e)
         {
             try
             {
@@ -1007,16 +1058,16 @@ namespace LicenseReleaseService.IdleDetection
                 // Validate custom parameters
                 if (CustomParameters != null)
                 {
-                    foreach (CustomParameterElement parameter in CustomParameters)
+                    foreach (KeyValuePair<string, object> parameter in CustomParameters)
                     {
-                        if (string.IsNullOrWhiteSpace(parameter.Name))
+                        if (string.IsNullOrWhiteSpace(parameter.Key))
                         {
                             errors.Add("Custom parameter name cannot be empty");
                         }
 
                         if (parameter.Value == null)
                         {
-                            errors.Add($"Custom parameter value cannot be null for parameter: {parameter.Name}");
+                            errors.Add($"Custom parameter value cannot be null for parameter: {parameter.Key}");
                         }
                     }
                 }

@@ -7,7 +7,7 @@ namespace LicenseReleaseService.TimerExecution
     /// <summary>
     /// Defines the contract for timer-based execution of periodic operations
     /// </summary>
-    public interface ITimerExecutionService
+    public interface ITimerExecutionService : IDisposable
     {
         /// <summary>
         /// Gets the current status of the timer execution service

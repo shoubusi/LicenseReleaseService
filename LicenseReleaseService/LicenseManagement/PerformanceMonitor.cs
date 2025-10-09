@@ -91,6 +91,11 @@ namespace LicenseReleaseService.LicenseManagement
         public string MetricName { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the metric type
+        /// </summary>
+        public string MetricType { get; set; } = string.Empty;
+
+        /// <summary>
         /// Gets or sets the current value
         /// </summary>
         public double CurrentValue { get; set; }
@@ -296,11 +301,11 @@ namespace LicenseReleaseService.LicenseManagement
         {
             try
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var counters = new SystemPerformanceCounters
                 {
                     Timestamp = DateTime.Now,
-                    ActiveProcesses = Process.GetProcesses().Length,
+                    ActiveProcesses = System.Diagnostics.Process.GetProcesses().Length,
                     ActiveThreads = process.Threads.Count,
                     HandleCount = process.HandleCount
                 };
@@ -317,8 +322,8 @@ namespace LicenseReleaseService.LicenseManagement
 
                 // Calculate memory usage percentage
                 var totalMemory = new Microsoft.VisualBasic.Devices.ComputerInfo().TotalPhysicalMemory;
-                counters.TotalMemory = totalMemory;
-                counters.MemoryUsage = ((totalMemory - counters.AvailableMemory) / (double)totalMemory) * 100;
+                counters.TotalMemory = (long)totalMemory;
+                counters.MemoryUsage = ((totalMemory - (ulong)counters.AvailableMemory) / (double)totalMemory) * 100;
 
                 return counters;
             }

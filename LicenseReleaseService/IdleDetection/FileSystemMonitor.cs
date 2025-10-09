@@ -21,7 +21,7 @@ namespace LicenseReleaseService.IdleDetection
         private readonly object _lock = new object();
         private readonly Dictionary<string, FileSystemWatcher> _watchers = new Dictionary<string, FileSystemWatcher>();
         private readonly ConcurrentDictionary<int, ProcessFileSystemHistory> _processHistories = new ConcurrentDictionary<int, ProcessFileSystemHistory>();
-        private readonly Timer _cleanupTimer;
+        private readonly System.Threading.Timer _cleanupTimer;
         private CancellationTokenSource _cancellationTokenSource;
         private Task _monitoringTask;
         private bool _isDisposed;
@@ -170,7 +170,9 @@ namespace LicenseReleaseService.IdleDetection
                 // Wait for monitoring task to complete
                 if (_monitoringTask != null)
                 {
-                    await Task.WhenAny(_monitoringTask, Task.Delay(TimeSpan.FromSeconds(5)));
+                    // Wait for monitoring task with timeout using WaitAsync
+                    using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await _monitoringTask.WaitAsync(timeoutCts.Token);
                 }
 
                 _logger.LogInformation("FileSystemMonitor stopped successfully");

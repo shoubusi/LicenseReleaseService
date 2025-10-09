@@ -190,21 +190,26 @@ namespace LicenseReleaseService.VersionManagement
                 VersionResourcePool resourcePool = null;
                 lock (_poolsLock)
                 {
-                    if (_resourcePools.TryGetValue(allocation.Version, out resourcePool))
-                    {
-                        // Release the allocation
-                        var releaseResult = await resourcePool.ReleaseAsync(allocation);
+                    _resourcePools.TryGetValue(allocation.Version, out resourcePool);
+                }
 
-                        // Update statistics
+                if (resourcePool != null)
+                {
+                    // Release the allocation
+                    var releaseResult = await resourcePool.ReleaseAsync(allocation);
+
+                    // Update statistics
+                    lock (_poolsLock)
+                    {
                         Statistics.ActiveAllocations--;
                         Statistics.TotalReleases++;
                         Statistics.LastReleaseTime = DateTime.UtcNow;
-
-                        _logger.LogDebug("Successfully released resources for allocation {AllocationId}",
-                            allocation.AllocationId);
-
-                        return releaseResult;
                     }
+
+                    _logger.LogDebug("Successfully released resources for allocation {AllocationId}",
+                        allocation.AllocationId);
+
+                    return releaseResult;
                 }
 
                 return new ResourceReleaseResult
@@ -778,7 +783,20 @@ namespace LicenseReleaseService.VersionManagement
                     _activeAllocations[allocation.AllocationId] = allocation;
                 }
 
-                return allocation;
+                // Convert to allocation result
+                return new ResourceAllocationResult
+                {
+                    AllocationId = allocation.AllocationId,
+                    Version = allocation.Version,
+                    Success = allocation.Success,
+                    AllocatedAt = allocation.AllocatedAt,
+                    ExpiresAt = allocation.ExpiresAt,
+                    MemoryLimit = allocation.MemoryLimit,
+                    CpuLimit = allocation.CpuLimit,
+                    Priority = allocation.Priority,
+                    OperationType = allocation.OperationType,
+                    Requirements = allocation.Requirements
+                };
             }
             catch (OperationCanceledException)
             {
@@ -965,6 +983,11 @@ namespace LicenseReleaseService.VersionManagement
         public int DefaultMaxConcurrentOperations { get; set; } = 5;
         public long DefaultMaxMemoryPerPool { get; set; } = 1024 * 1024 * 1024; // 1GB
         public int DefaultMaxCpuPerPool { get; set; } = 50; // 50%
+        public int MaxConcurrentAllocations { get; set; } = 10;
+        public long AllocationTimeoutMs { get; set; } = 30000;
+        public long CleanupIntervalMs { get; set; } = 300000;
+        public bool EnableMetrics { get; set; } = true;
+        public bool EnableLogging { get; set; } = true;
     }
 
     public class ResourcePoolConfiguration
@@ -973,6 +996,10 @@ namespace LicenseReleaseService.VersionManagement
         public long MaxMemoryPerPool { get; set; } = 1024 * 1024 * 1024; // 1GB
         public int MaxCpuPerPool { get; set; } = 50; // 50%
         public TimeSpan DefaultAllocationTimeout { get; set; } = TimeSpan.FromMinutes(5);
+        public long MaxMemoryUsageBytes { get; set; }
+        public int MaxCpuUsagePercent { get; set; }
+        public long TimeoutMs { get; set; }
+        public string Version { get; set; }
 
         public static ResourcePoolConfiguration CreateDefault()
         {
@@ -1091,5 +1118,16 @@ namespace LicenseReleaseService.VersionManagement
         public int CpuCapacity { get; set; }
         public double CpuUtilizationPercentage { get; set; }
         public List<string> ActiveAllocations { get; set; } = new List<string>();
+
+        // Additional properties for LicenseVersionAllocator
+        /// <summary>
+        /// Gets or sets the memory usage in MB
+        /// </summary>
+        public double MemoryUsageMB { get; set; }
+
+        /// <summary>
+        /// Gets or sets the CPU usage percentage
+        /// </summary>
+        public double CpuUsagePercent { get; set; }
     }
 }

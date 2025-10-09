@@ -180,6 +180,12 @@ namespace LicenseReleaseService.TimerExecution
         }
 
         /// <summary>
+        /// Gets or sets the optimization interval in milliseconds
+        /// </summary>
+        [DefaultValue(30000)]
+        public int OptimizationIntervalMs { get; set; } = 30000;
+
+        /// <summary>
         /// Gets or sets the minimum interval allowed
         /// </summary>
         [DefaultValue(typeof(TimeSpan), "00:00:01")]
@@ -214,6 +220,12 @@ namespace LicenseReleaseService.TimerExecution
         /// </summary>
         [DefaultValue(true)]
         public bool PreventExecutionOverlap { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether to enable performance optimization
+        /// </summary>
+        [DefaultValue(false)]
+        public bool EnablePerformanceOptimization { get; set; } = false;
 
         /// <summary>
         /// Gets or sets the target SolidWorks version for this timer

@@ -40,6 +40,10 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         public bool EnableResourceMetrics { get; set; } = true;
         public bool EnableHealthMetrics { get; set; } = true;
         public bool EnableOperationMetrics { get; set; } = true;
+        public bool EnableCpuMetrics { get; set; } = true;
+        public bool EnableMemoryMetrics { get; set; } = true;
+        public bool EnableDiskMetrics { get; set; } = true;
+        public bool EnableNetworkMetrics { get; set; } = true;
         public List<string> PerformanceCounters { get; set; } = new();
         public List<string> ResourceCounters { get; set; } = new();
         public Dictionary<string, double> Thresholds { get; set; } = new();
@@ -257,6 +261,8 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
                 {
                     Success = true,
                     Metrics = metrics,
+                    Version = version,
+                    Timestamp = DateTime.UtcNow,
                     Message = "Metrics collected successfully"
                 };
             }
@@ -375,7 +381,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         {
             try
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
 
                 // Collect performance counters
                 foreach (var counter in _options.PerformanceCounters)
@@ -417,7 +423,7 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         {
             try
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
 
                 // Collect resource counters
                 foreach (var counter in _options.ResourceCounters)
@@ -557,9 +563,11 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
                         DetectionTime = DateTime.UtcNow
                     });
 
-                    _logger.LogWarning(
+                    _logger.Log(
                         isCritical ? LogLevel.Critical : LogLevel.Warning,
+                        0, // EventId
                         "Threshold exceeded for version {Version}: {Metric} = {Value} (threshold: {Threshold})",
+                        null, // Exception
                         version, threshold.Key, actualValue, threshold.Value);
                 }
             }
@@ -599,6 +607,185 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         {
             // This would use Windows API in real implementation
             return 0;
+        }
+
+        /// <summary>
+        /// Gets all metrics for all versions
+        /// </summary>
+        public async Task<VersionMetricsCollectorResult> GetMetricsAsync()
+        {
+            if (_isDisposed)
+                throw new ObjectDisposedException(nameof(VersionMetricsCollector));
+
+            try
+            {
+                var result = new VersionMetricsCollectorResult
+                {
+                    VersionMetrics = new Dictionary<string, VersionMetrics>(),
+                    SystemMetrics = new Dictionary<string, object>(),
+                    Timestamp = DateTime.UtcNow
+                };
+
+                lock (_syncLock)
+                {
+                    foreach (var kvp in LatestMetrics)
+                    {
+                        result.VersionMetrics[kvp.Key] = kvp.Value;
+                    }
+                }
+
+                // Add system metrics
+                result.SystemMetrics["ProcessId"] = System.Diagnostics.Process.GetCurrentProcess().Id;
+                result.SystemMetrics["MemoryUsage"] = System.Diagnostics.Process.GetCurrentProcess().WorkingSet64;
+                result.SystemMetrics["CpuUsage"] = GetCpuUsage();
+                result.SystemMetrics["Timestamp"] = DateTime.UtcNow;
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting metrics");
+                return new VersionMetricsCollectorResult
+                {
+                    Error = ex.Message,
+                    Timestamp = DateTime.UtcNow
+                };
+            }
+        }
+
+        /// <summary>
+        /// Collects version metrics asynchronously
+        /// </summary>
+        public async Task<VersionMetricsCollectResult> CollectVersionMetricsAsync(string version)
+        {
+            return await CollectMetricsAsync(version);
+        }
+
+        /// <summary>
+        /// Configures version metrics for a specific version
+        /// </summary>
+        /// <param name="version">Version to configure</param>
+        /// <param name="configuration">Configuration for the version</param>
+        public void ConfigureVersionMetrics(string version, VersionMetricsCollectionConfig configuration)
+        {
+            if (string.IsNullOrWhiteSpace(version))
+                throw new ArgumentException("Version cannot be null or empty", nameof(version));
+
+            if (configuration == null)
+                throw new ArgumentNullException(nameof(configuration));
+
+            try
+            {
+                _logger.LogDebug("Configuring version metrics for {Version}", version);
+
+                // Apply configuration to specific version
+                // Initialize metrics history for the version if not already present
+                _metricsHistory.GetOrAdd(version, v => new Queue<VersionMetrics>(_options.MaxHistorySize));
+
+                // Update collection settings based on configuration
+                _options.EnableCpuMetrics = configuration.EnableCpuMetrics;
+                _options.EnableMemoryMetrics = configuration.EnableMemoryMetrics;
+                _options.EnableDiskMetrics = configuration.EnableDiskMetrics;
+                _options.EnableNetworkMetrics = configuration.EnableNetworkMetrics;
+                _options.CollectionInterval = configuration.MetricsCollectionInterval;
+
+                _logger.LogDebug("Version metrics configured for {Version}", version);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error configuring version metrics for {Version}", version);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Configures version metrics collection
+        /// </summary>
+        public async Task<VersionMetricsConfigureResult> ConfigureVersionMetricsAsync(VersionMetricsCollectionOptions options)
+        {
+            if (_isDisposed)
+                throw new ObjectDisposedException(nameof(VersionMetricsCollector));
+
+            try
+            {
+                // Update options
+                _options.Enabled = options.Enabled;
+                _options.CollectionInterval = options.CollectionInterval;
+                _options.MaxHistorySize = options.MaxHistorySize;
+                _options.EnablePerformanceMetrics = options.EnablePerformanceMetrics;
+                _options.EnableResourceMetrics = options.EnableResourceMetrics;
+                _options.EnableHealthMetrics = options.EnableHealthMetrics;
+                _options.EnableOperationMetrics = options.EnableOperationMetrics;
+
+                // Merge counters and thresholds
+                foreach (var counter in options.PerformanceCounters)
+                {
+                    if (!_options.PerformanceCounters.Contains(counter))
+                        _options.PerformanceCounters.Add(counter);
+                }
+
+                foreach (var counter in options.ResourceCounters)
+                {
+                    if (!_options.ResourceCounters.Contains(counter))
+                        _options.ResourceCounters.Add(counter);
+                }
+
+                foreach (var threshold in options.Thresholds)
+                {
+                    _options.Thresholds[threshold.Key] = threshold.Value;
+                }
+
+                // Restart collection if running
+                bool wasRunning = _isCollecting;
+                if (wasRunning)
+                {
+                    await StopCollectionAsync();
+                }
+
+                if (_options.Enabled && wasRunning)
+                {
+                    await StartCollectionAsync();
+                }
+
+                return new VersionMetricsConfigureResult
+                {
+                    Success = true,
+                    Message = "Version metrics configured successfully"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error configuring version metrics");
+                return new VersionMetricsConfigureResult
+                {
+                    Success = false,
+                    Error = ex.Message
+                };
+            }
+        }
+
+        private double GetCpuUsage()
+        {
+            try
+            {
+                var process = System.Diagnostics.Process.GetCurrentProcess();
+                var startTime = DateTime.UtcNow;
+                var startCpuUsage = process.TotalProcessorTime;
+
+                System.Threading.Thread.Sleep(100);
+
+                var endTime = DateTime.UtcNow;
+                var endCpuUsage = process.TotalProcessorTime;
+
+                var cpuUsedMs = (endCpuUsage - startCpuUsage).TotalMilliseconds;
+                var totalMsPassed = (endTime - startTime).TotalMilliseconds;
+
+                return cpuUsedMs / (Environment.ProcessorCount * totalMsPassed) * 100;
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         public void Dispose()
@@ -643,6 +830,8 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         public string Message { get; set; } = string.Empty;
         public string? Error { get; set; }
         public VersionMetrics? Metrics { get; set; }
+        public string Version { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
     }
 
     public class VersionMetricsGetHistoryResult
@@ -659,5 +848,38 @@ namespace LicenseReleaseService.VersionManagement.Monitoring
         public string Message { get; set; } = string.Empty;
         public string? Error { get; set; }
         public Dictionary<string, double> Summary { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Result class for GetMetricsAsync operation
+    /// </summary>
+    public class VersionMetricsCollectorResult
+    {
+        public Dictionary<string, VersionMetrics> VersionMetrics { get; set; } = new();
+        public Dictionary<string, object> SystemMetrics { get; set; } = new();
+        public DateTime Timestamp { get; set; }
+        public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Result class for ConfigureVersionMetricsAsync operation
+    /// </summary>
+    public class VersionMetricsConfigureResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? Error { get; set; }
+    }
+
+    /// <summary>
+    /// Configuration for version metrics collection
+    /// </summary>
+    public class VersionMetricsCollectionConfig
+    {
+        public bool EnableCpuMetrics { get; set; } = true;
+        public bool EnableMemoryMetrics { get; set; } = true;
+        public bool EnableDiskMetrics { get; set; } = true;
+        public bool EnableNetworkMetrics { get; set; } = true;
+        public TimeSpan MetricsCollectionInterval { get; set; } = TimeSpan.FromSeconds(30);
     }
 }

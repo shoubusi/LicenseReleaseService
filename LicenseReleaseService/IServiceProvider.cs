@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LicenseReleaseService
 {
@@ -13,6 +14,33 @@ namespace LicenseReleaseService
         /// <param name="serviceType">An object that specifies the type of service object to get.</param>
         /// <returns>A service object of type serviceType, or null if there is no service object of type serviceType.</returns>
         object GetService(Type serviceType);
+    }
+
+    /// <summary>
+    /// Adapter that wraps Microsoft.Extensions.DependencyInjection.ServiceProvider to implement our IServiceProvider interface
+    /// </summary>
+    public class ServiceProviderAdapter : IServiceProvider
+    {
+        private readonly Microsoft.Extensions.DependencyInjection.ServiceProvider _serviceProvider;
+
+        /// <summary>
+        /// Initializes a new instance of the ServiceProviderAdapter class
+        /// </summary>
+        /// <param name="serviceProvider">The Microsoft DI service provider to wrap</param>
+        public ServiceProviderAdapter(Microsoft.Extensions.DependencyInjection.ServiceProvider serviceProvider)
+        {
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        }
+
+        /// <summary>
+        /// Gets the service object of the specified type
+        /// </summary>
+        /// <param name="serviceType">The type of service object to get</param>
+        /// <returns>A service object of type serviceType, or null if there is no service object of type serviceType</returns>
+        public object GetService(Type serviceType)
+        {
+            return _serviceProvider.GetService(serviceType);
+        }
     }
 
     /// <summary>

@@ -430,7 +430,7 @@ namespace LicenseReleaseService.LicenseManagement
                     if (attempt > 1)
                     {
                         var metrics = GetOrCreateMetrics("global");
-                        Interlocked.Increment(ref metrics.RetriedOperations);
+                        metrics.RetriedOperations++;
                     }
                     return result;
                 }
@@ -550,14 +550,14 @@ namespace LicenseReleaseService.LicenseManagement
             List<ResiliencePolicy> appliedPolicies,
             Exception exception = null)
         {
-            Interlocked.Increment(ref metrics.TotalOperations);
+            metrics.TotalOperations++;
             if (success)
             {
-                Interlocked.Increment(ref metrics.SuccessfulOperations);
+                metrics.SuccessfulOperations++;
             }
             else
             {
-                Interlocked.Increment(ref metrics.FailedOperations);
+                metrics.FailedOperations++;
             }
 
             // Update average operation time
@@ -572,15 +572,15 @@ namespace LicenseReleaseService.LicenseManagement
                 switch (policy.Type)
                 {
                     case ResiliencePolicyType.Retry:
-                        Interlocked.Increment(ref metrics.RetriedOperations);
+                        metrics.RetriedOperations++;
                         break;
                     case ResiliencePolicyType.Fallback:
-                        Interlocked.Increment(ref metrics.FallbackOperations);
+                        metrics.FallbackOperations++;
                         break;
                     case ResiliencePolicyType.CircuitBreaker:
                         if (!success)
                         {
-                            Interlocked.Increment(ref metrics.CircuitBreakerTrips);
+                            metrics.CircuitBreakerTrips++;
                         }
                         break;
                 }

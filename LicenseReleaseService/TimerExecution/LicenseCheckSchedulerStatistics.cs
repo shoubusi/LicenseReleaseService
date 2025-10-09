@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 
 namespace LicenseReleaseService.TimerExecution
 {
@@ -83,6 +84,31 @@ namespace LicenseReleaseService.TimerExecution
         /// Gets the timestamp when statistics were last updated
         /// </summary>
         public DateTime LastUpdated { get; set; }
+
+        /// <summary>
+        /// Gets the total number of operations processed (alias for TotalOperationsProcessed)
+        /// </summary>
+        public long TotalProcessed => TotalOperationsProcessed;
+
+        /// <summary>
+        /// Gets the number of successful operations (alias for SuccessfulOperations)
+        /// </summary>
+        public long CompletedCount => SuccessfulOperations;
+
+        /// <summary>
+        /// Gets the number of failed operations (alias for FailedOperations)
+        /// </summary>
+        public long FailedCount => FailedOperations;
+
+        /// <summary>
+        /// Gets the number of cancelled operations (alias for CancelledOperations)
+        /// </summary>
+        public long CancelledCount => CancelledOperations;
+
+        /// <summary>
+        /// Gets the number of timed out operations (alias for TimedOutOperations)
+        /// </summary>
+        public long TimedOutCount => TimedOutOperations;
 
         /// <summary>
         /// Gets the success rate (0.0 to 1.0)
@@ -275,6 +301,81 @@ namespace LicenseReleaseService.TimerExecution
         }
 
         /// <summary>
+        /// Gets the total number of operations (alias for TotalChecksPerformed)
+        /// </summary>
+        public long TotalOperations
+        {
+            get => TotalChecksPerformed;
+            set => TotalChecksPerformed = value;
+        }
+
+        /// <summary>
+        /// Gets the number of successful operations
+        /// </summary>
+        public long SuccessfulOperations { get; set; }
+
+        /// <summary>
+        /// Gets the number of failed operations
+        /// </summary>
+        public long FailedOperations { get; set; }
+
+        /// <summary>
+        /// Gets the number of cancelled operations
+        /// </summary>
+        public long CancelledOperations { get; set; }
+
+        /// <summary>
+        /// Gets the number of timed out operations
+        /// </summary>
+        public long TimedOutOperations { get; set; }
+
+        /// <summary>
+        /// Gets the average execution time
+        /// </summary>
+        public TimeSpan AverageExecutionTime { get; set; }
+
+        /// <summary>
+        /// Gets the operations per second rate
+        /// </summary>
+        public double OperationsPerSecond
+        {
+            get
+            {
+                if (Uptime.TotalSeconds == 0)
+                    return 0.0;
+
+                return TotalOperations / Uptime.TotalSeconds;
+            }
+            set
+            {
+                // Store the value for later use if needed
+                _operationsPerSecond = value;
+            }
+        }
+
+        private double _operationsPerSecond;
+
+        /// <summary>
+        /// Gets the current queue size
+        /// </summary>
+        public int QueueSize { get; set; }
+
+        /// <summary>
+        /// Gets a value indicating whether the scheduler is running
+        /// </summary>
+        public bool IsRunning { get; set; }
+
+        /// <summary>
+        /// Gets a value indicating whether the scheduler is healthy
+        /// </summary>
+        public bool IsHealthy { get; set; }
+
+        /// <summary>
+        /// Gets the timestamp when metrics were last updated
+        /// </summary>
+        public DateTime Timestamp { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the LicenseCheckSchedulerMetrics class
         /// </summary>
         public LicenseCheckSchedulerMetrics()
@@ -415,6 +516,41 @@ namespace LicenseReleaseService.TimerExecution
         public DateTime GeneratedAt { get; set; }
 
         /// <summary>
+        /// Gets a value indicating whether the scheduler is running
+        /// </summary>
+        public bool IsRunning { get; set; }
+
+        /// <summary>
+        /// Gets a value indicating whether the scheduler is currently executing
+        /// </summary>
+        public bool IsExecuting { get; set; }
+
+        /// <summary>
+        /// Gets the uptime
+        /// </summary>
+        public TimeSpan Uptime { get; set; }
+
+        /// <summary>
+        /// Gets the total number of operations completed
+        /// </summary>
+        public long TotalOperationsCompleted { get; set; }
+
+        /// <summary>
+        /// Gets the total number of operations failed
+        /// </summary>
+        public long TotalOperationsFailed { get; set; }
+
+        /// <summary>
+        /// Gets the number of pending operations in the queue
+        /// </summary>
+        public int PendingOperationsCount { get; set; }
+
+        /// <summary>
+        /// Gets the last updated timestamp
+        /// </summary>
+        public DateTime LastUpdated { get; set; }
+
+        /// <summary>
         /// Gets a value indicating whether the scheduler is healthy
         /// </summary>
         public bool IsHealthy
@@ -509,6 +645,36 @@ namespace LicenseReleaseService.TimerExecution
         /// Gets the timestamp when diagnostics were generated
         /// </summary>
         public DateTime GeneratedAt { get; set; }
+
+        /// <summary>
+        /// Gets the scheduler status information (alias for Status)
+        /// </summary>
+        public LicenseCheckSchedulerStatusInfo StatusInfo { get; set; }
+
+        /// <summary>
+        /// Gets the configuration validation errors
+        /// </summary>
+        public IList<string> ConfigurationErrors { get; set; }
+
+        /// <summary>
+        /// Gets a value indicating whether the scheduler is healthy
+        /// </summary>
+        public bool IsHealthy { get; set; }
+
+        /// <summary>
+        /// Gets the current memory usage in bytes
+        /// </summary>
+        public long MemoryUsage { get; set; }
+
+        /// <summary>
+        /// Gets the current thread count
+        /// </summary>
+        public int ThreadCount { get; set; }
+
+        /// <summary>
+        /// Gets the timestamp when diagnostics were last checked
+        /// </summary>
+        public DateTime LastDiagnosticsCheck { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the LicenseCheckSchedulerDiagnostics class

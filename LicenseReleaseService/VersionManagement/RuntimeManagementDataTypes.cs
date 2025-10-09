@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace LicenseReleaseService.VersionManagement
 {
@@ -114,6 +115,37 @@ namespace LicenseReleaseService.VersionManagement
         /// </summary>
         public Dictionary<string, object> AdditionalRequirements { get; set; } = new Dictionary<string, object>();
 
+        // Additional properties for LicenseVersionAllocator
+        /// <summary>
+        /// Gets or sets the version
+        /// </summary>
+        public string Version { get; set; }
+
+        /// <summary>
+        /// Gets or sets the memory limit in bytes
+        /// </summary>
+        public long MemoryLimit { get; set; }
+
+        /// <summary>
+        /// Gets or sets the CPU limit
+        /// </summary>
+        public int CpuLimit { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum memory usage in bytes
+        /// </summary>
+        public long MaxMemoryUsageBytes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the maximum CPU usage percentage
+        /// </summary>
+        public int MaxCpuUsagePercent { get; set; }
+
+        /// <summary>
+        /// Gets or sets the timeout in milliseconds
+        /// </summary>
+        public int TimeoutMs { get; set; }
+
         /// <summary>
         /// Initializes a new instance of the VersionOperationRequirements class
         /// </summary>
@@ -123,6 +155,24 @@ namespace LicenseReleaseService.VersionManagement
             ExpectedDuration = TimeSpan.FromSeconds(30);
             Priority = AllocationPriority.Normal;
             MaxConcurrentOperations = 1;
+        }
+
+        /// <summary>
+        /// Converts the requirements to a dictionary
+        /// </summary>
+        /// <returns>Dictionary representation of the requirements</returns>
+        public Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>
+            {
+                ["OperationType"] = OperationType.ToString(),
+                ["MemoryRequirements"] = MemoryRequirements,
+                ["CpuRequirements"] = CpuRequirements,
+                ["MaxConcurrentOperations"] = MaxConcurrentOperations,
+                ["Priority"] = Priority.ToString(),
+                ["Timeout"] = Timeout.TotalMilliseconds,
+                ["ExpectedDuration"] = ExpectedDuration.TotalMilliseconds
+            }.Concat(AdditionalRequirements).ToDictionary();
         }
     }
 
@@ -237,6 +287,11 @@ namespace LicenseReleaseService.VersionManagement
         /// Gets or sets the result data
         /// </summary>
         public Dictionary<string, object> ResultData { get; set; } = new Dictionary<string, object>();
+
+        /// <summary>
+        /// Gets or sets additional metadata
+        /// </summary>
+        public Dictionary<string, object> Metadata { get; set; } = new Dictionary<string, object>();
     }
 
     /// <summary>

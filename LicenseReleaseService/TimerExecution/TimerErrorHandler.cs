@@ -421,9 +421,9 @@ namespace LicenseReleaseService.TimerExecution
                     _errorCounts[key] = 0;
                 }
 
-                foreach (var key in _severityCounts.ToList())
+                foreach (var kvp in _severityCounts.ToList())
                 {
-                    _severityCounts[key] = 0;
+                    _severityCounts[kvp.Key] = 0;
                 }
 
                 _recoveryManager.ClearHistory();

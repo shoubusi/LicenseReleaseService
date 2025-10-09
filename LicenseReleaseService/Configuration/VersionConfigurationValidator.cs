@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -41,7 +42,6 @@ namespace LicenseReleaseService.Configuration
                 return new ComprehensiveVersionValidationResult
                 {
                     Version = version,
-                    IsValid = false,
                     Errors = { "Version cannot be null or empty" },
                     ValidationScore = 0
                 };
@@ -76,7 +76,6 @@ namespace LicenseReleaseService.Configuration
 
                 // Calculate overall validation score
                 result.ValidationScore = CalculateValidationScore(result);
-                result.IsValid = result.Errors.Count == 0;
 
                 // Generate recommendations
                 GenerateRecommendations(result);
@@ -92,7 +91,6 @@ namespace LicenseReleaseService.Configuration
                 return new ComprehensiveVersionValidationResult
                 {
                     Version = version,
-                    IsValid = false,
                     Errors = { $"Validation error: {ex.Message}" },
                     ValidationScore = 0
                 };
@@ -369,9 +367,10 @@ namespace LicenseReleaseService.Configuration
                 }
 
                 // Test license manager functionality if lmutil path is specified
+                LicenseManagerFunctionalityResult lmutilResult = null;
                 if (!string.IsNullOrWhiteSpace(config.LmutilPath) && System.IO.File.Exists(config.LmutilPath))
                 {
-                    var lmutilResult = await TestLicenseManagerFunctionalityAsync(config.LmutilPath, config.LicenseServer, config.Port);
+                    lmutilResult = await TestLicenseManagerFunctionalityAsync(config.LmutilPath, config.LicenseServer, config.Port);
                     if (!lmutilResult.IsFunctional)
                     {
                         result.Warnings.Add($"License manager functionality test failed - {lmutilResult.ErrorMessage}");
@@ -379,7 +378,7 @@ namespace LicenseReleaseService.Configuration
                 }
 
                 result.LicenseServerAccessible = accessibilityResult.IsAccessible;
-                result.LicenseManagerFunctional = lmutilResult.IsFunctional;
+                result.LicenseManagerFunctional = lmutilResult?.IsFunctional ?? false;
             }
             catch (Exception ex)
             {
@@ -750,15 +749,16 @@ namespace LicenseReleaseService.Configuration
                     var connectTask = tcpClient.ConnectAsync(server, port);
                     var timeoutTask = Task.Delay(_validationConfig.NetworkTimeout);
 
-                    var completedTask = await Task.WhenAny(connectTask, timeoutTask);
-
-                    if (completedTask == connectTask)
+                    // Wait for connection with timeout using WaitAsync
+                    try
                     {
-                        await connectTask; // Re-throw any exceptions
+                        using var timeoutCts = new CancellationTokenSource(_validationConfig.NetworkTimeout);
+                        await connectTask.WaitAsync(timeoutCts.Token);
                         return new NetworkConnectivityResult { IsConnected = true };
                     }
-                    else
+                    catch (OperationCanceledException)
                     {
+                        // Timeout occurred
                         return new NetworkConnectivityResult { IsConnected = false, ErrorMessage = "Connection timeout" };
                     }
                 }

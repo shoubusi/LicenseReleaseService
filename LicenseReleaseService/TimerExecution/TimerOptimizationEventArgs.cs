@@ -143,6 +143,11 @@ namespace LicenseReleaseService.TimerExecution
         public double OptimizationsPerHour => Uptime.TotalHours > 0 ? OptimizationCount / Uptime.TotalHours : 0;
 
         /// <summary>
+        /// Gets the optimization level
+        /// </summary>
+        public int OptimizationLevel { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the TimerOptimizationMetrics class
         /// </summary>
         public TimerOptimizationMetrics()
@@ -207,6 +212,11 @@ namespace LicenseReleaseService.TimerExecution
         public bool IsRunning { get; set; }
 
         /// <summary>
+        /// Gets whether the optimizer is currently optimized
+        /// </summary>
+        public bool IsOptimized { get; set; }
+
+        /// <summary>
         /// Gets the uptime of the optimizer
         /// </summary>
         public TimeSpan Uptime { get; set; }
@@ -240,6 +250,16 @@ namespace LicenseReleaseService.TimerExecution
         /// Gets the number of performance tunings
         /// </summary>
         public long PerformanceTunings { get; set; }
+
+        /// <summary>
+        /// Gets the optimization level
+        /// </summary>
+        public int OptimizationLevel { get; set; }
+
+        /// <summary>
+        /// Gets the optimization metrics
+        /// </summary>
+        public TimerOptimizationMetrics Metrics { get; set; }
     }
 
     /// <summary>
@@ -301,7 +321,22 @@ namespace LicenseReleaseService.TimerExecution
         /// <summary>
         /// Performance tuning optimization
         /// </summary>
-        PerformanceTuning
+        PerformanceTuning,
+
+        /// <summary>
+        /// Reduce CPU usage optimization
+        /// </summary>
+        ReduceCpuUsage,
+
+        /// <summary>
+        /// Reduce memory usage optimization
+        /// </summary>
+        ReduceMemoryUsage,
+
+        /// <summary>
+        /// Optimize thread pool optimization
+        /// </summary>
+        OptimizeThreadPool
     }
 
     /// <summary>
@@ -398,6 +433,82 @@ namespace LicenseReleaseService.TimerExecution
         /// Critical impact expected
         /// </summary>
         Critical
+    }
+
+    /// <summary>
+    /// Metrics for the timer performance tuner
+    /// </summary>
+    public class TimerTunerMetrics
+    {
+        /// <summary>
+        /// Gets the timestamp when metrics were collected
+        /// </summary>
+        public DateTime Timestamp { get; set; }
+
+        /// <summary>
+        /// Gets the CPU usage percentage
+        /// </summary>
+        public double CpuUsagePercent { get; set; }
+
+        /// <summary>
+        /// Gets the memory usage percentage
+        /// </summary>
+        public double MemoryUsagePercent { get; set; }
+
+        /// <summary>
+        /// Gets the thread count
+        /// </summary>
+        public int ThreadCount { get; set; }
+
+        /// <summary>
+        /// Gets the number of active timers
+        /// </summary>
+        public int ActiveTimerCount { get; set; }
+
+        /// <summary>
+        /// Gets the average timer execution time
+        /// </summary>
+        public double AverageExecutionTime { get; set; }
+
+        /// <summary>
+        /// Gets the number of optimizations applied
+        /// </summary>
+        public int OptimizationsApplied { get; set; }
+
+        /// <summary>
+        /// Gets the performance improvement percentage
+        /// </summary>
+        public double PerformanceImprovement { get; set; }
+
+        /// <summary>
+        /// Gets whether tuning is currently active
+        /// </summary>
+        public bool IsTuningActive { get; set; }
+
+        /// <summary>
+        /// Gets the number of tuning cycles completed
+        /// </summary>
+        public int TuningCyclesCompleted { get; set; }
+
+        /// <summary>
+        /// Gets the current configuration
+        /// </summary>
+        public object CurrentConfiguration { get; set; }
+
+        /// <summary>
+        /// Gets the last tuning time
+        /// </summary>
+        public DateTime? LastTuningTime { get; set; }
+
+        /// <summary>
+        /// Initializes a new instance of the TimerTunerMetrics class
+        /// </summary>
+        public TimerTunerMetrics()
+        {
+            Timestamp = DateTime.UtcNow;
+            TuningCyclesCompleted = 0;
+            CurrentConfiguration = null;
+        }
     }
 
     /// <summary>

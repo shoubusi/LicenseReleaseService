@@ -13,7 +13,14 @@ namespace LicenseReleaseService.LicenseManagement.Models
         public TimeSpan IdleDuration { get; set; }
         public bool IsIdle { get; set; }
         public string LicenseServer { get; set; }
-        public int SessionId { get; set; }
+        public string SessionId { get; set; }
+        public string Server { get; set; }
+        public int Port { get; set; }
+        public TimeSpan IdleTime { get; set; }
+        public string Reason { get; set; }
+        public double ConfidenceScore { get; set; }
+        public List<string> DetectionMethods { get; set; }
+        public DateTime LastActivity { get; set; }
 
         public LicenseReleaseCandidate()
         {
@@ -21,7 +28,14 @@ namespace LicenseReleaseService.LicenseManagement.Models
             LastActivityTime = DateTime.UtcNow;
             IdleDuration = TimeSpan.Zero;
             IsIdle = false;
-            SessionId = 0;
+            SessionId = string.Empty;
+            Server = string.Empty;
+            Port = 0;
+            IdleTime = TimeSpan.Zero;
+            Reason = string.Empty;
+            ConfidenceScore = 0.0;
+            DetectionMethods = new List<string>();
+            LastActivity = DateTime.UtcNow;
         }
 
         public LicenseReleaseCandidate(string userName, string computerName, string feature, string licenseServer)
@@ -34,7 +48,14 @@ namespace LicenseReleaseService.LicenseManagement.Models
             LastActivityTime = DateTime.UtcNow;
             IdleDuration = TimeSpan.Zero;
             IsIdle = false;
-            SessionId = 0;
+            SessionId = string.Empty;
+            Server = string.Empty;
+            Port = 0;
+            IdleTime = TimeSpan.Zero;
+            Reason = string.Empty;
+            ConfidenceScore = 0.0;
+            DetectionMethods = new List<string>();
+            LastActivity = DateTime.UtcNow;
         }
     }
 }

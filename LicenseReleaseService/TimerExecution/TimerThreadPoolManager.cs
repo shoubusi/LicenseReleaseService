@@ -19,7 +19,7 @@ namespace LicenseReleaseService.TimerExecution
         private readonly object _lock = new object();
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly Stopwatch _uptimeStopwatch;
-        private readonly Timer _monitorTimer;
+        private readonly System.Timers.Timer _monitorTimer;
         private readonly Queue<TimerThreadPoolEvent> _adjustmentHistory;
         private readonly Dictionary<string, TimerWorkItemTracker> _workItemTrackers;
 
@@ -47,6 +47,32 @@ namespace LicenseReleaseService.TimerExecution
         /// Gets the current thread pool size
         /// </summary>
         public int CurrentThreadPoolSize => _currentThreadPoolSize;
+
+        /// <summary>
+        /// Gets the current thread pool metrics asynchronously
+        /// </summary>
+        /// <returns>Thread pool metrics</returns>
+        public Task<TimerThreadPoolMetrics> GetThreadPoolMetricsAsync()
+        {
+            return Task.FromResult(new TimerThreadPoolMetrics
+            {
+                IsRunning = _isRunning,
+                CurrentThreadPoolSize = _currentThreadPoolSize,
+                OptimalThreadPoolSize = _optimalThreadPoolSize,
+                MinThreadPoolSize = _minThreadPoolSize,
+                MaxThreadPoolSize = _maxThreadPoolSize,
+                TotalAdjustments = _totalAdjustments,
+                SuccessfulAdjustments = _successfulAdjustments,
+                FailedAdjustments = _failedAdjustments,
+                WorkItemsProcessed = _workItemsProcessed,
+                WorkItemsQueued = _workItemsQueued,
+                WorkItemsRejected = _workItemsRejected,
+                AverageQueueTime = _averageQueueTime,
+                AverageProcessingTime = _averageProcessingTime,
+                Uptime = _uptimeStopwatch.Elapsed,
+                GeneratedAt = DateTime.UtcNow
+            });
+        }
 
         /// <summary>
         /// Gets the optimal thread pool size
@@ -130,7 +156,7 @@ namespace LicenseReleaseService.TimerExecution
 
             _cancellationTokenSource = new CancellationTokenSource();
             _uptimeStopwatch = new Stopwatch();
-            _monitorTimer = new Timer(_threadPoolOptions.MonitorIntervalMs);
+            _monitorTimer = new System.Timers.Timer();
             _adjustmentHistory = new Queue<TimerThreadPoolEvent>(50);
             _workItemTrackers = new Dictionary<string, TimerWorkItemTracker>();
 
@@ -166,7 +192,8 @@ namespace LicenseReleaseService.TimerExecution
             try
             {
                 // Start thread pool monitoring
-                _monitorTimer.Elapsed += OnMonitorTimerElapsed;
+                _monitorTimer.Interval = _threadPoolOptions.MonitorIntervalMs;
+                _monitorTimer.Elapsed += OnThreadPoolMonitorTimerElapsed;
                 _monitorTimer.Start();
 
                 // Apply initial thread pool optimization
@@ -204,7 +231,7 @@ namespace LicenseReleaseService.TimerExecution
             {
                 // Stop monitoring
                 _monitorTimer.Stop();
-                _monitorTimer.Elapsed -= OnMonitorTimerElapsed;
+                _monitorTimer.Elapsed -= OnThreadPoolMonitorTimerElapsed;
 
                 // Cancel pending operations
                 _cancellationTokenSource.Cancel();
@@ -249,8 +276,8 @@ namespace LicenseReleaseService.TimerExecution
         {
             lock (_lock)
             {
-                var process = Process.GetCurrentProcess();
-                var threadPool = ThreadPool.GetAvailableThreads(out var availableWorkerThreads, out var availableCompletionPortThreads);
+                var process = System.Diagnostics.Process.GetCurrentProcess();
+                ThreadPool.GetAvailableThreads(out var availableWorkerThreads, out var availableCompletionPortThreads);
                 ThreadPool.GetMaxThreads(out var maxWorkerThreads, out var maxCompletionPortThreads);
                 ThreadPool.GetMinThreads(out var minWorkerThreads, out var minCompletionPortThreads);
 
@@ -267,8 +294,8 @@ namespace LicenseReleaseService.TimerExecution
                     WorkItemsProcessed = WorkItemsProcessed,
                     WorkItemsQueued = WorkItemsQueued,
                     WorkItemsRejected = WorkItemsRejected,
-                    AverageQueueTime = _averageQueueTime,
-                    AverageProcessingTime = _averageProcessingTime,
+                    AverageQueueTime = TimeSpan.FromMilliseconds(_averageQueueTime).TotalMilliseconds,
+                    AverageProcessingTime = TimeSpan.FromMilliseconds(_averageProcessingTime).TotalMilliseconds,
                     ActiveWorkerThreads = availableWorkerThreads,
                     ActiveCompletionPortThreads = availableCompletionPortThreads,
                     MaxWorkerThreads = maxWorkerThreads,
@@ -401,6 +428,33 @@ namespace LicenseReleaseService.TimerExecution
 
                 _logger.LogDebug("Thread pool manager statistics reset");
             }
+        }
+
+        /// <summary>
+        /// Gets the current thread pool size
+        /// </summary>
+        /// <returns>Current thread pool size</returns>
+        public int GetPoolSize()
+        {
+            lock (_lock)
+            {
+                return _currentThreadPoolSize;
+            }
+        }
+
+        /// <summary>
+        /// Sets the thread pool size
+        /// </summary>
+        /// <param name="size">New thread pool size</param>
+        /// <returns>Task representing the operation</returns>
+        public async Task SetPoolSizeAsync(int size)
+        {
+            if (size < _minThreadPoolSize || size > _maxThreadPoolSize)
+            {
+                throw new ArgumentOutOfRangeException(nameof(size), $"Pool size must be between {_minThreadPoolSize} and {_maxThreadPoolSize}");
+            }
+
+            await AdjustThreadPoolSizeAsync(size, "Manual size adjustment");
         }
 
         #region Private Methods
@@ -556,7 +610,7 @@ namespace LicenseReleaseService.TimerExecution
             }
         }
 
-        private void OnMonitorTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
+        private void OnThreadPoolMonitorTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
             _ = Task.Run(() => MonitorThreadPoolAsync(_cancellationTokenSource.Token));
         }

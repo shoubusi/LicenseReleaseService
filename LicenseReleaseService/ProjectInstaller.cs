@@ -1,3 +1,4 @@
+#if !NET9_0
 using System;
 using System.Collections;
 using System.ComponentModel;
@@ -242,3 +243,4 @@ namespace LicenseReleaseService
         }
     }
 }
+#endif

@@ -414,7 +414,7 @@ namespace LicenseReleaseService.VersionManagement
                 return analysis;
 
             // Calculate trends
-            var recentMetrics = metricsHistory.Skip(Math.Max(0, metricsHistory.Count - 10)).Take(10).ToList();
+            var recentMetrics = metricsHistory.TakeLast(10).ToList();
             var olderMetrics = metricsHistory.Take(metricsHistory.Count - 10).ToList();
 
             if (recentMetrics.Any() && olderMetrics.Any())
@@ -443,14 +443,14 @@ namespace LicenseReleaseService.VersionManagement
                 return analysis;
 
             // Calculate memory trends
-            var recentMemory = metricsHistory.Skip(Math.Max(0, metricsHistory.Count - 10)).Take(10).Average(m => m.MemoryUsage);
+            var recentMemory = metricsHistory.TakeLast(10).Average(m => m.MemoryUsage);
             var olderMemory = metricsHistory.Take(metricsHistory.Count - 10).Average(m => m.MemoryUsage);
 
             analysis.IsMemoryUsageIncreasing = recentMemory > olderMemory * 1.1; // 10% increase threshold
             analysis.MemoryChangePercentage = ((recentMemory - olderMemory) / olderMemory) * 100;
 
             // Calculate CPU trends
-            var recentCpu = metricsHistory.Skip(Math.Max(0, metricsHistory.Count - 10)).Take(10).Average(m => m.CpuUsage);
+            var recentCpu = metricsHistory.TakeLast(10).Average(m => m.CpuUsage);
             var olderCpu = metricsHistory.Take(metricsHistory.Count - 10).Average(m => m.CpuUsage);
 
             analysis.IsCpuUsageIncreasing = recentCpu > olderCpu * 1.1; // 10% increase threshold
@@ -690,23 +690,36 @@ namespace LicenseReleaseService.VersionManagement
 
         private VersionRuntimeMetrics GenerateSimulatedMetrics()
         {
-            return new VersionRuntimeMetrics
-            {
-                TotalOperations = _random.Next(100, 1000),
-                SuccessfulOperations = (int)(_random.NextDouble() * 900 + 50),
-                FailedOperations = (int)(_random.NextDouble() * 50),
-                AverageOperationTime = TimeSpan.FromMilliseconds(_random.Next(100, 2000)),
-                PeakOperationTime = TimeSpan.FromMilliseconds(_random.Next(500, 5000)),
-                MemoryUsage = (long)(_random.NextDouble() * 1024 * 1024 * 1024), // Up to 1GB
-                PeakMemoryUsage = (long)(_random.NextDouble() * 2 * 1024 * 1024 * 1024), // Up to 2GB
-                CpuUsage = (int)(_random.NextDouble() * 100),
-                PeakCpuUsage = (int)(_random.NextDouble() * 100),
-                TotalCpuTime = TimeSpan.FromMinutes(_random.Next(1, 60)),
-                CurrentLoad = _random.NextDouble(),
-                StabilityScore = _random.NextDouble(),
-                PerformanceScore = _random.NextDouble(),
-                Timestamp = DateTime.UtcNow
-            };
+            var totalOperations = _random.Next(100, 1000);
+            var successfulOperations = (int)(_random.NextDouble() * 900 + 50);
+            var failedOperations = (int)(_random.NextDouble() * 50);
+            var averageOperationTime = TimeSpan.FromMilliseconds(_random.Next(100, 2000));
+            var peakOperationTime = TimeSpan.FromMilliseconds(_random.Next(500, 5000));
+            var memoryUsage = (long)(_random.NextDouble() * 1024 * 1024 * 1024); // Up to 1GB
+            var peakMemoryUsage = (long)(_random.NextDouble() * 2 * 1024 * 1024 * 1024); // Up to 2GB
+            var cpuUsage = (int)(_random.NextDouble() * 100);
+            var peakCpuUsage = (int)(_random.NextDouble() * 100);
+            var totalCpuTime = TimeSpan.FromMinutes(_random.Next(1, 60));
+            var currentLoad = _random.NextDouble();
+            var stabilityScore = _random.NextDouble();
+            var performanceScore = _random.NextDouble();
+
+            return new VersionRuntimeMetrics(
+                totalOperations: totalOperations,
+                successfulOperations: successfulOperations,
+                failedOperations: failedOperations,
+                averageOperationTime: averageOperationTime,
+                peakOperationTime: peakOperationTime,
+                memoryUsage: memoryUsage,
+                peakMemoryUsage: peakMemoryUsage,
+                cpuUsage: cpuUsage,
+                peakCpuUsage: peakCpuUsage,
+                totalCpuTime: totalCpuTime,
+                currentLoad: currentLoad,
+                stabilityScore: stabilityScore,
+                performanceScore: performanceScore,
+                timestamp: DateTime.UtcNow
+            );
         }
 
         public void Dispose()

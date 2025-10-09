@@ -283,11 +283,11 @@ namespace LicenseReleaseService.IdleDetection
             var entry = new ActivityHistoryEntry
             {
                 Timestamp = DateTime.UtcNow,
-                ActivityType = activity.ActivityType,
+                ActivityType = activity.Type,
                 Confidence = activity.Confidence,
                 UserName = userName,
                 ComputerName = computerName,
-                Metadata = new Dictionary<string, object>(activity.Metadata)
+                Metadata = new Dictionary<string, object>(activity.Details ?? new Dictionary<string, object>())
             };
 
             _activityHistory.Enqueue(entry);
@@ -335,12 +335,12 @@ namespace LicenseReleaseService.IdleDetection
             userThreshold.LastActivityTime = DateTime.UtcNow;
 
             // Update activity type statistics
-            if (!userThreshold.ActivityTypeStats.ContainsKey(activity.ActivityType))
+            if (!userThreshold.ActivityTypeStats.ContainsKey(activity.Type))
             {
-                userThreshold.ActivityTypeStats[activity.ActivityType] = new ActivityTypeStatistics();
+                userThreshold.ActivityTypeStats[activity.Type] = new ActivityTypeStatistics();
             }
 
-            var typeStats = userThreshold.ActivityTypeStats[activity.ActivityType];
+            var typeStats = userThreshold.ActivityTypeStats[activity.Type];
             typeStats.Count++;
             typeStats.TotalConfidence += activity.Confidence;
             typeStats.LastSeen = DateTime.UtcNow;
@@ -429,7 +429,7 @@ namespace LicenseReleaseService.IdleDetection
                 // Update statistics
                 Statistics.TotalAdaptations++;
                 Statistics.AverageAdaptationConfidence = CalculateRollingAverage(
-                    Statistics.AverageAdaptationConfidence, adaptationConfidence, Statistics.TotalAdaptations);
+                    Statistics.AverageAdaptationConfidence, adaptationConfidence, (int)Statistics.TotalAdaptations);
 
                 // Raise adaptation event
                 OnThresholdsAdapted(userThreshold, oldThresholds);

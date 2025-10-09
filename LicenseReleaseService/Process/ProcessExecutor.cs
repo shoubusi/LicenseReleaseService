@@ -208,7 +208,7 @@ namespace LicenseReleaseService.Process
                 }
             }
 
-            using var process = new Process { StartInfo = startInfo };
+            using var process = new System.Diagnostics.Process { StartInfo = startInfo };
             var tcs = new TaskCompletionSource<bool>();
 
             process.EnableRaisingEvents = true;
@@ -266,9 +266,12 @@ namespace LicenseReleaseService.Process
                 var timeoutTask = Task.Delay(timeout, cancellationToken);
                 var exitTask = tcs.Task;
 
-                var completedTask = await Task.WhenAny(exitTask, timeoutTask);
-
-                if (completedTask == timeoutTask)
+                // Wait for exit with timeout using WaitAsync
+                try
+                {
+                    await exitTask.WaitAsync(cancellationToken);
+                }
+                catch (OperationCanceledException)
                 {
                     // Timeout occurred
                     if (_options.KillProcessTreeOnTimeout)
@@ -280,11 +283,11 @@ namespace LicenseReleaseService.Process
                         process.Kill();
                     }
 
-                    var executionTime = DateTime.Now - startTime;
+                    var timeoutExecutionTime = DateTime.Now - startTime;
                     _logger.LogWarning("Process execution timed out after {Timeout}ms: {FilePath} {Arguments}",
                         timeout.TotalMilliseconds, filePath, arguments);
 
-                    throw ProcessExecutionException.TimeoutException(filePath, arguments, timeout, executionTime);
+                    throw ProcessExecutionException.TimeoutException(filePath, arguments, timeout, timeoutExecutionTime);
                 }
 
                 await process.WaitForExitAsync(cancellationToken);
@@ -314,7 +317,7 @@ namespace LicenseReleaseService.Process
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                var executionTime = DateTime.Now - startTime;
+                var timeoutExecutionTime = DateTime.Now - startTime;
                 _logger.LogInformation("Process execution cancelled (attempt {Attempt}): {FilePath} {Arguments}",
                     attempt, filePath, arguments);
 
@@ -330,7 +333,7 @@ namespace LicenseReleaseService.Process
                     }
                 }
 
-                throw ProcessExecutionException.CancelledException(filePath, arguments, executionTime);
+                throw ProcessExecutionException.CancelledException(filePath, arguments, timeoutExecutionTime);
             }
         }
 
@@ -378,7 +381,7 @@ namespace LicenseReleaseService.Process
                 }
             }
 
-            using var process = new Process { StartInfo = startInfo };
+            using var process = new System.Diagnostics.Process { StartInfo = startInfo };
 
             try
             {
@@ -411,11 +414,11 @@ namespace LicenseReleaseService.Process
                         process.Kill();
                     }
 
-                    var executionTime = DateTime.Now - startTime;
+                    var timeoutExecutionTime = DateTime.Now - startTime;
                     _logger.LogWarning("Process execution timed out after {Timeout}ms: {FilePath} {Arguments}",
                         timeout.TotalMilliseconds, filePath, arguments);
 
-                    throw ProcessExecutionException.TimeoutException(filePath, arguments, timeout, executionTime);
+                    throw ProcessExecutionException.TimeoutException(filePath, arguments, timeout, timeoutExecutionTime);
                 }
 
                 var exitCode = process.ExitCode;
@@ -455,11 +458,11 @@ namespace LicenseReleaseService.Process
         {
             try
             {
-                var currentProcess = Process.GetCurrentProcess();
+                var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
                 var processName = currentProcess.ProcessName;
 
                 // Find all processes with the same name
-                var processes = Process.GetProcessesByName(processName);
+                var processes = System.Diagnostics.Process.GetProcessesByName(processName);
 
                 foreach (var process in processes)
                 {
@@ -477,7 +480,7 @@ namespace LicenseReleaseService.Process
                 }
 
                 // Kill the main process
-                var mainProcess = Process.GetProcessById(processId);
+                var mainProcess = System.Diagnostics.Process.GetProcessById(processId);
                 mainProcess.Kill();
             }
             catch (Exception ex)
@@ -491,7 +494,7 @@ namespace LicenseReleaseService.Process
             // This is a simplified version - in a real implementation, you might want to use WMI or P/Invoke
             try
             {
-                var process = Process.GetProcessById(processId);
+                var process = System.Diagnostics.Process.GetProcessById(processId);
                 return process.Id; // This is a placeholder - actual implementation would get parent PID
             }
             catch

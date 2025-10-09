@@ -320,7 +320,8 @@ namespace LicenseReleaseService.IdleDetection
                 _logger.LogInformation("Registering detector: {DetectorName}", detector.Name);
 
                 // Initialize detector
-                await detector.InitializeAsync(_configuration, _cancellationTokenSource.Token);
+                var detectorConfig = ConvertToIdleDetectorConfiguration(_configuration);
+                await detector.InitializeAsync(detectorConfig, _cancellationTokenSource.Token);
 
                 // Wire up detector events
                 detector.IdleDetected += OnDetectorIdleDetected;
@@ -625,7 +626,7 @@ namespace LicenseReleaseService.IdleDetection
             }
         }
 
-        private void OnTimerExecutionError(object sender, TimerErrorEventArgs e)
+        private void OnTimerExecutionError(object sender, TimerExecutionErrorEventArgs e)
         {
             _logger.LogError(e.Error, "Timer execution error: {Message}", e.FormattedMessage);
             OnErrorOccurred("TimerExecution", e.Error, ErrorSeverity.High);
@@ -633,7 +634,7 @@ namespace LicenseReleaseService.IdleDetection
 
         private void OnTimerStateChanged(object sender, TimerStateChangedEventArgs e)
         {
-            _logger.LogDebug("Timer state changed: {OldState} -> {NewState}", e.OldState, e.NewState);
+            _logger.LogDebug("Timer state changed: {OldState} -> {NewState}", e.PreviousState, e.NewState);
         }
 
         private void OnConsensusIdleDetected(object sender, IdleDetectionEventArgs e)
@@ -650,7 +651,7 @@ namespace LicenseReleaseService.IdleDetection
             OnActivityDetected(e);
         }
 
-        private void OnConsensusErrorOccurred(object sender, DetectorErrorEventArgs e)
+        private void OnConsensusErrorOccurred(object sender, ConsensusErrorEventArgs e)
         {
             _logger.LogError(e.Error, "Consensus engine error: {DetectorName}, {Operation}",
                 e.DetectorName, e.Operation);
@@ -674,6 +675,76 @@ namespace LicenseReleaseService.IdleDetection
             _logger.LogError(e.Error, "Detector error: {DetectorName}, {Operation}",
                 e.DetectorName, e.Operation);
             OnErrorOccurred($"Detector {e.Operation}", e.Error, e.Severity);
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        /// <summary>
+        /// Converts a configuration element to an IdleDetectorConfiguration
+        /// </summary>
+        private IdleDetectorConfiguration ConvertToIdleDetectorConfiguration(IdleDetectionConfigurationElement element)
+        {
+            return new IdleDetectorConfiguration
+            {
+                DetectorName = element.DetectorName,
+                IsEnabled = element.IsEnabled,
+                DetectionIntervalSeconds = element.DetectionIntervalSeconds,
+                IdleThresholdSeconds = element.IdleThresholdSeconds,
+                ConfidenceThreshold = element.ConfidenceThreshold,
+                Priority = element.Priority,
+                MaxDetectionTimeMs = element.MaxDetectionTimeMs,
+                TimeoutSeconds = element.TimeoutSeconds,
+                RetryCount = element.RetryCount,
+                RetryDelayMs = element.RetryDelayMs,
+                MaxConcurrentOperations = element.MaxConcurrentOperations,
+                CustomParameters = ParseCustomParameters(element.CustomParameters)
+            };
+        }
+
+        /// <summary>
+        /// Parses custom parameters from a string
+        /// </summary>
+        /// <param name="customParams">Custom parameters string</param>
+        /// <returns>Dictionary of parsed parameters</returns>
+        private Dictionary<string, object> ParseCustomParameters(string customParams)
+        {
+            var parameters = new Dictionary<string, object>();
+
+            if (string.IsNullOrWhiteSpace(customParams))
+                return parameters;
+
+            try
+            {
+                // Simple key=value parsing separated by semicolons or commas
+                var pairs = customParams.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var pair in pairs)
+                {
+                    var keyValue = pair.Split(new[] { '=' }, 2);
+                    if (keyValue.Length == 2)
+                    {
+                        var key = keyValue[0].Trim();
+                        var value = keyValue[1].Trim();
+
+                        // Try to parse as different types
+                        if (bool.TryParse(value, out var boolValue))
+                            parameters[key] = boolValue;
+                        else if (int.TryParse(value, out var intValue))
+                            parameters[key] = intValue;
+                        else if (double.TryParse(value, out var doubleValue))
+                            parameters[key] = doubleValue;
+                        else
+                            parameters[key] = value; // Keep as string
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error parsing custom parameters: {CustomParameters}", customParams);
+            }
+
+            return parameters;
         }
 
         #endregion

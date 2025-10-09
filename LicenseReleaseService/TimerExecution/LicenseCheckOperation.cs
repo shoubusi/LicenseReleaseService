@@ -54,6 +54,20 @@ namespace LicenseReleaseService.TimerExecution
         public DateTime? ScheduledAt { get; }
 
         /// <summary>
+        /// Gets the completed timestamp
+        /// </summary>
+        public DateTime? CompletedAt { get; internal set; }
+
+        /// <summary>
+        /// Gets or sets the completed timestamp (alias for CompletedAt)
+        /// </summary>
+        public DateTime? CompletedTime
+        {
+            get => CompletedAt;
+            internal set => CompletedAt = value;
+        }
+
+        /// <summary>
         /// Gets the execution timeout
         /// </summary>
         public TimeSpan Timeout { get; }
@@ -184,7 +198,7 @@ namespace LicenseReleaseService.TimerExecution
                 FeatureCodes,
                 InitiatingUser,
                 ComputerName,
-                Parameters);
+                Parameters != null ? new Dictionary<string, object>(Parameters) : null);
 
             // Update properties using reflection to set internal values
             var operationType = operation.GetType();
@@ -226,7 +240,7 @@ namespace LicenseReleaseService.TimerExecution
                 FeatureCodes,
                 InitiatingUser,
                 ComputerName,
-                Parameters);
+                Parameters != null ? new Dictionary<string, object>(Parameters) : null);
 
             // Set retry count and schedule for immediate execution
             var operationType = retryOperation.GetType();
@@ -273,6 +287,41 @@ namespace LicenseReleaseService.TimerExecution
     }
 
     /// <summary>
+    /// Factory methods for creating license check operations
+    /// </summary>
+    public static class LicenseCheckOperationFactory
+    {
+        /// <summary>
+        /// Creates a comprehensive license check operation
+        /// </summary>
+        /// <param name="server">The license server address</param>
+        /// <param name="port">The license server port</param>
+        /// <returns>A new LicenseCheckOperation for comprehensive checking</returns>
+        public static LicenseCheckOperation CreateComprehensiveCheck(string server, int port)
+        {
+            var featureCodes = new List<string> { "solidworks" };
+            var parameters = new Dictionary<string, object>
+            {
+                { "comprehensive", true },
+                { "checkAvailability", true },
+                { "checkUsage", true },
+                { "checkBorrowing", true },
+                { "checkServerHealth", true }
+            };
+
+            return new LicenseCheckOperation(
+                LicenseCheckOperationType.FullAudit,
+                "latest",
+                server,
+                port,
+                featureCodes,
+                "system",
+                Environment.MachineName,
+                parameters);
+        }
+    }
+
+    /// <summary>
     /// Types of license check operations
     /// </summary>
     public enum LicenseCheckOperationType
@@ -281,6 +330,11 @@ namespace LicenseReleaseService.TimerExecution
         /// Basic license availability check
         /// </summary>
         AvailabilityCheck,
+
+        /// <summary>
+        /// General license check
+        /// </summary>
+        Check,
 
         /// <summary>
         /// Detailed license usage query

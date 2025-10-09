@@ -49,6 +49,11 @@ namespace LicenseReleaseService.IdleDetection
         public DateTime StartTime { get; set; } = DateTime.UtcNow;
 
         /// <summary>
+        /// Gets the last error time
+        /// </summary>
+        public DateTime? LastErrorTime { get; set; }
+
+        /// <summary>
         /// Gets the last activity time
         /// </summary>
         public DateTime LastActivityTime { get; set; } = DateTime.UtcNow;

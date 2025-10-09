@@ -1585,6 +1585,11 @@ namespace LicenseReleaseService.VersionManagement.Deployment
         public bool IsDeployedSuccessfully { get; set; }
 
         /// <summary>
+        /// Gets or sets a value indicating whether deployment is valid
+        /// </summary>
+        public bool IsValid { get; set; }
+
+        /// <summary>
         /// Gets or sets the deployment health level
         /// </summary>
         public DeploymentHealthLevel DeploymentHealth { get; set; }

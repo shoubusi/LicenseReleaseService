@@ -440,9 +440,9 @@ namespace LicenseReleaseService.TimerExecution
 
             // Process errors
             _exceptionMappings[typeof(System.ComponentModel.Win32Exception)] = TimerErrorCategory.Process;
-            _exceptionMappings[typeof(System.Diagnostics.ProcessNotFoundException)] = TimerErrorCategory.Process;
             _exceptionMappings[typeof(System.UnauthorizedAccessException)] = TimerErrorCategory.Process;
             _exceptionMappings[typeof(System.IO.FileNotFoundException)] = TimerErrorCategory.Process;
+            _exceptionMappings[typeof(System.InvalidOperationException)] = TimerErrorCategory.Process;
 
             // Severity mappings
             _severityMappings[typeof(OutOfMemoryException)] = TimerErrorSeverity.Critical;

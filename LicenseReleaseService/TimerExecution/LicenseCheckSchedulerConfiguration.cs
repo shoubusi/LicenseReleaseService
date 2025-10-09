@@ -28,6 +28,7 @@ namespace LicenseReleaseService.TimerExecution
         private List<string> _defaultFeatureCodes = new List<string> { "solidworks" };
         private string _defaultLicenseServer = "localhost";
         private int _defaultPort = 27000;
+        private int _maxConsecutiveErrors = 10;
         private List<string> _supportedVersions = new List<string> { "2020", "2021", "2022", "2023", "2024", "2025" };
 
         /// <summary>
@@ -43,6 +44,15 @@ namespace LicenseReleaseService.TimerExecution
                     throw new ArgumentException("Default check interval must be greater than zero", nameof(value));
                 _defaultCheckInterval = value;
             }
+        }
+
+        /// <summary>
+        /// Gets or sets the default interval between license checks (alias for DefaultCheckInterval)
+        /// </summary>
+        public TimeSpan DefaultInterval
+        {
+            get => DefaultCheckInterval;
+            set => DefaultCheckInterval = value;
         }
 
         /// <summary>
@@ -265,6 +275,30 @@ namespace LicenseReleaseService.TimerExecution
         }
 
         /// <summary>
+        /// Gets or sets the default server address (alias for DefaultLicenseServer)
+        /// </summary>
+        public string DefaultServer
+        {
+            get => DefaultLicenseServer;
+            set => DefaultLicenseServer = value;
+        }
+
+        /// <summary>
+        /// Gets or sets the maximum number of consecutive errors before triggering circuit breaker
+        /// </summary>
+        [DefaultValue(10)]
+        public int MaxConsecutiveErrors
+        {
+            get => _maxConsecutiveErrors;
+            set
+            {
+                if (value < 1)
+                    throw new ArgumentException("Max consecutive errors must be at least 1", nameof(value));
+                _maxConsecutiveErrors = value;
+            }
+        }
+
+        /// <summary>
         /// Gets or sets the default license server port
         /// </summary>
         [DefaultValue(27000)]
@@ -278,6 +312,11 @@ namespace LicenseReleaseService.TimerExecution
                 _defaultPort = value;
             }
         }
+
+        /// <summary>
+        /// Gets or sets the queue configuration
+        /// </summary>
+        public object QueueConfiguration { get; set; } = new object();
 
         /// <summary>
         /// Gets or sets the list of supported SolidWorks versions
@@ -342,6 +381,9 @@ namespace LicenseReleaseService.TimerExecution
             if (DefaultPort <= 0 || DefaultPort > 65535)
                 errors.Add("Default port must be between 1 and 65535");
 
+            if (MaxConsecutiveErrors < 1)
+                errors.Add("Max consecutive errors must be at least 1");
+
             // Validate supported versions
             foreach (var version in SupportedVersions)
             {
@@ -386,6 +428,7 @@ namespace LicenseReleaseService.TimerExecution
                 DefaultFeatureCodes = new List<string>(DefaultFeatureCodes),
                 DefaultLicenseServer = DefaultLicenseServer,
                 DefaultPort = DefaultPort,
+                MaxConsecutiveErrors = MaxConsecutiveErrors,
                 SupportedVersions = new List<string>(SupportedVersions)
             };
         }
@@ -426,6 +469,7 @@ namespace LicenseReleaseService.TimerExecution
                 DefaultFeatureCodes = new List<string> { "solidworks" },
                 DefaultLicenseServer = "localhost",
                 DefaultPort = 27000,
+                MaxConsecutiveErrors = 10,
                 SupportedVersions = new List<string> { "2020", "2021", "2022", "2023", "2024", "2025" }
             };
         }
@@ -457,6 +501,7 @@ namespace LicenseReleaseService.TimerExecution
                 DefaultFeatureCodes = new List<string> { "solidworks" },
                 DefaultLicenseServer = "localhost",
                 DefaultPort = 27000,
+                MaxConsecutiveErrors = 10,
                 SupportedVersions = new List<string> { "2020", "2021", "2022", "2023", "2024", "2025" }
             };
         }
@@ -488,6 +533,7 @@ namespace LicenseReleaseService.TimerExecution
                 DefaultFeatureCodes = new List<string> { "solidworks" },
                 DefaultLicenseServer = "localhost",
                 DefaultPort = 27000,
+                MaxConsecutiveErrors = 10,
                 SupportedVersions = new List<string> { "2020", "2021", "2022", "2023", "2024", "2025" }
             };
         }
@@ -519,6 +565,7 @@ namespace LicenseReleaseService.TimerExecution
                 DefaultFeatureCodes = new List<string> { "solidworks" },
                 DefaultLicenseServer = "localhost",
                 DefaultPort = 27000,
+                MaxConsecutiveErrors = 10,
                 SupportedVersions = new List<string> { "2020", "2021", "2022", "2023", "2024", "2025" }
             };
         }

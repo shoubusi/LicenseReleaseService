@@ -249,6 +249,11 @@ namespace LicenseReleaseService.IdleDetection
         public double Confidence { get; set; }
 
         /// <summary>
+        /// Gets or sets the confidence score (alias for Confidence)
+        /// </summary>
+        public double ConfidenceScore { get; set; }
+
+        /// <summary>
         /// Gets the detection method used
         /// </summary>
         public string DetectionMethod { get; set; }
@@ -257,6 +262,11 @@ namespace LicenseReleaseService.IdleDetection
         /// Gets the detection timestamp
         /// </summary>
         public DateTime Timestamp { get; set; }
+
+        /// <summary>
+        /// Gets the detection time (alias for Timestamp)
+        /// </summary>
+        public DateTime DetectionTime { get; set; }
 
         /// <summary>
         /// Gets the detector name
@@ -274,14 +284,33 @@ namespace LicenseReleaseService.IdleDetection
         public string Reason { get; set; }
 
         /// <summary>
+        /// Gets the last activity time
+        /// </summary>
+        public DateTime LastActivityTime { get; set; }
+
+        /// <summary>
+        /// Gets the detection methods used
+        /// </summary>
+        public List<string> DetectionMethods { get; set; }
+
+        /// <summary>
+        /// Gets the idle duration (alias for IdleTime)
+        /// </summary>
+        public TimeSpan IdleDuration => IdleTime;
+
+        /// <summary>
         /// Initializes a new instance of the IdleDetectionResult class
         /// </summary>
         public IdleDetectionResult()
         {
             SessionId = Guid.NewGuid().ToString("N")[..8];
             Timestamp = DateTime.UtcNow;
+            DetectionTime = Timestamp;
+            LastActivityTime = DateTime.UtcNow;
             Metadata = new Dictionary<string, object>();
+            DetectionMethods = new List<string>();
             Confidence = 0.0;
+            ConfidenceScore = 0.0;
             IdleTime = TimeSpan.Zero;
         }
 
@@ -809,6 +838,83 @@ namespace LicenseReleaseService.IdleDetection
         public IdleDetectorConfiguration()
         {
             CustomParameters = new Dictionary<string, object>();
+        }
+
+        /// <summary>
+        /// Validates the detector configuration
+        /// </summary>
+        /// <returns>List of validation errors</returns>
+        public List<string> Validate()
+        {
+            var errors = new List<string>();
+
+            try
+            {
+                // Validate detection interval
+                if (DetectionIntervalSeconds < 1 || DetectionIntervalSeconds > 3600)
+                {
+                    errors.Add("Detection interval must be between 1 and 3600 seconds");
+                }
+
+                // Validate idle threshold
+                if (IdleThresholdSeconds < 1 || IdleThresholdSeconds > 7200)
+                {
+                    errors.Add("Idle threshold must be between 1 and 7200 seconds");
+                }
+
+                // Validate confidence threshold
+                if (ConfidenceThreshold < 0.0 || ConfidenceThreshold > 1.0)
+                {
+                    errors.Add("Confidence threshold must be between 0.0 and 1.0");
+                }
+
+                // Validate detection time
+                if (MaxDetectionTimeMs < 1000 || MaxDetectionTimeMs > 300000)
+                {
+                    errors.Add("Max detection time must be between 1000ms and 300000ms");
+                }
+
+                // Validate timeout
+                if (TimeoutSeconds < 1 || TimeoutSeconds > 300)
+                {
+                    errors.Add("Timeout must be between 1 and 300 seconds");
+                }
+
+                // Validate retry settings
+                if (RetryCount < 0 || RetryCount > 10)
+                {
+                    errors.Add("Retry count must be between 0 and 10");
+                }
+
+                if (RetryDelayMs < 100 || RetryDelayMs > 10000)
+                {
+                    errors.Add("Retry delay must be between 100ms and 10000ms");
+                }
+
+                // Validate concurrent operations
+                if (MaxConcurrentOperations < 1 || MaxConcurrentOperations > 50)
+                {
+                    errors.Add("Max concurrent operations must be between 1 and 50");
+                }
+
+                // Validate detector name
+                if (string.IsNullOrWhiteSpace(DetectorName))
+                {
+                    errors.Add("Detector name cannot be empty");
+                }
+
+                // Validate consistency
+                if (DetectionIntervalSeconds > IdleThresholdSeconds)
+                {
+                    errors.Add("Detection interval should be less than or equal to idle threshold");
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Idle detector configuration validation error: {ex.Message}");
+            }
+
+            return errors;
         }
     }
 

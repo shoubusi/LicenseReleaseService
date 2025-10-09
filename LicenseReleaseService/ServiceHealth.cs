@@ -22,7 +22,7 @@ namespace LicenseReleaseService
         private readonly object _lock = new object();
         private readonly Dictionary<string, HealthCheck> _healthChecks;
         private readonly Dictionary<string, HealthMetric> _metrics;
-        private readonly Timer _healthCheckTimer;
+        private readonly System.Threading.Timer _healthCheckTimer;
         private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(1);
         private HealthStatus _overallStatus = HealthStatus.Unknown;
         private DateTime _lastHealthCheck = DateTime.MinValue;
@@ -249,15 +249,15 @@ namespace LicenseReleaseService
             UpdateMetric("cpu_usage_percent", GetCpuUsage());
             UpdateMetric("memory_usage_mb", GetMemoryUsage());
             UpdateMetric("available_memory_mb", GetAvailableMemory());
-            UpdateMetric("thread_count", Process.GetCurrentProcess().Threads.Count);
-            UpdateMetric("handle_count", Process.GetCurrentProcess().HandleCount);
+            UpdateMetric("thread_count", System.Diagnostics.Process.GetCurrentProcess().Threads.Count);
+            UpdateMetric("handle_count", System.Diagnostics.Process.GetCurrentProcess().HandleCount);
         }
 
         private double GetCpuUsage()
         {
             try
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var startTime = DateTime.UtcNow;
                 var startCpuUsage = process.TotalProcessorTime;
 
@@ -281,7 +281,7 @@ namespace LicenseReleaseService
         {
             try
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 return process.WorkingSet64 / (1024.0 * 1024.0);
             }
             catch
@@ -295,7 +295,7 @@ namespace LicenseReleaseService
             try
             {
                 var memStatus = new MEMORYSTATUSEX();
-                if (GlobalMemoryStatusEx(memStatus))
+                if (GlobalMemoryStatusEx(ref memStatus))
                 {
                     return memStatus.ullAvailPhys / (1024.0 * 1024.0);
                 }
@@ -312,7 +312,7 @@ namespace LicenseReleaseService
         {
             RegisterHealthCheck("ProcessHealth", async () =>
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var memoryMB = process.WorkingSet64 / (1024.0 * 1024.0);
 
                 if (memoryMB > 1000) // 1GB threshold
@@ -333,7 +333,7 @@ namespace LicenseReleaseService
 
             RegisterHealthCheck("ThreadHealth", async () =>
             {
-                var process = Process.GetCurrentProcess();
+                var process = System.Diagnostics.Process.GetCurrentProcess();
                 var threadCount = process.Threads.Count;
 
                 if (threadCount > 100) // High thread count threshold
@@ -545,7 +545,7 @@ namespace LicenseReleaseService
             });
 
             // Register default metrics
-            RegisterMetric("uptime_seconds", () => (DateTime.UtcNow - Process.GetCurrentProcess().StartTime).TotalSeconds, "seconds", "Service uptime");
+            RegisterMetric("uptime_seconds", () => (DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime).TotalSeconds, "seconds", "Service uptime");
             RegisterMetric("gc_collections_gen0", () => GC.CollectionCount(0), "count", "Generation 0 garbage collections");
             RegisterMetric("gc_collections_gen1", () => GC.CollectionCount(1), "count", "Generation 1 garbage collections");
             RegisterMetric("gc_collections_gen2", () => GC.CollectionCount(2), "count", "Generation 2 garbage collections");

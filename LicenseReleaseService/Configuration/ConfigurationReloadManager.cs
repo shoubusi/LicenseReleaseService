@@ -4,6 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+#if !NET9_0
+using System.Configuration;
+#endif
 
 namespace LicenseReleaseService.Configuration
 {
@@ -552,14 +555,22 @@ namespace LicenseReleaseService.Configuration
 
                     if (section == null)
                     {
+#if !NET9_0
                         throw new ConfigurationErrorsException("licenseReleaseService section not found in configuration file");
+#else
+                        throw new InvalidOperationException("licenseReleaseService section not found in configuration file");
+#endif
                     }
 
                     return section;
                 }
                 catch (Exception ex)
                 {
+#if !NET9_0
                     throw new ConfigurationErrorsException($"Failed to load configuration from {configPath}: {ex.Message}", ex);
+#else
+                    throw new InvalidOperationException($"Failed to load configuration from {configPath}: {ex.Message}", ex);
+#endif
                 }
             });
         }
@@ -573,7 +584,11 @@ namespace LicenseReleaseService.Configuration
                 var errors = configuration.Validate();
                 if (errors.Count > 0)
                 {
+#if !NET9_0
                     throw new ConfigurationErrorsException($"Configuration validation failed: {string.Join(", ", errors)}");
+#else
+                    throw new InvalidOperationException($"Configuration validation failed: {string.Join(", ", errors)}");
+#endif
                 }
             });
         }

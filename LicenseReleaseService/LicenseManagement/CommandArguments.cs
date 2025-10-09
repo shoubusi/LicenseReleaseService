@@ -272,6 +272,17 @@ namespace LicenseReleaseService.LicenseManagement
         }
 
         /// <summary>
+        /// Sets the license file path
+        /// </summary>
+        /// <param name="licensePath">License file path</param>
+        /// <returns>Current instance for method chaining</returns>
+        public CommandArguments SetLicensePath(string licensePath)
+        {
+            LicensePath = licensePath;
+            return this;
+        }
+
+        /// <summary>
         /// Sets the timeout
         /// </summary>
         /// <param name="timeout">Timeout in seconds</param>

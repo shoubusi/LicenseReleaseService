@@ -361,3 +361,12 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Input
+Input/
+
+# flattened-codebase.xml
+flattened-codebase.xml
+
+# BMAD-METHOD
+.bmad-core/

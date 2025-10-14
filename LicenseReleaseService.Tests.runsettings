@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <!-- Configurations that affect the Test Framework -->
+  <RunConfiguration>
+    <!-- Path relative to solution directory -->
+    <ResultsDirectory>.\TestResults</ResultsDirectory>
+
+    <!-- [x86] | x64
+      Architecture to be used for execution of the test binaries. -->
+    <TargetFrameworkVersion>FrameworkCore10</TargetFrameworkVersion>
+
+    <!-- Path to Test Adapters within VS -->
+    <!-- TestAdaptersPath>%VSINSTALLDIR%\Common7\IDE\Extensions\Microsoft\CodeCoverage Extensions</TestAdaptersPath> -->
+
+    <!-- TestSessionTimeout was introduced in Visual Studio 2017 version 15.5 -->
+    <!-- Specify timeout in milliseconds, without unit of measure (e.g., 120000) -->
+    <!-- <TestSessionTimeout>120000</TestSessionTimeout> -->
+
+    <!-- Specify whether to capture all available output, or only captured output from failed tests -->
+    <!-- true = capture all output, false = capture only failed test output -->
+    <CollectSourceInformation>false</CollectSourceInformation>
+
+    <!-- Whether to enable data adapters for diagnostic data (code coverage, etc.) -->
+    <EnableDataCollector>Microsoft.VisualStudio.TestTools.DataCollection.CodeCoverageDataCollector</EnableDataCollector>
+  </RunConfiguration>
+
+  <!-- Configurations for data collectors -->
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="Code Coverage" uri="datacollector://Microsoft/CodeCoverage/2.0">
+        <Configuration>
+          <CodeCoverage>
+            <!-- Path relative to solution directory -->
+            <ModulePaths>
+              <Exclude>
+                <ModulePath>.*Moq.dll</ModulePath>
+                <ModulePath>.*xunit.*</ModulePath>
+                <ModulePath>.*MSTest.*</ModulePath>
+                <ModulePath>.*TestInfrastructure.*</ModulePath>
+                <ModulePath>.*Tests.*</ModulePath>
+              </Exclude>
+            </ModulePaths>
+
+            <!-- We recommend you do not change the following values -->
+            <UseVerifiableInstrumentation>True</UseVerifiableInstrumentation>
+            <AllowLowIntegrityProcesses>True</AllowLowIntegrityProcesses>
+            <CollectFromChildProcesses>True</CollectFromChildProcesses>
+            <CollectAspDotNetCoreCoverage>false</CollectAspDotNetCoreCoverage>
+          </CodeCoverage>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+
+  <!-- Parameters used by tests at runtime -->
+  <TestRunParameters>
+    <Parameter name="webAppUrl" value="http://localhost" />
+    <Parameter name="webAppUserName" value="Admin" />
+    <Parameter name="webAppPassword" value="P@ssw0rd!" />
+  </TestRunParameters>
+
+  <!-- Logger specific settings -->
+  <LoggerRunSettings>
+    <Loggers>
+      <Logger friendlyName="console" enabled="True">
+        <Configuration>
+          <!-- Verbosity level: Quiet, Minimal, Normal, Detailed, Diagnostic -->
+          <Verbosity>Normal</Verbosity>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="trx" enabled="True">
+        <Configuration>
+          <LogFileName>TestResults.trx</LogFileName>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="html" enabled="True">
+        <Configuration>
+          <LogFileName>TestResults.html</LogFileName>
+        </Configuration>
+      </Logger>
+    </Loggers>
+  </LoggerRunSettings>
+
+  <!-- Adapter Specific sections -->
+  <!-- MSTest adapter -->
+  <MSTest>
+    <MapInconclusiveToFailed>True</MapInconclusiveToFailed>
+    <CaptureTraceOutput>false</CaptureTraceOutput>
+    <DeleteDeploymentDirectoryAfterTestRunIsComplete>False</DeleteDeploymentDirectoryAfterTestRunIsComplete>
+    <DeploymentEnabled>False</DeploymentEnabled>
+  </MSTest>
+
+  <!-- xUnit adapter -->
+  <xUnit>
+    <CollectionBehavior>Default</CollectionBehavior>
+    <MaxParallelThreads>0</MaxParallelThreads>
+    <ParallelizeTestCollections>false</ParallelizeTestCollections>
+  </xUnit>
+</RunSettings>

@@ -1,0 +1,195 @@
+name: Test and Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  SOLUTION_FILE: 'LicenseReleaseService.sln'
+  TEST_RESULTS_DIRECTORY: 'TestResults'
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+    - name: Build solution
+      run: dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
+
+    - name: Run Unit Tests
+      run: |
+        dotnet test ${{ env.SOLUTION_FILE }} `
+          --no-build --configuration Release `
+          --filter Category=Unit `
+          --logger "trx;LogFileName=unit_tests.trx" `
+          --logger "console;verbosity=normal" `
+          --settings "LicenseReleaseService.Tests.runsettings" `
+          --results-directory ${{ env.TEST_RESULTS_DIRECTORY }}/Unit
+
+    - name: Run Integration Tests
+      run: |
+        dotnet test ${{ env.SOLUTION_FILE }} `
+          --no-build --configuration Release `
+          --filter Category=Integration `
+          --logger "trx;LogFileName=integration_tests.trx" `
+          --logger "console;verbosity=normal" `
+          --settings "LicenseReleaseService.Tests.runsettings" `
+          --results-directory ${{ env.TEST_RESULTS_DIRECTORY }}/Integration
+
+    - name: Run Code Coverage
+      run: |
+        dotnet test ${{ env.SOLUTION_FILE }} `
+          --no-build --configuration Release `
+          --collect:"XPlat Code Coverage" `
+          --logger "trx;LogFileName=coverage_tests.trx" `
+          --logger "console;verbosity=normal" `
+          --settings "LicenseReleaseService.Tests.runsettings" `
+          --results-directory ${{ env.TEST_RESULTS_DIRECTORY }}/Coverage
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ github.run_number }}
+        path: ${{ env.TEST_RESULTS_DIRECTORY }}
+        retention-days: 30
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-reports-${{ github.run_number }}
+        path: ${{ env.TEST_RESULTS_DIRECTORY }}/Coverage/**/coverage.cobertura.xml
+        retention-days: 30
+
+    - name: Publish coverage to Codecov
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        files: ${{ env.TEST_RESULTS_DIRECTORY }}/Coverage/**/coverage.cobertura.xml
+        flags: unittests
+        name: codecov-umbrella
+
+    - name: Comment PR with test results
+      if: github.event_name == 'pull_request' && (success() || failure())
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+
+          // Try to read test results
+          let testSummary = '## Test Results\n\n';
+
+          try {
+            const testDirs = ['Unit', 'Integration', 'Coverage'];
+            for (const dir of testDirs) {
+              const testDir = path.join(process.env.TEST_RESULTS_DIRECTORY, dir);
+              if (fs.existsSync(testDir)) {
+                const files = fs.readdirSync(testDir);
+                const trxFiles = files.filter(f => f.endsWith('.trx'));
+                testSummary += `### ${dir} Tests\n`;
+                testSummary += `- Found ${trxFiles.length} test result files\n`;
+              }
+            }
+          } catch (error) {
+            testSummary += 'Error reading test results: ' + error.message;
+          }
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: testSummary
+          });
+
+  performance-tests:
+    runs-on: windows-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+    - name: Build solution
+      run: dotnet build ${{ env.SOLUTION_FILE }} --no-restore --configuration Release
+
+    - name: Run Performance Tests
+      run: |
+        dotnet test ${{ env.SOLUTION_FILE }} `
+          --no-build --configuration Release `
+          --filter Category=Performance `
+          --logger "trx;LogFileName=performance_tests.trx" `
+          --logger "console;verbosity=normal" `
+          --settings "LicenseReleaseService.Tests.runsettings" `
+          --results-directory ${{ env.TEST_RESULTS_DIRECTORY }}/Performance
+
+    - name: Upload performance test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: performance-test-results-${{ github.run_number }}
+        path: ${{ env.TEST_RESULTS_DIRECTORY }}/Performance
+        retention-days: 30
+
+  security-scan:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Run Security Scan
+      run: |
+        # Install and run security scanning tools
+        dotnet tool install --global dotnet-logger
+        dotnet tool install --global SecurityCodeScan.VS2019
+
+        # Run security scan
+        dotnet build ${{ env.SOLUTION_FILE }} /t:SecurityCodeScan
+
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-scan-results-${{ github.run_number }}
+        path: '**/SecurityCodeScan.*'
+        retention-days: 30

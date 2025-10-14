@@ -1,0 +1,235 @@
+# Azure DevOps Pipeline for License Release Service Testing
+
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    exclude:
+    - docs/
+    - '*.md'
+
+pr:
+  branches:
+    include:
+    - main
+    - develop
+
+variables:
+  DOTNET_VERSION: '9.0.x'
+  SOLUTION_FILE: 'LicenseReleaseService.sln'
+  TEST_RESULTS_DIRECTORY: 'TestResults'
+  BUILD_CONFIGURATION: 'Release'
+  VM_IMAGE_NAME: 'windows-latest'
+
+pool:
+  vmImage: $(VM_IMAGE_NAME)
+
+stages:
+- stage: Build
+  displayName: 'Build Stage'
+  jobs:
+  - job: Build
+    displayName: 'Build Solution'
+    steps:
+    - task: NuGetToolInstaller@1
+      displayName: 'Install NuGet'
+
+    - task: NuGetCommand@2
+      displayName: 'Restore NuGet Packages'
+      inputs:
+        command: 'restore'
+        restoreSolution: '$(SOLUTION_FILE)'
+
+    - task: VSBuild@1
+      displayName: 'Build Solution'
+      inputs:
+        solution: '$(SOLUTION_FILE)'
+        platform: 'Any CPU'
+        configuration: '$(BUILD_CONFIGURATION)'
+        msbuildArgs: '/p:OutDir=$(Build.ArtifactStagingDirectory) /p:GeneratePackageOnBuild=true'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Build Artifacts'
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+- stage: Test
+  displayName: 'Test Stage'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: UnitTests
+    displayName: 'Unit Tests'
+    steps:
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore Dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(SOLUTION_FILE)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run Unit Tests'
+      inputs:
+        command: 'test'
+        projects: '$(SOLUTION_FILE)'
+        arguments: '--no-build --configuration $(BUILD_CONFIGURATION) --filter Category=Unit --logger "trx;LogFileName=unit_tests.trx" --logger "console;verbosity=normal" --settings "LicenseReleaseService.Tests.runsettings" --results-directory $(TEST_RESULTS_DIRECTORY)/Unit'
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Unit Test Results'
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(TEST_RESULTS_DIRECTORY)/Unit/**/*.trx'
+        failTaskOnFailedTests: true
+
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish Code Coverage'
+      inputs:
+        summaryFileLocation: 'Both'
+        codeCoverageTool: 'Cobertura'
+        reportsDirectory: '$(TEST_RESULTS_DIRECTORY)/Unit'
+        failIfCoverageEmpty: false
+
+  - job: IntegrationTests
+    displayName: 'Integration Tests'
+    steps:
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore Dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(SOLUTION_FILE)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run Integration Tests'
+      inputs:
+        command: 'test'
+        projects: '$(SOLUTION_FILE)'
+        arguments: '--no-build --configuration $(BUILD_CONFIGURATION) --filter Category=Integration --logger "trx;LogFileName=integration_tests.trx" --logger "console;verbosity=normal" --settings "LicenseReleaseService.Tests.runsettings" --results-directory $(TEST_RESULTS_DIRECTORY)/Integration'
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Integration Test Results'
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(TEST_RESULTS_DIRECTORY)/Integration/**/*.trx'
+        failTaskOnFailedTests: true
+
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish Integration Coverage'
+      inputs:
+        summaryFileLocation: 'Both'
+        codeCoverageTool: 'Cobertura'
+        reportsDirectory: '$(TEST_RESULTS_DIRECTORY)/Integration'
+        failIfCoverageEmpty: false
+
+- stage: PerformanceTest
+  displayName: 'Performance Test Stage'
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - job: PerformanceTests
+    displayName: 'Performance Tests'
+    timeoutInMinutes: 30
+    steps:
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore Dependencies'
+      inputs:
+        command: 'restore'
+        projects: '$(SOLUTION_FILE)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run Performance Tests'
+      inputs:
+        command: 'test'
+        projects: '$(SOLUTION_FILE)'
+        arguments: '--no-build --configuration $(BUILD_CONFIGURATION) --filter Category=Performance --logger "trx;LogFileName=performance_tests.trx" --logger "console;verbosity=normal" --settings "LicenseReleaseService.Tests.runsettings" --results-directory $(TEST_RESULTS_DIRECTORY)/Performance'
+
+    - task: PublishTestResults@2
+      displayName: 'Publish Performance Test Results'
+      inputs:
+        testResultsFormat: 'VSTest'
+        testResultsFiles: '$(TEST_RESULTS_DIRECTORY)/Performance/**/*.trx'
+        failTaskOnFailedTests: false  # Performance tests shouldn't fail the build
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Performance Reports'
+      inputs:
+        PathtoPublish: '$(TEST_RESULTS_DIRECTORY)/Performance'
+        ArtifactName: 'performance-reports'
+        publishLocation: 'Container'
+
+- stage: SecurityScan
+  displayName: 'Security Scan Stage'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: SecurityScan
+    displayName: 'Security Scan'
+    steps:
+    - task: DotNetCoreCLI@2
+      displayName: 'Install Security Tools'
+      inputs:
+        command: 'custom'
+        custom: 'tool'
+        arguments: 'install --global SecurityCodeScan.VS2019'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Run Security Scan'
+      inputs:
+        command: 'build'
+        projects: '$(SOLUTION_FILE)'
+        arguments: '/t:SecurityCodeScan /p:Configuration=$(BUILD_CONFIGURATION)'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Security Scan Results'
+      inputs:
+        PathtoPublish: '**/SecurityCodeScan.*'
+        ArtifactName: 'security-scan-results'
+        publishLocation: 'Container'
+
+- stage: QualityGate
+  displayName: 'Quality Gate'
+  dependsOn:
+  - Test
+  - SecurityScan
+  condition: succeeded()
+  jobs:
+  - job: QualityGate
+    displayName: 'Quality Gate Checks'
+    steps:
+    - task: DownloadBuildArtifacts@0
+      displayName: 'Download Test Artifacts'
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'drop'
+        downloadPath: '$(System.ArtifactsDirectory)'
+
+    - task: PowerShell@2
+      displayName: 'Quality Gate Validation'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Quality gate validation script
+          Write-Host "Running quality gate validation..."
+
+          # Check test results (this would be expanded with actual quality gate logic)
+          $testResultsPath = "$(Agent.TempDirectory)/TestResults"
+          if (Test-Path $testResultsPath) {
+            Write-Host "Test results found at: $testResultsPath"
+            # Add specific quality gate checks here
+          } else {
+            Write-Warning "No test results found"
+          }
+
+          Write-Host "Quality gate validation completed"
+        failOnStderr: false
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Quality Reports'
+      inputs:
+        PathtoPublish: '$(Agent.TempDirectory)/TestResults'
+        ArtifactName: 'quality-gate-reports'
+        publishLocation: 'Container'

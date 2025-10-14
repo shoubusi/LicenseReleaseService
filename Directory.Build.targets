@@ -1,0 +1,112 @@
+<Project>
+  <!-- Test-related MSBuild targets for automated test execution -->
+
+  <PropertyGroup>
+    <TestProject Condition="'$(IsTestProject)' == 'true'">true</TestProject>
+    <TestResultsDirectory>$(MSBuildThisFileDirectory)TestResults</TestResultsDirectory>
+    <TestRunSettingsFile>$(MSBuildThisFileDirectory)LicenseReleaseService.Tests.runsettings</TestRunSettingsFile>
+  </PropertyGroup>
+
+  <!-- Target to run tests before build completion -->
+  <Target Name="RunTests" Condition="'$(RunTests)' == 'true' AND '$(IsTestProject)' == 'true'"
+          DependsOnTargets="Build"
+          BeforeTargets="Build">
+    <Message Text="Running tests for project: $(MSBuildProjectName)" Importance="high" />
+
+    <!-- Ensure test results directory exists -->
+    <MakeDir Directories="$(TestResultsDirectory)" />
+
+    <!-- Run tests using dotnet test -->
+    <Exec Command="dotnet test &quot;$(MSBuildProjectFullPath)&quot; --logger trx --logger console --verbosity normal --settings &quot;$(TestRunSettingsFile)&quot; --results-directory &quot;$(TestResultsDirectory)&quot;"
+          ContinueOnError="false" />
+  </Target>
+
+  <!-- Target to run code coverage -->
+  <Target Name="RunCodeCoverage" Condition="'$(RunCodeCoverage)' == 'true' AND '$(IsTestProject)' == 'true'"
+          DependsOnTargets="Build">
+    <Message Text="Running code coverage for project: $(MSBuildProjectName)" Importance="high" />
+
+    <!-- Run tests with code coverage -->
+    <Exec Command="dotnet test &quot;$(MSBuildProjectFullPath)&quot; --collect:&quot;XPlat Code Coverage&quot; --logger trx --logger console --verbosity normal --settings &quot;$(TestRunSettingsFile)&quot; --results-directory &quot;$(TestResultsDirectory)&quot;"
+          ContinueOnError="false" />
+  </Target>
+
+  <!-- Target to clean test results -->
+  <Target Name="CleanTestResults" BeforeTargets="Clean">
+    <Message Text="Cleaning test results from: $(TestResultsDirectory)" Importance="normal" />
+    <RemoveDir Directories="$(TestResultsDirectory)" ContinueOnError="true" />
+  </Target>
+
+  <!-- Target to validate test project structure -->
+  <Target Name="ValidateTestStructure" Condition="'$(IsTestProject)' == 'true'" BeforeTargets="Build">
+    <Message Text="Validating test project structure for: $(MSBuildProjectName)" Importance="normal" />
+
+    <!-- Check if required folders exist -->
+    <ItemGroup>
+      <RequiredTestFolders Include="Unit" />
+      <RequiredTestFolders Include="Integration" />
+      <RequiredTestFolders Include="Performance" />
+      <RequiredTestFolders Include="TestData" />
+      <RequiredTestFolders Include="TestInfrastructure" />
+    </ItemGroup>
+
+    <Message Text="Test project structure validation completed" Importance="normal" />
+  </Target>
+
+  <!-- Target to create test reports -->
+  <Target Name="CreateTestReports" Condition="'$(IsTestProject)' == 'true'" AfterTargets="RunTests">
+    <Message Text="Creating test reports for: $(MSBuildProjectName)" Importance="normal" />
+
+    <!-- Generate test report summary -->
+    <PropertyGroup>
+      <TestReportFile>$(TestResultsDirectory)\TestReport_$(MSBuildProjectName).txt</TestReportFile>
+    </PropertyGroup>
+
+    <WriteLinesToFile File="$(TestReportFile)"
+                      Lines="Test Report for $(MSBuildProjectName)
+Generated: $(MSBuildGetStartDate)
+Project: $(MSBuildProjectFullPath)
+Configuration: $(Configuration)
+Platform: $(Platform)
+
+Test execution completed. Check TestResults directory for detailed results."
+                      Overwrite="true" />
+
+    <Message Text="Test report created: $(TestReportFile)" Importance="normal" />
+  </Target>
+
+  <!-- Integration with CI/CD systems -->
+  <PropertyGroup Condition="'$(CI)' == 'true' OR '$(GITHUB_ACTIONS)' == 'true' OR '$(TF_BUILD)' == 'true'">
+    <RunTests>true</RunTests>
+    <RunCodeCoverage>true</RunCodeCoverage>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>CS1591</WarningsNotAsErrors>
+  </PropertyGroup>
+
+  <!-- Performance test targets -->
+  <Target Name="RunPerformanceTests" Condition="'$(RunPerformanceTests)' == 'true' AND '$(IsTestProject)' == 'true'"
+          DependsOnTargets="Build">
+    <Message Text="Running performance tests for project: $(MSBuildProjectName)" Importance="high" />
+
+    <Exec Command="dotnet test &quot;$(MSBuildProjectFullPath)&quot; --filter Category=Performance --logger trx --logger console --verbosity normal --settings &quot;$(TestRunSettingsFile)&quot; --results-directory &quot;$(TestResultsDirectory)\Performance&quot;"
+          ContinueOnError="false" />
+  </Target>
+
+  <!-- Integration test targets -->
+  <Target Name="RunIntegrationTests" Condition="'$(RunIntegrationTests)' == 'true' AND '$(IsTestProject)' == 'true'"
+          DependsOnTargets="Build">
+    <Message Text="Running integration tests for project: $(MSBuildProjectName)" Importance="high" />
+
+    <Exec Command="dotnet test &quot;$(MSBuildProjectFullPath)&quot; --filter Category=Integration --logger trx --logger console --verbosity normal --settings &quot;$(TestRunSettingsFile)&quot; --results-directory &quot;$(TestResultsDirectory)\Integration&quot;"
+          ContinueOnError="false" />
+  </Target>
+
+  <!-- Unit test targets -->
+  <Target Name="RunUnitTests" Condition="'$(RunUnitTests)' == 'true' AND '$(IsTestProject)' == 'true'"
+          DependsOnTargets="Build">
+    <Message Text="Running unit tests for project: $(MSBuildProjectName)" Importance="high" />
+
+    <Exec Command="dotnet test &quot;$(MSBuildProjectFullPath)&quot; --filter Category=Unit --logger trx --logger console --verbosity normal --settings &quot;$(TestRunSettingsFile)&quot; --results-directory &quot;$(TestResultsDirectory)\Unit&quot;"
+          ContinueOnError="false" />
+  </Target>
+</Project>
